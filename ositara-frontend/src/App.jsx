@@ -1,49 +1,27 @@
-import { useState, useEffect } from 'react';
-import Login from './Login';
-import Dashboard from './Dashboard';
-import api from './api';
+import { useState } from 'react';
+import Login from './views/Login';
+import Register from './views/Register';
 
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(() => !!localStorage.getItem('token'));
+  // State untuk berpindah antara 'login' dan 'register'
+  const [currentView, setCurrentView] = useState('login');
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-
-    if (token) {
-      api.get('/user')
-        .then((res) => setUser(res.data))
-        .catch(() => {
-          localStorage.removeItem('token');
-          setUser(null);
-        })
-        .finally(() => setLoading(false));
-    }
-  }, []);
-
-  const handleLoginSuccess = (userData) => {
-    setUser(userData);
+  const handleLoginSuccess = (data) => {
+    alert(`Login Berhasil! Selamat datang, ${data?.user?.name || 'Pengguna'}.`);
   };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <p className="text-gray-600 font-medium">Memuat data OSITARA...</p>
-      </div>
-    );
-  }
 
   return (
-    <div>
-      {user ? (
-        <Dashboard user={user} onLogout={handleLogout} />
+    <div className="min-h-screen bg-brand-bg">
+      {currentView === 'login' ? (
+        <Login
+          onLoginSuccess={handleLoginSuccess}
+          onGoToRegister={() => setCurrentView('register')}
+        />
       ) : (
-        <Login onLoginSuccess={handleLoginSuccess} />
+        <Register
+          onGoToLogin={() => setCurrentView('login')}
+          onBackToLanding={() => setCurrentView('login')}
+        />
       )}
     </div>
   );

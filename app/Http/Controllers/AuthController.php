@@ -2,61 +2,57 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
     public function register(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
-            'nisn_nip' => 'required|string|unique:users',
-            'role' => 'required|in:Siswa,Pengurus OSIS,Pembina OSIS',
+        $validated = $request->validate([
+            'name'     => 'required|string|max:255',
+            'nisn'     => 'required|string',
+            'kelas'    => 'required|string',
+            'email'    => 'required|string|email|unique:users',
+            'password' => 'required|string|min:6',
         ]);
 
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'nisn_nip' => $request->nisn_nip,
-            'role' => $request->role,
+            'name'     => $validated['name'],
+            'nisn'     => $validated['nisn'],
+            'kelas'    => $validated['kelas'],
+            'email'    => $validated['email'],
+            'password' => Hash::make($validated['password']), // Enkripsi password
+            'role'     => 'Siswa',
         ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
-
         return response()->json([
-            'message' => 'Registrasi berhasil',
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-            'data' => $user
+            'message' => 'Pendaftaran Berhasil!',
+            'user'    => $user
         ], 201);
     }
 
     public function login(Request $request)
     {
-        $request->validate([
-            'email' => 'required|email',
+        $credentials = $request->validate([
+            'email'    => 'required|email',
             'password' => 'required',
         ]);
 
-        $user = User::where('email', $request->email)->first();
-
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Email atau password salah.'], 401);
+        if (!Auth::attempt($credentials)) {
+            return response()->json([
+                'message' => 'Email atau Password salah!'
+            ], 401);
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $user = Auth::user();
 
         return response()->json([
-            'message' => 'Login berhasil',
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-            'role' => $user->role,
-            'user' => $user
-        ], 200);
+            'message' => 'Login Berhasil!',
+            'user'    => $user
+        ]);
     }
 }
