@@ -9,18 +9,17 @@ return new class extends Migration
 
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('nisn')->nullable();
-            $table->string('kelas')->nullable();
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->string('role')->default('Siswa');
-            $table->rememberToken();
-            $table->timestamps();
-        });
+      Schema::create('users', function (Blueprint $table) {
+    $table->id();
+    $table->string('name');
+    $table->string('nisn')->unique()->nullable();
+    $table->string('kelas')->nullable();
+    $table->string('email')->unique();
+    $table->string('password');
+    $table->enum('role', ['siswa', 'pembina', 'pengurus'])->default('siswa');
+    $table->string('jabatan')->nullable(); // Contoh isi: 'Ketua OSIS', 'Bendahara', 'Sekretaris'
+    $table->timestamps();
+});
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();

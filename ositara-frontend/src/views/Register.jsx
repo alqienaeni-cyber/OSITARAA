@@ -9,6 +9,7 @@ export default function Register({ onGoToLogin }) {
     kelas: '',
     email: '',
     password: '',
+    role: 'siswa', // Nilai role dikunci langsung ke 'siswa'
   });
 
   const [loading, setLoading] = useState(false);
@@ -24,12 +25,10 @@ export default function Register({ onGoToLogin }) {
     setLoading(true);
 
     try {
-      // Mengirimkan data registrasi ke Laravel API backend
       const response = await API.post('/register', formData);
-      alert(response.data.message || 'Pendaftaran Berhasil!');
+      alert(response.data.message || 'Pendaftaran Siswa Berhasil!');
       onGoToLogin();
     } catch (err) {
-      // Menampilkan pesan error sebenarnya dari server Laravel jika terjadi kegagalan
       const msg = err.response?.data?.message || 'Gagal terhubung ke server Laravel!';
       setError(msg);
       alert(msg);
@@ -40,10 +39,8 @@ export default function Register({ onGoToLogin }) {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-nunito relative">
-      {/* Container Modal / Card Utama */}
       <div className="bg-white rounded-3xl p-8 md:p-12 shadow-2xl shadow-blue-500/10 w-full max-w-3xl border border-slate-100 relative">
 
-        {/* Tombol Kembali ke Halaman Login */}
         <button
           onClick={onGoToLogin}
           className="absolute top-6 left-6 inline-flex items-center gap-1.5 bg-slate-400 text-white px-4 py-1.5 rounded-full text-xs font-bold hover:bg-slate-500 transition-all shadow-sm"
@@ -53,7 +50,6 @@ export default function Register({ onGoToLogin }) {
 
         <div className="grid md:grid-cols-2 gap-8 items-center mt-6 md:mt-0">
 
-          {/* Bagian Kiri: Logo OSITARA & Label Header */}
           <div className="flex flex-col items-center justify-center text-center py-4">
             <div className="w-28 h-28 mb-2 flex items-center justify-center">
               <img
@@ -63,10 +59,9 @@ export default function Register({ onGoToLogin }) {
               />
             </div>
             <h1 className="text-3xl font-black font-poppins text-blue-900 tracking-wider">OSITARA</h1>
-            <p className="text-xs text-blue-800 font-bold mt-1">Buat Akun</p>
+            <p className="text-xs text-blue-800 font-bold mt-1">Buat Akun Siswa</p>
           </div>
 
-          {/* Bagian Kanan: Form Input Registrasi */}
           <div>
             {error && (
               <div className="text-xs text-red-500 bg-red-50 p-3 rounded-xl mb-4 border border-red-100 text-center font-semibold">
@@ -111,6 +106,8 @@ export default function Register({ onGoToLogin }) {
                 />
               </div>
 
+              {/* Tag <select name="role">...</select> sudah dihapus di sini */}
+
               <div>
                 <input
                   type="email"
@@ -135,7 +132,6 @@ export default function Register({ onGoToLogin }) {
                 />
               </div>
 
-              {/* Tombol Submit Registrasi */}
               <button
                 type="submit"
                 disabled={loading}

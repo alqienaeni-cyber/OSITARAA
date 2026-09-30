@@ -15,13 +15,14 @@ class User extends Authenticatable
      * Kolom yang dapat diisi secara masal.
      */
     protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'nisn_nip', // Tambahan OSITARA
-        'role',     // Tambahan OSITARA ('Siswa', 'Pengurus OSIS', 'Pembina OSIS')
-    ];
-
+    'name',
+    'nisn',
+    'kelas',
+    'email',
+    'password',
+    'role',
+    'jabatan', // <-- Tambahkan ini
+];
     protected $hidden = [
         'password',
         'remember_token',

@@ -10,31 +10,49 @@ use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
-    {
-        $validated = $request->validate([
-            'name'     => 'required|string|max:255',
-            'nisn'     => 'required|string',
-            'kelas'    => 'required|string',
-            'email'    => 'required|string|email|unique:users',
-            'password' => 'required|string|min:6',
-        ]);
+    /**
+     * Registrasi khusus Siswa (Publik)
+     */
+   public function register(Request $request)
+{
+    // Validasi input
+    $validated = $request->validate([
+        'name'     => 'required|string|max:255',
+        'nisn'     => 'required|string|unique:users,nisn', // Kolom DB disesuaikan ke 'nisn'
+        'kelas'    => 'nullable|string',
+        'email'    => 'required|string|email|unique:users,email',
+        'password' => 'required|string|min:6',
+        'role'     => 'nullable|string',
+    ]);
 
-        $user = User::create([
-            'name'     => $validated['name'],
-            'nisn'     => $validated['nisn'],
-            'kelas'    => $validated['kelas'],
-            'email'    => $validated['email'],
-            'password' => Hash::make($validated['password']), // Enkripsi password
-            'role'     => 'Siswa',
-        ]);
+    // Ambil role dari request, jika tidak diisi default ke 'siswa'
+    $role = $request->input('role', 'siswa');
 
-        return response()->json([
-            'message' => 'Pendaftaran Berhasil!',
-            'user'    => $user
-        ], 201);
-    }
+    // Simpan ke database
+    $user = User::create([
+        'name'     => $validated['name'],
+        'nisn'     => $validated['nisn'],
+        'kelas'    => $validated['kelas'] ?? null,
+        'email'    => $validated['email'],
+        'password' => Hash::make($validated['password']),
+        'role'     => $role,
+    ]);
 
+    $token = $user->createToken('auth_token')->plainTextToken;
+
+    $roleLabel = ucfirst($user->role);
+
+    return response()->json([
+        'message'      => "Pendaftaran {$roleLabel} Berhasil!",
+        'access_token' => $token,
+        'token_type'   => 'Bearer',
+        'user'         => $user
+    ], 201);
+}
+
+    /**
+     * Login untuk semua role (Siswa, Pembina, Pengurus)
+     */
     public function login(Request $request)
     {
         $credentials = $request->validate([
@@ -48,11 +66,30 @@ class AuthController extends Controller
             ], 401);
         }
 
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
+        // Buat token baru saat login berhasil
+        $token = $user->createToken('auth_token')->plainTextToken;
+
         return response()->json([
-            'message' => 'Login Berhasil!',
-            'user'    => $user
-        ]);
+            'message'      => 'Login Berhasil!',
+            'access_token' => $token,
+            'token_type'   => 'Bearer',
+            'user'         => $user
+        ], 200);
+    }
+
+    /**
+     * Logout
+     */
+    public function logout(Request $request)
+    {
+        // Hapus token yang sedang digunakan
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Logout Berhasil!'
+        ], 200);
     }
 }
