@@ -5,15 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Proposal extends Model
+class ProgramKerja extends Model
 {
     use HasFactory;
 
+    protected $table = 'program_kerja';
+
     protected $fillable = [
-        'user_id',
-        'title',
-        'description',
-        'file_path',
-        'status',
+        'nama_proker',
+        'divisi',
+        'target',
     ];
 }

@@ -7,7 +7,7 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Nomor WhatsApp Admin / Pembina OSIS (Silakan sesuaikan nomor ini)
+  // Nomor WhatsApp Admin / Pembina OSIS
   const whatsappAdminNumber = "628";
 
   const handleForgotPassword = () => {
@@ -34,7 +34,10 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
 
       if (response.ok) {
         if (data.token) localStorage.setItem('token', data.token);
-        const userData = data.user || data;
+
+        // Ambil objek user secara presisi dari API
+        const userData = data.user || data.data?.user || data.data || data;
+
         localStorage.setItem('user', JSON.stringify(userData));
         onLoginSuccess(userData);
         return;
@@ -46,15 +49,19 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
 
       // Fallback otomatis jika API belum terhubung/offline
       let dummyRole = 'siswa';
-      if (email.includes('pembina')) dummyRole = 'pembina';
+      const cleanEmail = email.toLowerCase().trim();
 
-      if (
-        email.includes('pengurus') ||
-        email.includes('sekretaris') ||
-        email.includes('ketua') ||
-        email.includes('bendahara')
+      if (cleanEmail.includes('pembina')) {
+        dummyRole = 'pembina';
+      } else if (
+        cleanEmail.includes('pengurus') ||
+        cleanEmail.includes('sekretaris') ||
+        cleanEmail.includes('ketua') ||
+        cleanEmail.includes('bendahara') ||
+        cleanEmail.includes('admin')
       ) {
-        dummyRole = 'bendahara';
+        // DIPERBAIKI: Harus 'pengurus' agar dibaca oleh App.jsx
+        dummyRole = 'pengurus';
       }
 
       const dummyUser = {
