@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('laporan_keuangan', function (Blueprint $table) {
             $table->id();
-            $table->enum('sumber', ['Kas', 'Anggaran']);
+            $table->enum('sumber', ['Kas OSIS', 'Anggaran Sekolah']);
             $table->enum('jenis', ['Pemasukan', 'Pengeluaran']);
             $table->string('keterangan');
             $table->decimal('nominal', 15, 2);

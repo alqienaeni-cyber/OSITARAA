@@ -12,8 +12,8 @@ class LaporanKeuangan extends Model
     protected $table = 'laporan_keuangan';
 
     protected $fillable = [
-        'sumber',
         'jenis',
+        'sumber',
         'keterangan',
         'nominal',
         'tanggal',

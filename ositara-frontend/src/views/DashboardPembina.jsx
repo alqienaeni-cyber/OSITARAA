@@ -43,6 +43,19 @@ const formatRupiah = (number) => {
   }).format(number || 0);
 };
 
+// Helper Pembaca Proposal yang fleksibel dari berbagai key LocalStorage
+const getProposalData = () => {
+  try {
+    const dataPrimary = localStorage.getItem('ositara_proposal');
+    const dataSecondary = localStorage.getItem('ositara_proposals');
+    const result = dataPrimary || dataSecondary;
+    return result ? JSON.parse(result) : [];
+  } catch (e) {
+    console.error('Error reading proposals from localStorage', e);
+    return [];
+  }
+};
+
 const getInitialData = (key, fallback) => {
   try {
     const saved = localStorage.getItem(key);
@@ -60,7 +73,7 @@ export default function DashboardPembina({ user, onLogout }) {
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('ositara_pembina_avatar') || null);
 
   // State Data Tersinkronisasi
-  const [proposalList, setProposalList] = useState(() => getInitialData('ositara_proposal', []));
+  const [proposalList, setProposalList] = useState(() => getProposalData());
   const [prokerList, setProkerList] = useState(() => getInitialData('ositara_proker', []));
   const [keuanganList, setKeuanganList] = useState(() => getInitialData('ositara_keuangan', []));
   const [anggotaList, setAnggotaList] = useState(() => getInitialData('ositara_anggota', []));
@@ -70,9 +83,9 @@ export default function DashboardPembina({ user, onLogout }) {
   const [selectedProposalId, setSelectedProposalId] = useState(null);
   const [catatanRevisiInput, setCatatanRevisiInput] = useState('');
 
-  // Sync data real-time
+  // Sync data real-time dengan Sekretaris & Pengurus
   const handleSync = useCallback(() => {
-    setProposalList(getInitialData('ositara_proposal', []));
+    setProposalList(getProposalData());
     setProkerList(getInitialData('ositara_proker', []));
     setKeuanganList(getInitialData('ositara_keuangan', []));
     setAnggotaList(getInitialData('ositara_anggota', []));
@@ -83,10 +96,13 @@ export default function DashboardPembina({ user, onLogout }) {
     window.addEventListener('ositara_proposal_updated', handleSync);
     window.addEventListener('ositara_proker_updated', handleSync);
 
+    const interval = setInterval(handleSync, 1000);
+
     return () => {
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('ositara_proposal_updated', handleSync);
       window.removeEventListener('ositara_proker_updated', handleSync);
+      clearInterval(interval);
     };
   }, [handleSync]);
 
@@ -117,7 +133,10 @@ export default function DashboardPembina({ user, onLogout }) {
     });
 
     setProposalList(updated);
-    localStorage.setItem('ositara_proposal', JSON.stringify(updated));
+    const serialized = JSON.stringify(updated);
+    localStorage.setItem('ositara_proposal', serialized);
+    localStorage.setItem('ositara_proposals', serialized);
+
     window.dispatchEvent(new Event('ositara_proposal_updated'));
   };
 
@@ -159,7 +178,7 @@ export default function DashboardPembina({ user, onLogout }) {
   const menuItems = [
     { id: 'beranda', label: 'Beranda Utama', icon: 'beranda' },
     { id: 'proposal', label: 'Persetujuan Proposal', icon: 'proposal' },
-    { id: 'proker', label: 'Program Kerja (Read)', icon: 'proker' },
+    { id: 'proker', label: 'Program Kerja', icon: 'proker' },
     { id: 'keuangan', label: 'Laporan Keuangan', icon: 'keuangan' },
     { id: 'anggota', label: 'Anggota OSIS', icon: 'anggota' },
   ];
@@ -182,14 +201,14 @@ export default function DashboardPembina({ user, onLogout }) {
             </div>
           </div>
 
-          <nav className="space-y-2">
+          <nav className="space-y-1.5">
             {menuItems.map((menu) => (
               <button
                 key={menu.id}
                 onClick={() => setActiveMenu(menu.id)}
                 className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer text-left ${
                   activeMenu === menu.id
-                    ? 'bg-[#FFC42B] text-slate-900 shadow-md'
+                    ? 'bg-[#FFF3BF] text-[#2158B8] shadow-sm'
                     : 'hover:bg-white/10 text-white'
                 }`}
               >
@@ -216,9 +235,9 @@ export default function DashboardPembina({ user, onLogout }) {
           <div className="flex items-center space-x-4">
             <label className="relative group cursor-pointer shrink-0" title="Ubah Foto Profil">
               {avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" className="w-14 h-14 rounded-full object-cover border-2 border-[#FFC42B] shadow-sm" />
+                <img src={avatarUrl} alt="Avatar" className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm" />
               ) : (
-                <div className="w-14 h-14 bg-[#FFC42B] rounded-full flex items-center justify-center text-slate-900 border-2 border-white shadow-sm font-black text-xl">
+                <div className="w-14 h-14 bg-slate-200 rounded-full flex items-center justify-center text-[#2158B8] border-2 border-white shadow-sm font-black text-xl">
                   {inisialNama}
                 </div>
               )}
@@ -286,65 +305,76 @@ export default function DashboardPembina({ user, onLogout }) {
                       <td colSpan="7" className="py-8 text-center text-slate-400">Belum ada proposal yang diajukan oleh Pengurus.</td>
                     </tr>
                   ) : (
-                    proposalList.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50 transition">
-                        <td className="py-3.5 px-6 text-slate-500 font-medium">{item.tanggal || '-'}</td>
-                        <td className="py-3.5 px-6 font-bold text-slate-800">{item.judul}</td>
-                        <td className="py-3.5 px-6">
-                          {item.fileUrl ? (
-                            <a
-                              href={item.fileUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              download={item.fileProposal || 'proposal'}
-                              className="inline-flex items-center space-x-1.5 bg-[#86C5FF]/30 hover:bg-[#86C5FF]/50 text-[#2158B8] font-bold px-3 py-1.5 rounded-xl border border-[#86C5FF] text-xs transition"
-                            >
-                              <Icon type="download" />
-                              <span className="truncate max-w-[120px]">{item.fileProposal || 'Unduh File'}</span>
-                            </a>
-                          ) : (
-                            <span className="text-slate-400 italic text-xs">Tidak Ada File</span>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-6 text-slate-700 font-semibold">{formatRupiah(item.anggaran)}</td>
-                        <td className="py-3.5 px-6">
-                          <span className={`px-3 py-1 font-bold text-xs rounded-full inline-block ${
-                            item.status === 'Disetujui' ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' :
-                            item.status === 'Ditolak' ? 'bg-gray-100 text-gray-700 border border-gray-300' :
-                            item.status === 'Revisi' ? 'bg-rose-100 text-rose-700 border border-rose-300' :
-                            'bg-[#FFF5BF] text-amber-800 border border-[#FFC42B]'
-                          }`}>
-                            {item.status || 'Menunggu Persetujuan'}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-6 text-slate-600 font-medium italic text-xs">{item.catatanRevisi || '-'}</td>
-                        <td className="py-3.5 px-6 text-center">
-                          <div className="flex items-center justify-center space-x-1.5">
-                            <button
-                              onClick={() => handleUpdateStatusProposal(item.id, 'Disetujui', '-')}
-                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition shadow-sm cursor-pointer"
-                              title="Setujui Proposal"
-                            >
-                              Setujui
-                            </button>
-                            <button
-                              onClick={() => handleOpenRevisiModal(item)}
-                              className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition shadow-sm cursor-pointer"
-                              title="Minta Revisi"
-                            >
-                              Revisi
-                            </button>
-                            <button
-                              onClick={() => handleUpdateStatusProposal(item.id, 'Ditolak', 'Proposal ditolak oleh Pembina')}
-                              className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition shadow-sm cursor-pointer"
-                              title="Tolak Proposal"
-                            >
-                              Tolak
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                    proposalList.map((item) => {
+                      // CEK SELURUH KEMUNGKINAN NAMA PROPERTI DARI SEKRETARIS & KETUA OSIS
+                      const fileContent = item.fileData || item.fileUrl || item.file;
+
+                      // Ambil nama file asli jika ada, jika tidak gunakan fallback nama proposal
+                      let displayName = item.fileProposal || item.fileNama;
+                      if (!displayName || displayName.startsWith('data:')) {
+                        displayName = typeof item.file === 'string' && !item.file.startsWith('data:') ? item.file : `${item.judul}.pdf`;
+                      }
+
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50 transition">
+                          <td className="py-3.5 px-6 text-slate-500 font-medium">{item.tanggal || '-'}</td>
+                          <td className="py-3.5 px-6 font-bold text-slate-800">{item.judul}</td>
+                          <td className="py-3.5 px-6">
+                            {fileContent ? (
+                              <a
+                                href={fileContent}
+                                target="_blank"
+                                rel="noreferrer"
+                                download={displayName}
+                                className="inline-flex items-center space-x-1.5 bg-[#86C5FF]/30 hover:bg-[#86C5FF]/50 text-[#2158B8] font-bold px-3 py-1.5 rounded-xl border border-[#86C5FF] text-xs transition"
+                              >
+                                <Icon type="download" />
+                                <span className="truncate max-w-[140px]">{displayName}</span>
+                              </a>
+                            ) : (
+                              <span className="text-slate-400 italic text-xs">Tidak Ada File</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-6 text-slate-700 font-semibold">{formatRupiah(item.anggaran)}</td>
+                          <td className="py-3.5 px-6">
+                            <span className={`px-3 py-1 font-bold text-xs rounded-full inline-block ${
+                              item.status === 'Disetujui' ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' :
+                              item.status === 'Ditolak' ? 'bg-gray-100 text-gray-700 border border-gray-300' :
+                              item.status === 'Revisi' || item.status === 'Perlu Revisi' ? 'bg-rose-100 text-rose-700 border border-rose-300' :
+                              'bg-[#FFF5BF] text-amber-800 border border-[#FFC42B]'
+                            }`}>
+                              {item.status || 'Menunggu Persetujuan'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-6 text-slate-600 font-medium italic text-xs">{item.catatanRevisi || '-'}</td>
+                          <td className="py-3.5 px-6 text-center">
+                            <div className="flex items-center justify-center space-x-1.5">
+                              <button
+                                onClick={() => handleUpdateStatusProposal(item.id, 'Disetujui', '-')}
+                                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition shadow-sm cursor-pointer"
+                                title="Setujui Proposal"
+                              >
+                                Setujui
+                              </button>
+                              <button
+                                onClick={() => handleOpenRevisiModal(item)}
+                                className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition shadow-sm cursor-pointer"
+                                title="Minta Revisi"
+                              >
+                                Revisi
+                              </button>
+                              <button
+                                onClick={() => handleUpdateStatusProposal(item.id, 'Ditolak', 'Proposal ditolak oleh Pembina')}
+                                className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition shadow-sm cursor-pointer"
+                                title="Tolak Proposal"
+                              >
+                                Tolak
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -352,7 +382,7 @@ export default function DashboardPembina({ user, onLogout }) {
           </div>
         )}
 
-        {/* PROGRAM KERJA (TANPA KOLOM STATUS) */}
+        {/* PROGRAM KERJA */}
         {activeMenu === 'proker' && (
           <div className="space-y-6">
             <div>
@@ -379,7 +409,7 @@ export default function DashboardPembina({ user, onLogout }) {
                       <tr key={pk.id} className="hover:bg-slate-50 transition">
                         <td className="py-3.5 px-6 font-bold text-slate-800">{pk.nama}</td>
                         <td className="py-3.5 px-6 font-semibold text-slate-600">{pk.divisi || pk.sekbid || '-'}</td>
-                        <td className="py-3.5 px-6 text-slate-500">{pk.target || '-'}</td>
+                        <td className="py-3.5 px-6 text-slate-500">{pk.target || pk.tanggal || '-'}</td>
                       </tr>
                     ))
                   )}
@@ -434,13 +464,13 @@ export default function DashboardPembina({ user, onLogout }) {
                         <td className="py-3.5 px-6 font-bold text-slate-800">{item.keterangan}</td>
                         <td className="py-3.5 px-6">
                           <span className={`px-3 py-1 font-bold text-xs rounded-full inline-block ${
-                            item.kategori === 'Pemasukan' ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-rose-100 text-rose-700 border border-rose-300'
+                            item.kategori === 'Pemasukan' || item.jenis === 'Pemasukan' ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-rose-100 text-rose-700 border border-rose-300'
                           }`}>
-                            {item.kategori}
+                            {item.kategori || item.jenis}
                           </span>
                         </td>
-                        <td className={`py-3.5 px-6 text-right font-black ${item.kategori === 'Pemasukan' ? 'text-emerald-600' : 'text-rose-500'}`}>
-                          {item.kategori === 'Pemasukan' ? '+' : '-'} {formatRupiah(item.jumlah)}
+                        <td className={`py-3.5 px-6 text-right font-black ${item.kategori === 'Pemasukan' || item.jenis === 'Pemasukan' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                          {item.kategori === 'Pemasukan' || item.jenis === 'Pemasukan' ? '+' : '-'} {formatRupiah(item.jumlah)}
                         </td>
                       </tr>
                     ))
@@ -451,7 +481,7 @@ export default function DashboardPembina({ user, onLogout }) {
           </div>
         )}
 
-        {/* ANGGOTA OSIS (DENGAN TAMPILAN SEK BID / DIVISI & JABATAN SINKRON) */}
+        {/* ANGGOTA OSIS */}
         {activeMenu === 'anggota' && (
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm overflow-x-auto">
             <h3 className="text-xl font-bold text-[#2158B8] mb-6">Daftar Anggota OSIS</h3>
