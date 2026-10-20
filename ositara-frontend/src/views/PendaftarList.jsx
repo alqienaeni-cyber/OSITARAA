@@ -1,12 +1,19 @@
 import { useState } from 'react';
 
-export default function PendaftarList({ dataPendaftar = [], isPengurus = false, onUpdateStatus }) {
+export default function PendaftarList({ dataPendaftar = [], onUpdateStatus }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('Semua');
 
-  const filteredPendaftar = dataPendaftar.filter(p => {
-    const matchesSearch = p.nama.toLowerCase().includes(searchTerm.toLowerCase()) || p.nis.includes(searchTerm);
-    const matchesStatus = filterStatus === 'Semua' || p.status === filterStatus;
+  const filteredPendaftar = dataPendaftar.filter((p) => {
+    const nama = p.nama || p.namaSiswa || '';
+    const nis = p.nis || '';
+    const matchesSearch =
+      nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      nis.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus =
+      filterStatus === 'Semua' || (p.status || 'Menunggu') === filterStatus;
+
     return matchesSearch && matchesStatus;
   });
 
@@ -14,8 +21,12 @@ export default function PendaftarList({ dataPendaftar = [], isPengurus = false, 
     <div className="bg-white p-6 rounded-2xl border border-[#86C5FF]/40 shadow-sm">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h3 className="text-xl font-bold text-[#2158B8]">Data Pendaftar Anggota Baru</h3>
-          <p className="text-xs text-slate-500">Seleksi pendaftaran calon pengurus OSIS</p>
+          <h3 className="text-xl font-bold text-[#2158B8]">
+            Data Pendaftar Kegiatan & Anggota Baru
+          </h3>
+          <p className="text-xs text-slate-500">
+            Daftar siswa yang mendaftar kegiatan dan pendaftaran pengurus OSIS
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -26,6 +37,7 @@ export default function PendaftarList({ dataPendaftar = [], isPengurus = false, 
           >
             <option value="Semua">Semua Status</option>
             <option value="Menunggu">Menunggu</option>
+            <option value="Terdaftar">Terdaftar</option>
             <option value="Diterima">Diterima</option>
             <option value="Ditolak">Ditolak</option>
           </select>
@@ -41,61 +53,72 @@ export default function PendaftarList({ dataPendaftar = [], isPengurus = false, 
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full text-left border-collapse min-w-[650px]">
           <thead>
             <tr className="border-b border-slate-200 text-[#2158B8] text-sm">
               <th className="py-3 px-4 font-bold">No</th>
               <th className="py-3 px-4 font-bold">Nama Pendaftar</th>
-              <th className="py-3 px-4 font-bold">NIS</th>
-              <th className="py-3 px-4 font-bold">Kelas</th>
-              <th className="py-3 px-4 font-bold">Pilihan Sekbid</th>
+              <th className="py-3 px-4 font-bold">NIS / Kelas</th>
+              <th className="py-3 px-4 font-bold">Kegiatan / Sekbid</th>
               <th className="py-3 px-4 font-bold text-center">Status</th>
               <th className="py-3 px-4 font-bold text-center">Aksi / Keputusan</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm font-semibold text-slate-700">
             {filteredPendaftar.length > 0 ? (
-              filteredPendaftar.map((item, idx) => (
-                <tr key={item.id || idx} className="hover:bg-slate-50 transition">
-                  <td className="py-3.5 px-4">{idx + 1}</td>
-                  <td className="py-3.5 px-4 font-bold text-slate-800">{item.nama}</td>
-                  <td className="py-3.5 px-4">{item.nis}</td>
-                  <td className="py-3.5 px-4">{item.kelas}</td>
-                  <td className="py-3.5 px-4">{item.pilihanSekbid || 'Sekbid 1'}</td>
-                  <td className="py-3.5 px-4 text-center">
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                      item.status === 'Diterima' ? 'bg-emerald-100 text-emerald-700' :
-                      item.status === 'Ditolak' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
-                    }`}>
-                      {item.status || 'Menunggu'}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-center">
-                    {onUpdateStatus ? (
-                      <div className="flex justify-center space-x-2">
-                        <button
-                          onClick={() => onUpdateStatus(item.id, 'Diterima')}
-                          className="px-2.5 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition cursor-pointer"
-                        >
-                          Terima
-                        </button>
-                        <button
-                          onClick={() => onUpdateStatus(item.id, 'Ditolak')}
-                          className="px-2.5 py-1 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 transition cursor-pointer"
-                        >
-                          Tolak
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-400 font-medium">-</span>
-                    )}
-                  </td>
-                </tr>
-              ))
+              filteredPendaftar.map((item, idx) => {
+                const namaPendaftar = item.nama || item.namaSiswa || 'Siswa';
+                const detailKegiatan = item.namaKegiatan || item.pilihanSekbid || 'Kegiatan OSIS';
+                const statusPendaftar = item.status || 'Terdaftar';
+
+                return (
+                  <tr key={item.id || idx} className="hover:bg-slate-50 transition">
+                    <td className="py-3.5 px-4">{idx + 1}</td>
+                    <td className="py-3.5 px-4 font-bold text-slate-800">{namaPendaftar}</td>
+                    <td className="py-3.5 px-4 text-slate-600">
+                      {item.nis || '-'} / {item.kelas || '-'}
+                    </td>
+                    <td className="py-3.5 px-4 text-[#2158B8]">{detailKegiatan}</td>
+                    <td className="py-3.5 px-4 text-center">
+                      <span
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
+                          statusPendaftar === 'Diterima' || statusPendaftar === 'Terdaftar'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : statusPendaftar === 'Ditolak'
+                            ? 'bg-rose-100 text-rose-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        {statusPendaftar}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      {onUpdateStatus ? (
+                        <div className="flex justify-center space-x-2">
+                          <button
+                            onClick={() => onUpdateStatus(item.id, 'Diterima')}
+                            className="px-2.5 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition cursor-pointer"
+                          >
+                            Terima
+                          </button>
+                          <button
+                            onClick={() => onUpdateStatus(item.id, 'Ditolak')}
+                            className="px-2.5 py-1 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 transition cursor-pointer"
+                          >
+                            Tolak
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400 font-medium">-</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
-                <td colSpan={7} className="py-6 text-center text-slate-400 font-medium">
-                  Belum ada data pendaftar calon anggota.
+                <td colSpan={6} className="py-6 text-center text-slate-400 font-medium">
+                  Belum ada data pendaftar kegiatan atau calon anggota.
                 </td>
               </tr>
             )}

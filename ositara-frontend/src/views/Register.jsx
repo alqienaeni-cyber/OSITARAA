@@ -24,14 +24,55 @@ export default function Register({ onGoToLogin }) {
     setError('');
     setLoading(true);
 
+    const cleanEmail = formData.email.toLowerCase().trim();
+
     try {
-      const response = await API.post('/register', formData);
+      // 1. Coba kirim data ke API Backend Laravel via Axios
+      const response = await API.post('/register', {
+        ...formData,
+        email: cleanEmail
+      });
+
       alert(response.data.message || 'Pendaftaran Siswa Berhasil!');
       onGoToLogin();
     } catch (err) {
-      const msg = err.response?.data?.message || 'Gagal terhubung ke server Laravel!';
-      setError(msg);
-      alert(msg);
+      console.warn("API Laravel tidak merespon / Network Error. Menyalakan mode fallback lokal...", err);
+
+      // 2. MODE FALLBACK: Jika server Laravel mati/offline, simpan ke localStorage
+      try {
+        const storedUsers = localStorage.getItem('ositara_users');
+        const registeredUsers = storedUsers ? JSON.parse(storedUsers) : [];
+
+        // Cek apakah email sudah terdaftar sebelumnya
+        const isExist = registeredUsers.some(u => u.email?.toLowerCase().trim() === cleanEmail);
+        if (isExist) {
+          setError('Email sudah terdaftar! Silakan gunakan email lain atau langsung masuk.');
+          setLoading(false);
+          return;
+        }
+
+        // Buat data siswa baru secara lokal
+        const newUser = {
+          id: Date.now(),
+          name: formData.name,
+          nama: formData.name,
+          namaLengkap: formData.name,
+          nisn: formData.nisn,
+          kelas: formData.kelas,
+          email: cleanEmail,
+          password: formData.password,
+          role: 'siswa'
+        };
+
+        registeredUsers.push(newUser);
+        localStorage.setItem('ositara_users', JSON.stringify(registeredUsers));
+
+        alert('Pendaftaran Berhasil (Mode Lokal)! Silakan login dengan akun yang baru dibuat.');
+        onGoToLogin();
+      } catch (storageErr) {
+        console.error('Gagal menyimpan ke localStorage:', storageErr);
+        setError('Gagal memproses pendaftaran secara lokal.');
+      }
     } finally {
       setLoading(false);
     }
@@ -43,7 +84,7 @@ export default function Register({ onGoToLogin }) {
 
         <button
           onClick={onGoToLogin}
-          className="absolute top-6 left-6 inline-flex items-center gap-1.5 bg-slate-400 text-white px-4 py-1.5 rounded-full text-xs font-bold hover:bg-slate-500 transition-all shadow-sm"
+          className="absolute top-6 left-6 inline-flex items-center gap-1.5 bg-slate-400 text-white px-4 py-1.5 rounded-full text-xs font-bold hover:bg-slate-500 transition-all shadow-sm cursor-pointer"
         >
           <span>‹</span> Kembali
         </button>
@@ -106,8 +147,6 @@ export default function Register({ onGoToLogin }) {
                 />
               </div>
 
-              {/* Tag <select name="role">...</select> sudah dihapus di sini */}
-
               <div>
                 <input
                   type="email"
@@ -135,7 +174,7 @@ export default function Register({ onGoToLogin }) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-amber-400 hover:bg-amber-500 text-blue-950 font-extrabold py-3 rounded-xl text-xs shadow-md transition-all mt-4 disabled:opacity-50"
+                className="w-full bg-amber-400 hover:bg-amber-500 text-blue-950 font-extrabold py-3 rounded-xl text-xs shadow-md transition-all mt-4 disabled:opacity-50 cursor-pointer"
               >
                 {loading ? 'Mendaftarkan...' : 'Daftar'}
               </button>

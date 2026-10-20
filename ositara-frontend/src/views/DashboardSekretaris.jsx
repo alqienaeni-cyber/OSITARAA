@@ -1,5 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import logoOsitara from '../assets/LOGO OSITARA.png';
+
+// --- DEKLARASI IKON SVG DI LUAR KOMPONEN UTAMA (BEBAS ESLINT STATIC-COMPONENTS) ---
+const SvgHome = () => <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
+const SvgProposal = () => <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>;
+const SvgKegiatan = () => <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
+const SvgProker = () => <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2H9z" /></svg>;
+const SvgAnggota = () => <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>;
+const SvgKeuangan = () => <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
+const SvgLogout = () => <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>;
+
+const SvgEdit = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>;
+const SvgTrash = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
+const SvgSend = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>;
+const SvgUsersGroup = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
+const SvgFilePdf = () => <svg className="w-4 h-4 shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>;
+const SvgCalendarSmall = () => <svg className="w-3.5 h-3.5 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
+const SvgCamera = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+
+const getInitialData = (key, fallback) => {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch { return fallback; }
+};
 
 export default function DashboardSekretaris({
   user,
@@ -15,36 +39,47 @@ export default function DashboardSekretaris({
 }) {
   const [activeMenu, setActiveMenu] = useState('beranda');
 
-  const getInitialData = (key, fallback) => {
-    try {
-      const saved = localStorage.getItem(key);
-      return saved ? JSON.parse(saved) : fallback;
-    } catch { return fallback; }
-  };
-
   const [kegiatanList, setKegiatanList] = useState(() => getInitialData('ositara_kegiatan', initialKegiatan));
   const [proposalList, setProposalList] = useState(() => getInitialData('ositara_proposal', initialProposal));
   const [keuanganList] = useState(() => getInitialData('ositara_keuangan', initialKeuangan));
-  const [pendaftaranList, setPendaftaranList] = useState(() => getInitialData('ositara_pendaftaran', initialPendaftaran));
+  const [pendaftaranList, setPendaftaranList] = useState(() => {
+    const primary = getInitialData('ositara_pendaftaran', null);
+    const secondary = getInitialData('pendaftaranList', initialPendaftaran);
+    return primary || secondary;
+  });
   const [prokerList] = useState(() => getInitialData('ositara_proker', initialProker));
   const [anggotaList] = useState(() => getInitialData('ositara_anggota', initialAnggota));
 
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('ositara_user_avatar') || null);
   const [selectedKegiatanPeserta, setSelectedKegiatanPeserta] = useState(null);
-
-  // State Modal Avatar Profil
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
-  // Sinkronisasi data pendaftaran real-time dari localStorage
-  useEffect(() => {
-    const latestPendaftaran = getInitialData('ositara_pendaftaran', initialPendaftaran);
+  // LOGIKA SAPAAN NAMA: Utamakan namaLengkap/nama agar tidak menampilkan username login
+  const namaDisplay = user?.namaLengkap || user?.nama || user?.name || user?.username || 'Sekretaris OSIS';
+  const inisialNama = namaDisplay.charAt(0).toUpperCase();
+
+  // MENGHINDARI SYNC SETSTATE LANGSUNG DI EFFECT BODY (BEBAS CASCADING RENDERS ERROR)
+  const syncPendaftaran = useCallback(() => {
+    const latestPendaftaran = getInitialData('ositara_pendaftaran', null) || getInitialData('pendaftaranList', initialPendaftaran);
     setPendaftaranList(latestPendaftaran);
-  }, [activeMenu, selectedKegiatanPeserta]);
+  }, [initialPendaftaran]);
+
+  useEffect(() => {
+    window.addEventListener('storage', syncPendaftaran);
+    window.addEventListener('ositara_pendaftaran_updated', syncPendaftaran);
+
+    syncPendaftaran();
+
+    return () => {
+      window.removeEventListener('storage', syncPendaftaran);
+      window.removeEventListener('ositara_pendaftaran_updated', syncPendaftaran);
+    };
+  }, [syncPendaftaran]);
 
   useEffect(() => { localStorage.setItem('ositara_kegiatan', JSON.stringify(kegiatanList)); }, [kegiatanList]);
   useEffect(() => { localStorage.setItem('ositara_proposal', JSON.stringify(proposalList)); }, [proposalList]);
 
-  // Handler Avatar Upload & Hapus Foto Profil
+  // Handler Avatar Upload
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (file && file.size <= 3 * 1024 * 1024) {
@@ -162,41 +197,23 @@ export default function DashboardSekretaris({
     if (!keg) return [];
     return pendaftaranList.filter((p) =>
       String(p.kegiatanId) === String(keg.id) ||
-      p.namaKegiatan?.toLowerCase().trim() === keg.namaKegiatan?.toLowerCase().trim()
+      p.namaKegiatan?.toLowerCase().trim() === (keg.namaKegiatan || keg.nama)?.toLowerCase().trim()
     );
   };
 
-  // Komponen Ikon SVG Inline (Presisi Linear)
-  const SvgHome = () => <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
-  const SvgProposal = () => <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>;
-  const SvgKegiatan = () => <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
-  const SvgProker = () => <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 132-2 2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586zM11 13a1 1 0 100-2 1 1 0 000 2z" /></svg>;
-  const SvgAnggota = () => <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>;
-  const SvgKeuangan = () => <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
-  const SvgLogout = () => <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>;
-
-  const SvgEdit = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>;
-  const SvgTrash = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
-  const SvgSend = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>;
-  const SvgUsersGroup = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
-  const SvgFilePdf = () => <svg className="w-4 h-4 shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>;
-  const SvgCalendarSmall = () => <svg className="w-3.5 h-3.5 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
-  const SvgCamera = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
-
-  // List Menu Linear Sejajar (Kegiatan di bawah Kelola Kegiatan)
   const menuList = [
-    { id: 'beranda', label: 'Beranda', icon: <SvgHome /> },
-    { id: 'pengajuan-proposal', label: 'Pengajuan Proposal', icon: <SvgProposal /> },
-    { id: 'program-kerja', label: 'Program Kerja', icon: <SvgProker /> },
-    { id: 'anggota-osis', label: 'Anggota OSIS', icon: <SvgAnggota /> },
-    { id: 'kelola-kegiatan', label: 'Kelola Kegiatan', icon: <SvgKegiatan /> },
-    { id: 'kegiatan', label: 'Kegiatan', icon: <SvgKegiatan /> },
-    { id: 'laporan-keuangan', label: 'Laporan Keuangan', icon: <SvgKeuangan /> },
+    { id: 'beranda', label: 'Beranda', IconComponent: SvgHome },
+    { id: 'pengajuan-proposal', label: 'Pengajuan Proposal', IconComponent: SvgProposal },
+    { id: 'program-kerja', label: 'Program Kerja', IconComponent: SvgProker },
+    { id: 'anggota-osis', label: 'Anggota OSIS', IconComponent: SvgAnggota },
+    { id: 'kelola-kegiatan', label: 'Kelola Kegiatan', IconComponent: SvgKegiatan },
+    { id: 'kegiatan', label: 'Kegiatan', IconComponent: SvgKegiatan },
+    { id: 'laporan-keuangan', label: 'Laporan Keuangan', IconComponent: SvgKeuangan },
   ];
 
   return (
     <div className="flex min-h-screen bg-[#F2F4F7] font-sans relative">
-      {/* SIDEBAR NAVIGATION LINEAR */}
+      {/* SIDEBAR */}
       <aside className="w-64 bg-[#2158B8] text-white flex flex-col justify-between p-6 shrink-0">
         <div>
           <div className="flex items-center space-x-3 mb-8">
@@ -207,16 +224,19 @@ export default function DashboardSekretaris({
             </div>
           </div>
           <nav className="space-y-1.5">
-            {menuList.map((menu) => (
-              <button
-                key={menu.id}
-                onClick={() => setActiveMenu(menu.id)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer ${activeMenu === menu.id ? 'bg-[#FFF3BF] text-[#2158B8] shadow-sm' : 'hover:bg-white/10 text-white'}`}
-              >
-                {menu.icon}
-                <span className="truncate">{menu.label}</span>
-              </button>
-            ))}
+            {menuList.map((menu) => {
+              const IconComp = menu.IconComponent;
+              return (
+                <button
+                  key={menu.id}
+                  onClick={() => setActiveMenu(menu.id)}
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer ${activeMenu === menu.id ? 'bg-[#FFF3BF] text-[#2158B8] shadow-sm' : 'hover:bg-white/10 text-white'}`}
+                >
+                  <IconComp />
+                  <span className="truncate">{menu.label}</span>
+                </button>
+              );
+            })}
           </nav>
         </div>
         <button onClick={onLogout} className="flex items-center space-x-3 px-4 py-3 text-white hover:bg-white/10 rounded-2xl font-bold text-sm transition cursor-pointer mt-6">
@@ -236,13 +256,19 @@ export default function DashboardSekretaris({
             title="Kelola Foto Profil"
           >
             <div className="w-14 h-14 bg-slate-200 rounded-full flex items-center justify-center text-slate-500 border-2 border-white shadow-sm overflow-hidden hover:opacity-90 transition">
-              {avatarUrl ? <img src={avatarUrl} alt="Profil" className="w-full h-full object-cover" /> : <span className="font-black text-xl text-[#2158B8]">S</span>}
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Profil" className="w-full h-full object-cover" />
+              ) : (
+                <span className="font-black text-xl text-[#2158B8]">{inisialNama}</span>
+              )}
             </div>
           </button>
 
           <div>
-            <h2 className="text-2xl font-black text-[#2158B8]">Halo, {user?.nama || user?.name || 'sekretaris'}!</h2>
-            <p className="text-xs font-semibold text-slate-500 mt-0.5">Jabatan: <span className="font-bold text-[#2158B8]">Sekretaris OSIS</span></p>
+            <h2 className="text-2xl font-black text-[#2158B8]">Halo, {namaDisplay}!</h2>
+            <p className="text-xs font-semibold text-slate-500 mt-0.5">
+              Jabatan: <span className="font-bold text-[#2158B8]">Sekretaris OSIS</span>
+            </p>
           </div>
         </div>
 
@@ -348,20 +374,38 @@ export default function DashboardSekretaris({
             <table className="w-full text-left text-sm border-collapse">
               <thead><tr className="border-b text-[#2158B8] font-bold bg-slate-50"><th className="p-3.5">Program Kerja</th><th className="p-3.5">Divisi</th><th className="p-3.5">Target</th></tr></thead>
               <tbody className="divide-y divide-slate-100">
-                {prokerList.map((pk) => (<tr key={pk.id}><td className="p-3.5 font-bold text-slate-700">{pk.nama}</td><td className="p-3.5 text-[#2158B8]">{pk.divisi}</td><td className="p-3.5 text-slate-500">{pk.target}</td></tr>))}
+                {prokerList.map((pk) => (<tr key={pk.id}><td className="p-3.5 font-bold text-slate-700">{pk.nama}</td><td className="p-3.5 text-[#2158B8]">{pk.divisi || pk.sekbid}</td><td className="p-3.5 text-slate-500">{pk.target || pk.tanggal}</td></tr>))}
               </tbody>
             </table>
           </div>
         )}
 
-        {/* 4. ANGGOTA OSIS */}
+        {/* 4. ANGGOTA OSIS (KOLOM SUDAH DISESUAIKAN: NIS | NAMA | JABATAN | DIVISI/SEKBID) */}
         {activeMenu === 'anggota-osis' && (
           <div className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm">
             <h3 className="text-xl font-bold text-[#2158B8] mb-6">Daftar Anggota OSIS (Read Only)</h3>
             <table className="w-full text-left text-sm border-collapse">
-              <thead><tr className="border-b text-[#2158B8] font-bold bg-slate-50"><th className="p-3.5">Nama</th><th className="p-3.5">Jabatan</th><th className="p-3.5">Kelas</th></tr></thead>
+              <thead>
+                <tr className="border-b text-[#2158B8] font-bold bg-slate-50">
+                  <th className="p-3.5">NIS</th>
+                  <th className="p-3.5">Nama Anggota</th>
+                  <th className="p-3.5">Jabatan</th>
+                  <th className="p-3.5">Divisi / Sekbid</th>
+                </tr>
+              </thead>
               <tbody className="divide-y divide-slate-100">
-                {anggotaList.map((a) => (<tr key={a.id}><td className="p-3.5 font-bold">{a.nama}</td><td className="p-3.5">{a.jabatan}</td><td className="p-3.5">{a.kelas}</td></tr>))}
+                {anggotaList.length === 0 ? (
+                  <tr><td colSpan="4" className="py-6 text-center text-slate-400">Belum ada data anggota.</td></tr>
+                ) : (
+                  anggotaList.map((a) => (
+                    <tr key={a.id}>
+                      <td className="p-3.5 text-slate-500 font-medium">{a.nis || '-'}</td>
+                      <td className="p-3.5 font-bold text-slate-800">{a.nama}</td>
+                      <td className="p-3.5 text-slate-700 font-semibold">{a.jabatan || '-'}</td>
+                      <td className="p-3.5 text-slate-600 font-medium">{a.sekbid || a.divisi || '-'}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -460,6 +504,63 @@ export default function DashboardSekretaris({
         )}
       </main>
 
+      {/* MODAL PESERTA TERDAFTAR */}
+      {selectedKegiatanPeserta && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-xl border border-slate-200">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-bold text-[#2158B8] leading-tight pr-4">
+                Peserta Terdaftar: {selectedKegiatanPeserta.namaKegiatan || selectedKegiatanPeserta.nama}
+              </h3>
+              <button
+                onClick={() => setSelectedKegiatanPeserta(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-xl cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="max-h-80 overflow-y-auto space-y-3 pr-1">
+              {getPesertaByKegiatan(selectedKegiatanPeserta).length === 0 ? (
+                <p className="text-center py-6 text-slate-400 text-sm font-medium">Belum ada siswa yang mendaftar kegiatan ini.</p>
+              ) : (
+                getPesertaByKegiatan(selectedKegiatanPeserta).map((p, idx) => {
+                  const valCatatan = p.catatan || p.alasan || (p.pilihanSekbid && p.pilihanSekbid !== 'Peserta Kegiatan' ? p.pilihanSekbid : null);
+
+                  return (
+                    <div key={p.id || idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-bold text-slate-800 text-sm">{p.namaSiswa || p.nama}</span>
+                        <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-700 font-bold text-[10px] rounded-full border border-emerald-300">
+                          {p.status || 'Terdaftar'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 font-medium">
+                        Kelas: <span className="font-bold text-slate-700">{p.kelas || '-'}</span> | NISN/NIS: <span className="font-bold text-slate-700">{p.nis || '-'}</span>
+                      </p>
+                      {valCatatan && (
+                        <p className="text-xs text-slate-600 font-medium pt-1">
+                          Catatan: <span className="font-semibold text-slate-800">{valCatatan}</span>
+                        </p>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="mt-6">
+              <button
+                onClick={() => setSelectedKegiatanPeserta(null)}
+                className="w-full py-3 bg-[#2158B8] text-white font-bold text-xs rounded-2xl hover:bg-[#1a4796] transition cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL OPSI FOTO PROFIL */}
       {showAvatarModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -482,61 +583,10 @@ export default function DashboardSekretaris({
                   onClick={handleHapusAvatar}
                   className="w-full py-3 bg-rose-100 text-rose-700 rounded-2xl font-bold text-xs flex items-center justify-center space-x-2 cursor-pointer hover:bg-rose-200 transition"
                 >
-                  <SvgTrash />
-                  <span>Hapus Foto Profil Saat Ini</span>
+                  <span>Hapus Foto Profil</span>
                 </button>
               )}
-
-              <button
-                type="button"
-                onClick={() => setShowAvatarModal(false)}
-                className="w-full py-2.5 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs hover:bg-slate-200 transition cursor-pointer"
-              >
-                Batal
-              </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DETAIL PESERTA */}
-      {selectedKegiatanPeserta && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-xl border border-blue-100">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-[#2158B8]">Peserta Terdaftar: {selectedKegiatanPeserta.namaKegiatan || selectedKegiatanPeserta.nama}</h3>
-              <button onClick={() => setSelectedKegiatanPeserta(null)} className="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer">✕</button>
-            </div>
-
-            <div className="max-h-72 overflow-y-auto space-y-3 pr-1">
-              {getPesertaByKegiatan(selectedKegiatanPeserta).length > 0 ? (
-                getPesertaByKegiatan(selectedKegiatanPeserta).map((p, idx) => (
-                  <div key={idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex justify-between items-start space-x-3">
-                    <div className="space-y-1">
-                      <p className="font-bold text-sm text-slate-800">{p.namaSiswa || p.nama || 'Siswa Pendaftar'}</p>
-                      <p className="text-xs text-slate-500 font-semibold">
-                        Kelas: <span className="text-[#2158B8]">{p.kelas || 'Siswa OSITARA'}</span> | NISN/NIS: <span className="text-[#2158B8]">{p.nisn || p.nis || '12345678'}</span>
-                      </p>
-                      {p.alasan && (
-                        <div className="mt-2 p-2.5 bg-white rounded-xl border border-slate-200 text-xs text-slate-600 italic">
-                          <span className="font-bold not-italic text-[#2158B8] block mb-0.5">Alasan Bergabung:</span>
-                          "{p.alasan}"
-                        </div>
-                      )}
-                    </div>
-                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 font-bold text-[10px] rounded-full shrink-0">
-                      Terdaftar
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center text-xs text-slate-400 py-6">Belum ada siswa yang mendaftar pada kegiatan ini dari Dashboard Siswa.</p>
-              )}
-            </div>
-
-            <button onClick={() => setSelectedKegiatanPeserta(null)} className="w-full py-3 bg-[#2158B8] text-white rounded-2xl font-bold text-xs mt-6 cursor-pointer hover:bg-blue-700 transition">
-              Tutup
-            </button>
           </div>
         </div>
       )}

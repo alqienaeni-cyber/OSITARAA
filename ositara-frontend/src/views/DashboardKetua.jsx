@@ -207,7 +207,7 @@ export default function DashboardKetua({ user, onLogout }) {
     }
   };
 
-  const namaKetua = user?.nama || user?.name || 'Ketua OSIS';
+  const namaKetua = user?.nama || user?.name || 'Ketua & Wakil OSIS';
   const inisialNama = namaKetua.charAt(0).toUpperCase();
 
   const menuList = [
@@ -227,7 +227,7 @@ export default function DashboardKetua({ user, onLogout }) {
             <img src={logoOsitara} alt="Logo OSITARA" className="w-10 h-10 object-contain shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
             <div>
               <h1 className="text-xl font-black tracking-wider leading-none">OSITARA</h1>
-              <p className="text-[10px] text-[#FFF5BF] font-bold tracking-wide mt-1 uppercase">KETUA OSIS</p>
+              <p className="text-[10px] text-[#FFF5BF] font-bold tracking-wide mt-1 uppercase">KETUA / WAKIL OSIS</p>
             </div>
           </div>
 
@@ -273,7 +273,7 @@ export default function DashboardKetua({ user, onLogout }) {
             </label>
             <div>
               <h2 className="text-2xl font-black text-[#2158B8]">Selamat Datang, {namaKetua}!</h2>
-              <p className="text-xs font-semibold text-slate-500 mt-0.5">Jabatan: <span className="font-bold text-[#2158B8]">Ketua OSIS</span></p>
+              <p className="text-xs font-semibold text-slate-500 mt-0.5">Jabatan: <span className="font-bold text-[#2158B8]">Ketua/Wakil OSIS</span></p>
             </div>
           </div>
         </div>

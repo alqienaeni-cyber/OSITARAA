@@ -4,6 +4,9 @@ import logoOsitara from '../assets/LOGO OSITARA.png';
 // --- HELPER COMPONENT: ICON ---
 function Icon({ type }) {
   const icons = {
+    beranda: (
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+    ),
     keuangan: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     ),
@@ -40,7 +43,6 @@ function Icon({ type }) {
   );
 }
 
-// Helper membaca data LocalStorage secara aman
 const getInitialData = (key, fallback) => {
   try {
     const saved = localStorage.getItem(key);
@@ -84,8 +86,15 @@ const formatRupiah = (number) => {
   }).format(number || 0);
 };
 
+const generateUniqueId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'id-' + performance.now().toString(36) + '-' + Math.random().toString(36).substring(2, 9);
+};
+
 export default function DashboardBendahara({ user, onLogout }) {
-  const [activeMenu, setActiveMenu] = useState('laporan-keuangan');
+  const [activeMenu, setActiveMenu] = useState('beranda');
 
   // State Avatar Profil
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('ositara_bendahara_avatar') || null);
@@ -103,7 +112,11 @@ export default function DashboardBendahara({ user, onLogout }) {
   const [jumlah, setJumlah] = useState('');
   const [editingKeuanganId, setEditingKeuanganId] = useState(null);
 
-  // SINKRONISASI REAL-TIME DENGAN SELURUH PENGURUS & PEMBINA
+  // LOGIKA SAPAAN NAMA: Utamakan namaLengkap/nama agar tidak memanggil username login
+const namaDisplay = user?.name || user?.namaLengkap || user?.nama || user?.username || 'Bendahara OSIS';
+const inisialNama = namaDisplay.charAt(0).toUpperCase();
+
+  // SINKRONISASI REAL-TIME
   const handleSyncData = useCallback(() => {
     setKeuanganList(getInitialData('ositara_keuangan', []));
     setProposalList(getProposalData());
@@ -156,7 +169,7 @@ export default function DashboardBendahara({ user, onLogout }) {
       );
     } else {
       const dataBaru = {
-        id: String(Date.now() + Math.random()),
+        id: generateUniqueId(),
         keterangan: keterangan.trim(),
         jenis,
         jumlah: Number(jumlah),
@@ -206,10 +219,8 @@ export default function DashboardBendahara({ user, onLogout }) {
 
   const sisaSaldo = totalPemasukan - totalPengeluaran;
 
-  const namaUser = user?.nama || user?.name || 'Bendahara OSIS';
-  const inisialNama = namaUser.charAt(0).toUpperCase();
-
   const menuList = [
+    { id: 'beranda', label: 'Beranda', icon: 'beranda' },
     { id: 'laporan-keuangan', label: 'Laporan Keuangan', icon: 'keuangan' },
     { id: 'pengajuan-proposal', label: 'Pengajuan Proposal', icon: 'proposal' },
     { id: 'program-kerja', label: 'Program Kerja', icon: 'proker' },
@@ -271,13 +282,35 @@ export default function DashboardBendahara({ user, onLogout }) {
               </div>
             </label>
             <div>
-              <h2 className="text-2xl font-black text-[#2158B8]">Halo, {namaUser}!</h2>
+              <h2 className="text-2xl font-black text-[#2158B8]">Halo, {namaDisplay}!</h2>
               <p className="text-xs font-semibold text-slate-500 mt-0.5">Jabatan: <span className="font-bold text-[#2158B8]">Bendahara OSIS</span></p>
             </div>
           </div>
         </div>
 
-        {/* 1. KELOLA KEUANGAN */}
+        {/* 1. BERANDA */}
+        {activeMenu === 'beranda' && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm">
+              <p className="text-xs font-bold text-slate-400 uppercase">Sisa Saldo Kas</p>
+              <h3 className="text-2xl font-black text-[#2158B8] mt-2">{formatRupiah(sisaSaldo)}</h3>
+            </div>
+            <div className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm">
+              <p className="text-xs font-bold text-slate-400 uppercase">Total Pemasukan</p>
+              <h3 className="text-2xl font-black text-emerald-600 mt-2">{formatRupiah(totalPemasukan)}</h3>
+            </div>
+            <div className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm">
+              <p className="text-xs font-bold text-slate-400 uppercase">Total Pengeluaran</p>
+              <h3 className="text-2xl font-black text-rose-500 mt-2">{formatRupiah(totalPengeluaran)}</h3>
+            </div>
+            <div className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm">
+              <p className="text-xs font-bold text-slate-400 uppercase">Total Catatan Transaksi</p>
+              <h3 className="text-3xl font-black text-[#2158B8] mt-2">{keuanganList.length}</h3>
+            </div>
+          </div>
+        )}
+
+        {/* 2. KELOLA KEUANGAN */}
         {activeMenu === 'laporan-keuangan' && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -371,7 +404,7 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 2. PENGAJUAN PROPOSAL (READ-ONLY) */}
+        {/* 3. PENGAJUAN PROPOSAL (READ-ONLY) */}
         {activeMenu === 'pengajuan-proposal' && (
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm overflow-x-auto">
             <h3 className="text-xl font-bold text-[#2158B8] mb-6">Daftar Proposal Kegiatan (Sinkron Sekretaris)</h3>
@@ -432,7 +465,7 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 3. PROGRAM KERJA (READ-ONLY) */}
+        {/* 4. PROGRAM KERJA (READ-ONLY) */}
         {activeMenu === 'program-kerja' && (
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm overflow-x-auto">
             <h3 className="text-xl font-bold text-[#2158B8] mb-6">Program Kerja OSIS (Sinkron Ketua OSIS)</h3>
@@ -463,27 +496,29 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 4. ANGGOTA OSIS (READ-ONLY) */}
+        {/* 5. ANGGOTA OSIS (READ-ONLY: NIS | NAMA | JABATAN | DIVISI / SEKBID) */}
         {activeMenu === 'anggota-osis' && (
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm overflow-x-auto">
             <h3 className="text-xl font-bold text-[#2158B8] mb-6">Daftar Anggota OSIS (Sinkron Ketua OSIS)</h3>
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-700 font-bold bg-[#F2F4F7]">
+                  <th className="py-3.5 px-6">NIS</th>
                   <th className="py-3.5 px-6">Nama Anggota</th>
                   <th className="py-3.5 px-6">Jabatan</th>
-                  <th className="py-3.5 px-6">Kelas</th>
+                  <th className="py-3.5 px-6">Divisi / Sekbid</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {anggotaList.length === 0 ? (
-                  <tr><td colSpan="3" className="py-8 text-center text-slate-400">Belum ada data anggota terdaftar.</td></tr>
+                  <tr><td colSpan="4" className="py-8 text-center text-slate-400">Belum ada data anggota terdaftar.</td></tr>
                 ) : (
                   anggotaList.map((item) => (
                     <tr key={item.id} className="hover:bg-slate-50 transition">
+                      <td className="py-3.5 px-6 text-slate-500 font-medium">{item.nis || '-'}</td>
                       <td className="py-3.5 px-6 font-bold text-slate-800">{item.nama}</td>
                       <td className="py-3.5 px-6 font-semibold text-slate-700">{item.jabatan || '-'}</td>
-                      <td className="py-3.5 px-6 text-slate-600">{item.kelas || '-'}</td>
+                      <td className="py-3.5 px-6 text-slate-600 font-medium">{item.sekbid || item.divisi || '-'}</td>
                     </tr>
                   ))
                 )}
@@ -492,7 +527,7 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 5. KELOLA KEGIATAN (READ-ONLY) */}
+        {/* 6. KELOLA KEGIATAN (READ-ONLY) */}
         {activeMenu === 'kelola-kegiatan' && (
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm overflow-x-auto">
             <h3 className="text-xl font-bold text-[#2158B8] mb-6">Agenda Kegiatan OSIS (Sinkron Sekretaris)</h3>

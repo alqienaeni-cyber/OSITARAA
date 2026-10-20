@@ -110,9 +110,9 @@ export default function App() {
     ];
   });
 
-  // 2. STATE PENDAFTARAN SISWA
+  // 2. STATE PENDAFTARAN SISWA (SINKRON DENGAN 'ositara_pendaftaran' & 'pendaftaranList')
   const [pendaftaranList, setPendaftaranList] = useState(() => {
-    const saved = localStorage.getItem('pendaftaranList');
+    const saved = localStorage.getItem('ositara_pendaftaran') || localStorage.getItem('pendaftaranList');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -167,7 +167,7 @@ export default function App() {
     ];
   });
 
-  // SINKRONISASI REAL-TIME
+  // SINKRONISASI REAL-TIME DENGAN PENDAFTARAN KEGIATAN
   const handleGlobalSync = useCallback(() => {
     try {
       const savedProposals = localStorage.getItem('ositara_proposal') || localStorage.getItem('proposals');
@@ -179,7 +179,7 @@ export default function App() {
       const savedAnggota = localStorage.getItem('ositara_anggota') || localStorage.getItem('anggotaList');
       if (savedAnggota) setAnggotaList(JSON.parse(savedAnggota));
 
-      const savedPendaftaran = localStorage.getItem('pendaftaranList');
+      const savedPendaftaran = localStorage.getItem('ositara_pendaftaran') || localStorage.getItem('pendaftaranList');
       if (savedPendaftaran) setPendaftaranList(JSON.parse(savedPendaftaran));
     } catch (e) {
       console.error('Gagal merefresh state global:', e);
@@ -191,6 +191,7 @@ export default function App() {
     window.addEventListener('ositara_proposal_updated', handleGlobalSync);
     window.addEventListener('ositara_proker_updated', handleGlobalSync);
     window.addEventListener('ositara_keuangan_updated', handleGlobalSync);
+    window.addEventListener('ositara_pendaftaran_updated', handleGlobalSync);
 
     const interval = setInterval(handleGlobalSync, 1000);
 
@@ -199,6 +200,7 @@ export default function App() {
       window.removeEventListener('ositara_proposal_updated', handleGlobalSync);
       window.removeEventListener('ositara_proker_updated', handleGlobalSync);
       window.removeEventListener('ositara_keuangan_updated', handleGlobalSync);
+      window.removeEventListener('ositara_pendaftaran_updated', handleGlobalSync);
       clearInterval(interval);
     };
   }, [handleGlobalSync]);
@@ -214,7 +216,7 @@ export default function App() {
           localStorage.setItem('ositara_kegiatan', JSON.stringify(data));
           localStorage.setItem('kegiatanList', JSON.stringify(data));
         }
-      } catch (err) {
+      } catch {
         console.warn('Backend API /events tidak merespons. Menggunakan LocalStorage.');
       }
     };
@@ -233,7 +235,7 @@ export default function App() {
           localStorage.setItem('ositara_proposal', JSON.stringify(data));
           localStorage.setItem('proposals', JSON.stringify(data));
         }
-      } catch (err) {
+      } catch {
         console.warn('Backend API /proposals tidak merespons. Menggunakan LocalStorage.');
       }
     };
@@ -251,6 +253,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('pendaftaranList', JSON.stringify(pendaftaranList));
+    localStorage.setItem('ositara_pendaftaran', JSON.stringify(pendaftaranList));
   }, [pendaftaranList]);
 
   useEffect(() => {
@@ -268,7 +271,13 @@ export default function App() {
   }, [proposals]);
 
   const handleDaftarKegiatan = (dataPendaftaran) => {
-    setPendaftaranList((prev) => [dataPendaftaran, ...prev]);
+    setPendaftaranList((prev) => {
+      const updated = [dataPendaftaran, ...prev];
+      localStorage.setItem('pendaftaranList', JSON.stringify(updated));
+      localStorage.setItem('ositara_pendaftaran', JSON.stringify(updated));
+      window.dispatchEvent(new Event('ositara_pendaftaran_updated'));
+      return updated;
+    });
   };
 
   const handleUpdateStatusProposal = (id, newStatus, catatan = '') => {

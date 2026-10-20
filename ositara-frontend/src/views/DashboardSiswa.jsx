@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import logoOsitara from '../assets/LOGO OSITARA.png';
 
-// --- DEKLARASI SVG / ICON DI LUAR KOMPONEN UTAMA (Agar tidak kena error static-components) ---
+// --- DEKLARASI SVG / ICON DI LUAR KOMPONEN UTAMA ---
 function Icon({ type }) {
   const icons = {
     beranda: (
@@ -34,27 +34,50 @@ const getInitialData = (key, fallback) => {
   }
 };
 
+const generateUniqueId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'id-' + performance.now().toString(36) + '-' + Math.random().toString(36).substring(2, 9);
+};
+
 export default function DashboardSiswa({ user, onLogout }) {
   const [activeMenu, setActiveMenu] = useState('kegiatan');
   const [kegiatanList, setKegiatanList] = useState(() => getInitialData('ositara_kegiatan', []));
-  const [pendaftaranList, setPendaftaranList] = useState(() => getInitialData('pendaftaranList', []));
+  const [pendaftaranList, setPendaftaranList] = useState(() => {
+    const primary = getInitialData('ositara_pendaftaran', null);
+    const secondary = getInitialData('pendaftaranList', []);
+    return primary || secondary;
+  });
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('ositara_siswa_avatar') || null);
 
-  // Sync Data Real-time
-  useEffect(() => {
-    const handleSync = () => {
-      setKegiatanList(getInitialData('ositara_kegiatan', []));
-      setPendaftaranList(getInitialData('pendaftaranList', []));
-    };
+  // State Modal Form Pendaftaran
+  const [selectedKegiatan, setSelectedKegiatan] = useState(null);
+  const [nisInput, setNisInput] = useState('');
+  const [kelasInput, setKelasInput] = useState('');
+  const [catatanInput, setCatatanInput] = useState('');
 
+  // Sync Data Real-time
+  const handleSync = useCallback(() => {
+    setKegiatanList(getInitialData('ositara_kegiatan', []));
+    const savedPendaftaran = getInitialData('ositara_pendaftaran', null) || getInitialData('pendaftaranList', []);
+    setPendaftaranList(savedPendaftaran);
+  }, []);
+
+  useEffect(() => {
     window.addEventListener('storage', handleSync);
+    window.addEventListener('ositara_kegiatan_updated', handleSync);
+    window.addEventListener('ositara_pendaftaran_updated', handleSync);
+
     const interval = setInterval(handleSync, 1000);
 
     return () => {
       window.removeEventListener('storage', handleSync);
+      window.removeEventListener('ositara_kegiatan_updated', handleSync);
+      window.removeEventListener('ositara_pendaftaran_updated', handleSync);
       clearInterval(interval);
     };
-  }, []);
+  }, [handleSync]);
 
   // Upload Avatar
   const handleUploadAvatar = (e) => {
@@ -69,11 +92,13 @@ export default function DashboardSiswa({ user, onLogout }) {
     }
   };
 
-  // Handler Pendaftaran Kegiatan
-  const handleDaftar = (kegiatan) => {
-    const namaSiswa = user?.nama || user?.name || 'Siswa';
+  const namaUser = user?.nama || user?.name || user?.username || 'Siswa OSITARA';
+  const inisialNama = namaUser.charAt(0).toUpperCase();
+
+  // Buka Modal Form Pendaftaran
+  const handleOpenDaftar = (kegiatan) => {
     const isAlreadyRegistered = pendaftaranList.some(
-      (p) => p.kegiatanId === kegiatan.id && p.namaSiswa === namaSiswa
+      (p) => p.kegiatanId === kegiatan.id && (p.namaSiswa === namaUser || p.nama === namaUser)
     );
 
     if (isAlreadyRegistered) {
@@ -81,26 +106,49 @@ export default function DashboardSiswa({ user, onLogout }) {
       return;
     }
 
+    setSelectedKegiatan(kegiatan);
+  };
+
+  // Submit Form Pendaftaran
+  const handleSubmitPendaftaran = (e) => {
+    e.preventDefault();
+    if (!nisInput.trim() || !kelasInput.trim()) {
+      alert('Mohon lengkapi NIS dan Kelas!');
+      return;
+    }
+
     const pendaftaranBaru = {
-      id: String(Date.now() + Math.random()),
-      kegiatanId: kegiatan.id,
-      namaKegiatan: kegiatan.namaKegiatan || kegiatan.nama,
-      tanggal: kegiatan.tanggal,
-      namaSiswa: namaSiswa,
+      id: generateUniqueId(),
+      kegiatanId: selectedKegiatan.id,
+      namaKegiatan: selectedKegiatan.namaKegiatan || selectedKegiatan.nama,
+      tanggal: selectedKegiatan.tanggal,
+      namaSiswa: namaUser,
+      nama: namaUser,
+      nis: nisInput.trim(),
+      kelas: kelasInput.trim(),
+      catatan: catatanInput.trim() || '-', // <--- DISIMPANKAN DENGAN PROPERTY 'catatan'
       status: 'Terdaftar',
       tanggalDaftar: new Date().toLocaleDateString('id-ID')
     };
 
     const updated = [pendaftaranBaru, ...pendaftaranList];
     setPendaftaranList(updated);
+
     localStorage.setItem('pendaftaranList', JSON.stringify(updated));
-    alert(`Berhasil mendaftar kegiatan "${kegiatan.namaKegiatan || kegiatan.nama}"!`);
+    localStorage.setItem('ositara_pendaftaran', JSON.stringify(updated));
+
+    // TRIGER EVENT SINKRONISASI KE PENGURUS & PEMBINA
+    window.dispatchEvent(new Event('ositara_pendaftaran_updated'));
+
+    // Reset Form
+    setSelectedKegiatan(null);
+    setNisInput('');
+    setKelasInput('');
+    setCatatanInput('');
+
+    alert(`Berhasil mendaftar kegiatan "${selectedKegiatan.namaKegiatan || selectedKegiatan.nama}"!`);
   };
 
-  const namaUser = user?.nama || user?.name || 'Siswa OSITARA';
-  const inisialNama = namaUser.charAt(0).toUpperCase();
-
-  // MENGGUNAKAN STRING ID UNTUK ICON (Bukan JSX Langsung)
   const menuList = [
     { id: 'beranda', label: 'Beranda', icon: 'beranda' },
     { id: 'kegiatan', label: 'Daftar Kegiatan', icon: 'kegiatan' },
@@ -189,7 +237,7 @@ export default function DashboardSiswa({ user, onLogout }) {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {kegiatanList.map((item) => {
                   const isRegistered = pendaftaranList.some(
-                    (p) => p.kegiatanId === item.id && p.namaSiswa === (user?.nama || user?.name || 'Siswa')
+                    (p) => p.kegiatanId === item.id && (p.namaSiswa === namaUser || p.nama === namaUser)
                   );
 
                   return (
@@ -208,10 +256,10 @@ export default function DashboardSiswa({ user, onLogout }) {
                         <span className="text-xs font-semibold text-slate-600">Tanggal: {item.tanggal}</span>
                         <button
                           disabled={isRegistered}
-                          onClick={() => handleDaftar(item)}
+                          onClick={() => handleOpenDaftar(item)}
                           className={`px-4 py-2 font-bold text-xs rounded-xl transition shadow-sm cursor-pointer ${
                             isRegistered
-                              ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                              ? 'bg-emerald-100 text-emerald-700 font-bold cursor-not-allowed border border-emerald-300'
                               : 'bg-[#FFB800] hover:bg-[#e0a200] text-slate-900'
                           }`}
                         >
@@ -234,24 +282,30 @@ export default function DashboardSiswa({ user, onLogout }) {
               <thead>
                 <tr className="border-b border-slate-200 text-slate-700 font-bold bg-[#F2F4F7]">
                   <th className="py-3.5 px-6">Nama Kegiatan</th>
+                  <th className="py-3.5 px-6">NIS / Kelas</th>
                   <th className="py-3.5 px-6">Tanggal Pelaksanaan</th>
                   <th className="py-3.5 px-6">Tanggal Mendaftar</th>
                   <th className="py-3.5 px-6 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {pendaftaranList.filter((p) => p.namaSiswa === (user?.nama || user?.name || 'Siswa')).length === 0 ? (
-                  <tr><td colSpan="4" className="py-8 text-center text-slate-400">Kamu belum mendaftar kegiatan apapun.</td></tr>
+                {pendaftaranList.filter((p) => p.namaSiswa === namaUser || p.nama === namaUser).length === 0 ? (
+                  <tr><td colSpan="5" className="py-8 text-center text-slate-400">Kamu belum mendaftar kegiatan apapun.</td></tr>
                 ) : (
                   pendaftaranList
-                    .filter((p) => p.namaSiswa === (user?.nama || user?.name || 'Siswa'))
+                    .filter((p) => p.namaSiswa === namaUser || p.nama === namaUser)
                     .map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50 transition">
                         <td className="py-3.5 px-6 font-bold text-slate-800">{item.namaKegiatan}</td>
+                        <td className="py-3.5 px-6 text-slate-600 font-medium">{item.nis || '-'} / {item.kelas || '-'}</td>
                         <td className="py-3.5 px-6 text-slate-600 font-semibold">{item.tanggal}</td>
                         <td className="py-3.5 px-6 text-slate-500">{item.tanggalDaftar || '-'}</td>
                         <td className="py-3.5 px-6 text-center">
-                          <span className="px-3 py-1 bg-emerald-100 text-emerald-700 border border-emerald-300 font-bold text-xs rounded-full inline-block">
+                          <span className={`px-3 py-1 font-bold text-xs rounded-full inline-block ${
+                            item.status === 'Diterima' ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' :
+                            item.status === 'Ditolak' ? 'bg-rose-100 text-rose-700 border border-rose-300' :
+                            'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                          }`}>
                             {item.status || 'Terdaftar'}
                           </span>
                         </td>
@@ -263,6 +317,71 @@ export default function DashboardSiswa({ user, onLogout }) {
           </div>
         )}
       </main>
+
+      {/* MODAL FORM PENDAFTARAN */}
+      {selectedKegiatan && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-xl border border-slate-200">
+            <h3 className="text-xl font-bold text-[#2158B8] mb-1">Form Pendaftaran Kegiatan</h3>
+            <p className="text-xs font-semibold text-slate-500 mb-4">
+              Kegiatan: <span className="font-bold text-slate-800">{selectedKegiatan.namaKegiatan || selectedKegiatan.nama}</span>
+            </p>
+
+            <form onSubmit={handleSubmitPendaftaran} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#2158B8] mb-1">NISN / NIS</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: 242510076"
+                  value={nisInput}
+                  onChange={(e) => setNisInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-300 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#2158B8]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#2158B8] mb-1">Kelas</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Contoh: XI PPLG 4"
+                  value={kelasInput}
+                  onChange={(e) => setKelasInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-300 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#2158B8]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#2158B8] mb-1">Catatan (Opsional)</label>
+                <textarea
+                  rows="2"
+                  placeholder="Tulis catatan jika ada..."
+                  value={catatanInput}
+                  onChange={(e) => setCatatanInput(e.target.value)}
+                  className="w-full p-3 rounded-2xl border border-slate-300 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#2158B8]"
+                />
+              </div>
+
+              <div className="flex space-x-2 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-[#FFB800] text-slate-900 font-bold text-xs rounded-2xl hover:bg-[#e0a200] transition cursor-pointer shadow-sm"
+                >
+                  Kirim Pendaftaran
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedKegiatan(null)}
+                  className="py-3 px-4 bg-slate-200 text-slate-600 font-bold text-xs rounded-2xl hover:bg-slate-300 transition cursor-pointer"
+                >
+                  Batal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
