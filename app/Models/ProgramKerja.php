@@ -15,5 +15,13 @@ class ProgramKerja extends Model
         'nama_proker',
         'divisi',
         'target',
+        'deskripsi',
+        'status',
     ];
+
+    // Relasi 1 Kegiatan Memiliki Banyak Pendaftar
+    public function pendaftar()
+    {
+        return $this->hasMany(PendaftaranEvent::class, 'event_id');
+    }
 }

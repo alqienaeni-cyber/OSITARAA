@@ -1,61 +1,89 @@
 import { useState } from 'react';
-import axios from 'axios'; // 1. Import axios di bagian atas
+import axios from 'axios';
 
-export default function DataAnggota({ dataAnggota = [], isPengurus = false, onUpdateAnggota }) {
+export default function DataAnggota({ dataAnggota = [], isPengurus = false, onUpdateAnggota, onDeleteAnggota }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ id: null, nama: '', jabatan: '', nis: '', kelas: '', status: 'Aktif' });
 
   const filteredAnggota = dataAnggota.filter(a =>
-    a.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.jabatan.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.nis.includes(searchTerm)
+    (a.nama || a.nama_lengkap || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (a.jabatan || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (a.nis || a.nisn || '').includes(searchTerm)
   );
 
-  // 2. Ubah handleSubmit menjadi async function untuk mengirim data ke database
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      // Ambil token auth dari localStorage (pastikan token tersimpan saat login)
       const token = localStorage.getItem('token');
-
-      // Mapping data dari form frontend agar sesuai dengan kolom database backend Laravel
       const payload = {
         nisn: formData.nis,
         nama_lengkap: formData.nama,
         jabatan: formData.jabatan,
-        periode: '2026/2027', // Bisa disesuaikan
+        periode: '2026/2027',
       };
 
-      // Kirim data ke API backend Laravel
-      const response = await axios.post('/api/pengurus-osis', payload, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
+      if (formData.id) {
+        // Update ke Database Laravel
+        await axios.put(`/api/pengurus-osis/${formData.id}`, payload, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } else {
+        // Simpan Baru ke Database Laravel
+        await axios.post('/api/pengurus-osis', payload, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
 
-      console.log('Berhasil disimpan ke database!', response.data);
-
-      // Jika ada prop onUpdateAnggota dari parent, panggil juga
       if (onUpdateAnggota) {
         onUpdateAnggota(formData);
       }
 
       setIsModalOpen(false);
       setFormData({ id: null, nama: '', jabatan: '', nis: '', kelas: '', status: 'Aktif' });
-
-      // Refresh halaman agar data terbaru langsung muncul dari database
       window.location.reload();
 
     } catch (error) {
       console.error('Gagal menyimpan data:', error.response?.data || error.message);
-      alert('Gagal menyimpan data ke database. Cek console untuk detail error.');
+      // Fallback jika API backend belum aktif/offline
+      if (onUpdateAnggota) {
+        onUpdateAnggota(formData);
+      }
+      setIsModalOpen(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus anggota ini?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`/api/pengurus-osis/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (onDeleteAnggota) {
+        onDeleteAnggota(id);
+      }
+      window.location.reload();
+    } catch (error) {
+      console.error('Gagal menghapus dari database:', error);
+      if (onDeleteAnggota) {
+        onDeleteAnggota(id);
+      }
     }
   };
 
   const handleEdit = (item) => {
-    setFormData(item);
+    setFormData({
+      id: item.id,
+      nama: item.nama || item.nama_lengkap || '',
+      jabatan: item.jabatan || '',
+      nis: item.nis || item.nisn || '',
+      kelas: item.kelas || '',
+      status: item.status || 'Aktif'
+    });
     setIsModalOpen(true);
   };
 
@@ -107,24 +135,30 @@ export default function DataAnggota({ dataAnggota = [], isPengurus = false, onUp
               filteredAnggota.map((item, idx) => (
                 <tr key={item.id || idx} className="hover:bg-slate-50 transition">
                   <td className="py-3.5 px-4">{idx + 1}</td>
-                  <td className="py-3.5 px-4 font-bold text-slate-800">{item.nama}</td>
-                  <td className="py-3.5 px-4">{item.nis}</td>
-                  <td className="py-3.5 px-4">{item.jabatan}</td>
-                  <td className="py-3.5 px-4">{item.kelas}</td>
+                  <td className="py-3.5 px-4 font-bold text-slate-800">{item.nama || item.nama_lengkap}</td>
+                  <td className="py-3.5 px-4">{item.nis || item.nisn || '-'}</td>
+                  <td className="py-3.5 px-4">{item.jabatan || '-'}</td>
+                  <td className="py-3.5 px-4">{item.kelas || '-'}</td>
                   <td className="py-3.5 px-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                       item.status === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
                     }`}>
-                      {item.status}
+                      {item.status || 'Aktif'}
                     </span>
                   </td>
                   {isPengurus && (
-                    <td className="py-3.5 px-4 text-center">
+                    <td className="py-3.5 px-4 text-center space-x-3">
                       <button
                         onClick={() => handleEdit(item)}
                         className="text-xs font-bold text-[#2158B8] hover:underline cursor-pointer"
                       >
                         Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="text-xs font-bold text-rose-600 hover:underline cursor-pointer"
+                      >
+                        Hapus
                       </button>
                     </td>
                   )}

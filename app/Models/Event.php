@@ -9,11 +9,25 @@ class Event extends Model
 {
     use HasFactory;
 
-    protected $table = 'events';
+    // Menentukan nama tabel asli di database phpMyAdmin
+    protected $table = 'program_kerja';
 
     protected $fillable = [
-        'nama_kegiatan',
-        'tanggal_pelaksanaan',
+        'nama_event',
+        'nama_proker',
+        'tanggal',
         'deskripsi',
+        'lokasi',
+        'divisi',
+        'target',
+        'status',
     ];
+
+    /**
+     * Relasi ke pendaftaran event
+     */
+    public function pendaftaran()
+    {
+        return $this->hasMany(PendaftaranEvent::class, 'event_id');
+    }
 }

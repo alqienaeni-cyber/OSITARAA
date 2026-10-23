@@ -1,0 +1,59 @@
+# ==========================================
+# LAPORAN KEUANGAN & KAS OSIS MODULE
+# ==========================================
+
+### 1. Lihat Ringkasan Saldo & Daftar Transaksi Kas
+GET http://127.0.0.1:8000/api/keuangan
+Accept: application/json
+
+###
+
+### 2. Catat Transaksi Pemasukan Kas Baru
+POST http://127.0.0.1:8000/api/keuangan
+Content-Type: application/json
+Accept: application/json
+
+{
+    "keterangan": "Dana Kas Sekolah",
+    "jenis": "Pemasukan",
+    "nominal": 100000,
+    "sumber": "Bendahara Sekolah"
+}
+
+###
+
+### 3. Catat Transaksi Pengeluaran Kas Baru
+POST http://127.0.0.1:8000/api/keuangan
+Content-Type: application/json
+Accept: application/json
+
+{
+    "keterangan": "Beli Amplop",
+    "jenis": "Pengeluaran",
+    "nominal": 20000,
+    "sumber": "Kas OSIS"
+}
+
+###
+
+### 4. Lihat Detail Transaksi Berdasarkan ID
+GET http://127.0.0.1:8000/api/keuangan/1
+Accept: application/json
+
+###
+
+### 5. Perbarui Transaksi Kas
+PUT http://127.0.0.1:8000/api/keuangan/1
+Content-Type: application/json
+Accept: application/json
+
+{
+    "keterangan": "Beli Amplop dan Stopmap",
+    "nominal": 25000
+}
+
+###
+
+### 6. Hapus Transaksi Kas
+DELETE http://127.0.0.1:8000/api/keuangan/1
+Accept: application/json

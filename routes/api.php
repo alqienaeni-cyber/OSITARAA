@@ -28,15 +28,16 @@ Route::get('/health', [HealthController::class, 'check']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-// Events / Kegiatan OSIS
+// Events / Kelola Kegiatan OSIS
 Route::get('/events', [EventController::class, 'index']);
 Route::get('/events/{id}', [EventController::class, 'show']);
 Route::post('/events', [EventController::class, 'store']);
+Route::get('/events/{id}/peserta', [EventController::class, 'getPeserta']);
 
-// Pendaftaran Event (Siswa)
-Route::post('/pendaftaran-event', [EventController::class, 'storeRegistration']);
+// Pendaftaran Event Siswa (Menggunakan EventController & Model EventRegist)
 Route::get('/pendaftaran-event', [EventController::class, 'getRegistrations']);
-Route::get('/pendaftaran-event/user/{userId}', [EventController::class, 'getUserRegistrations']);
+Route::post('/pendaftaran-event', [EventController::class, 'storeRegistration']);
+Route::post('/events/{id}/register', [EventController::class, 'storeRegistration']); // Kompatibilitas endpoint register
 
 // Proposals (Public read & store - Mendukung /proposals dan /proposal-kegiatan)
 Route::get('/proposals', [ProposalKegiatanController::class, 'index']);
@@ -47,16 +48,16 @@ Route::get('/proposal-kegiatan', [ProposalKegiatanController::class, 'index']);
 Route::get('/proposal-kegiatan/{id}', [ProposalKegiatanController::class, 'show']);
 Route::post('/proposal-kegiatan', [ProposalKegiatanController::class, 'store']);
 
-// Program Kerja (Public read & store untuk testing)
+// Program Kerja OSIS (Public read & store untuk testing)
 Route::get('/program-kerja', [ProgramKerjaController::class, 'index']);
 Route::get('/program-kerja/{id}', [ProgramKerjaController::class, 'show']);
 Route::post('/program-kerja', [ProgramKerjaController::class, 'store']);
 
-// Laporan Keuangan (Public read & store untuk testing /laporan-keuangan dan /keuangan)
+// Laporan Keuangan (Public read & store /laporan-keuangan dan /keuangan)
 Route::get('/keuangan', [FinancialReportController::class, 'index']);
 Route::post('/keuangan', [FinancialReportController::class, 'store']);
 Route::get('/laporan-keuangan', [FinancialReportController::class, 'index']);
-Route::post('/laporan-keuangan', [FinancialReportController::class, 'store']); // <-- Ditambahkan ke public
+Route::post('/laporan-keuangan', [FinancialReportController::class, 'store']);
 
 // Data Anggota & Pengurus OSIS (Public read & store untuk testing)
 Route::get('/pengurus-osis', [PengurusOsisController::class, 'index']);
@@ -65,7 +66,7 @@ Route::post('/pengurus-osis', [PengurusOsisController::class, 'store']);
 
 Route::get('/data-anggota', [DataAnggotaController::class, 'index']);
 
-// Dashboard Info
+// Dashboard Info Stats
 Route::get('/dashboard/stats', [DashboardController::class, 'index']);
 
 
@@ -104,7 +105,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/data-anggota/{id}', [DataAnggotaController::class, 'update']);
     Route::delete('/data-anggota/{id}', [DataAnggotaController::class, 'destroy']);
 
-    // CRUD Laporan Keuangan (Update & Delete / tambahan jika diperlukan)
+    // CRUD Laporan Keuangan
     Route::put('/keuangan/{id}', [FinancialReportController::class, 'update']);
     Route::delete('/keuangan/{id}', [FinancialReportController::class, 'destroy']);
     Route::put('/laporan-keuangan/{id}', [FinancialReportController::class, 'update']);

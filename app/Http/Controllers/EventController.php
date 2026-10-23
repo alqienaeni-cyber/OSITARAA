@@ -2,133 +2,156 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Event;
+use App\Models\EventRegist;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class EventController extends Controller
 {
-    // 1. Ambil Semua Data Kegiatan
+    /**
+     * Menampilkan semua daftar kegiatan OSIS
+     */
     public function index()
     {
-        try {
-            // Mengambil data dari tabel events jika sudah ada
-            $events = DB::table('events')->latest()->get();
+        $events = Event::latest()->get();
 
-            return response()->json([
-                'success' => true,
-                'data'    => $events
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'message' => 'Berhasil mengambil daftar kegiatan',
+            'data'    => $events
+        ], 200);
     }
 
-    // 2. Simpan Kegiatan Baru (Kelola Kegiatan)
+    /**
+     * Menambah kegiatan baru (Form Kelola Kegiatan)
+     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'nama_kegiatan'       => 'required|string|max:255',
-            'tanggal_pelaksanaan' => 'required|date',
-            'deskripsi'           => 'nullable|string',
+            'nama_event' => 'required|string|max:255',
+            'tanggal'    => 'required|date',
+            'deskripsi'  => 'nullable|string',
+            'status'     => 'nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validasi kegiatan gagal',
+                'message' => 'Validasi gagal',
                 'errors'  => $validator->errors()
             ], 422);
         }
 
-        try {
-            $eventId = DB::table('events')->insertGetId([
-                'nama_kegiatan'       => $request->nama_kegiatan,
-                'tanggal_pelaksanaan' => $request->tanggal_pelaksanaan,
-                'deskripsi'           => $request->deskripsi ?? null,
-                'created_at'          => now(),
-                'updated_at'          => now(),
-            ]);
+        $event = Event::create([
+            'nama_event' => $request->nama_event,
+            'tanggal'    => $request->tanggal,
+            'deskripsi'  => $request->deskripsi ?? 'Tidak ada deskripsi.',
+            'status'     => $request->status ?? 'Mendatang',
+        ]);
 
-            $event = DB::table('events')->find($eventId);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Kegiatan berhasil ditambahkan!',
-                'data'    => $event
-            ], 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'message' => 'Kegiatan berhasil disimpan!',
+            'data'    => $event
+        ], 201);
     }
 
-    // 3. Simpan Pendaftaran Peserta Event
+    /**
+     * Detail satu kegiatan
+     */
+    public function show($id)
+    {
+        $event = Event::find($id);
+
+        if (!$event) {
+            return response()->json(['success' => false, 'message' => 'Kegiatan tidak ditemukan'], 404);
+        }
+
+        return response()->json(['success' => true, 'data' => $event], 200);
+    }
+
+    /**
+     * Pendaftaran Siswa ke Event (Tabel pendaftaran_event)
+     */
     public function storeRegistration(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'event_id'            => 'required|integer',
-            'nama_siswa'          => 'required|string|max:255',
-            'kelas'               => 'required|string|max:50',
-            'tanggal_pelaksanaan' => 'required|date',
-            'alasan_mengikuti'    => 'required|string',
+            'event_id' => 'required|exists:program_kerja,id',
+            'nisn'     => 'required|string|max:20',
+            'kelas'    => 'required|string|max:50',
+            'catatan'  => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validasi pendaftaran gagal',
+                'message' => 'Validasi gagal',
                 'errors'  => $validator->errors()
             ], 422);
         }
 
-        try {
-            $registrationId = DB::table('pendaftaran_event')->insertGetId([
-                'event_id'            => $request->event_id,
-                'user_id'             => $request->user_id ?? null,
-                'nama_siswa'          => $request->nama_siswa,
-                'kelas'               => $request->kelas,
-                'tanggal_pelaksanaan' => $request->tanggal_pelaksanaan,
-                'alasan_mengikuti'    => $request->alasan_mengikuti,
-                'created_at'          => now(),
-                'updated_at'          => now(),
-            ]);
+        $registration = EventRegist::create([
+            'event_id'           => $request->event_id,
+            'user_id'            => Auth::check() ? Auth::id() : null,
+            'kode_pendaftaran'   => 'REG-' . strtoupper(Str::random(6)),
+            'nisn'               => $request->nisn,
+            'nama_siswa'         => Auth::check() ? Auth::user()->name : ($request->nama_siswa ?? 'Siswa'),
+            'kelas'              => $request->kelas,
+            'catatan'            => $request->catatan ?? null,
+            'status_pendaftaran' => 'Terdaftar',
+        ]);
 
-            $registration = DB::table('pendaftaran_event')->find($registrationId);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Berhasil mendaftar kegiatan!',
-                'data'    => $registration
-            ], 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'message' => 'Pendaftaran event berhasil disimpan!',
+            'data'    => $registration
+        ], 201);
     }
 
-    // 4. Ambil Daftar Semua Pendaftar
+    /**
+     * Ambil seluruh daftar pendaftar event
+     */
     public function getRegistrations()
     {
-        try {
-            $registrations = DB::table('pendaftaran_event')->latest()->get();
+        $registrations = EventRegist::with('event')->latest()->get();
 
-            return response()->json([
-                'success' => true,
-                'data'    => $registrations
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+        return response()->json([
+            'success' => true,
+            'message' => 'Daftar pendaftar event berhasil diambil',
+            'data'    => $registrations
+        ], 200);
+    }
+
+    /**
+     * Ambil daftar peserta untuk 1 event tertentu (Modal Peserta)
+     */
+    public function getPeserta($id)
+    {
+        $peserta = EventRegist::where('event_id', $id)->latest()->get();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Berhasil mengambil daftar peserta',
+            'data'    => $peserta
+        ], 200);
+    }
+
+    /**
+     * Hapus Kegiatan
+     */
+    public function destroy($id)
+    {
+        $event = Event::find($id);
+
+        if (!$event) {
+            return response()->json(['success' => false, 'message' => 'Kegiatan tidak ditemukan'], 404);
         }
+
+        $event->delete();
+
+        return response()->json(['success' => true, 'message' => 'Kegiatan berhasil dihapus!'], 200);
     }
 }

@@ -7,8 +7,8 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Nomor WhatsApp Admin / Pembina OSIS
-  const whatsappAdminNumber = "628";
+  // Nomor WhatsApp Admin
+  const whatsappAdminNumber = "6283853924997";
 
   const handleForgotPassword = () => {
     const message = encodeURIComponent("Halo Admin OSITARA, saya lupa password akun saya. Mohon bantuannya untuk melakukan reset password.");

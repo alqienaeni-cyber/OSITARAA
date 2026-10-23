@@ -1,0 +1,48 @@
+# ===================================================
+# KHUSUS MODUL PENDAFTARAN EVENT SISWA (TERPISAH)
+# ===================================================
+
+### 1. Lihat Seluruh Data Pendaftar Event (Daftar Rekap Pendaftaran)
+GET http://127.0.0.1:8000/api/pendaftaran-event
+Accept: application/json
+
+###
+
+### 2. Simpan Pendaftaran Siswa Baru (Form Pendaftaran Event)
+POST http://127.0.0.1:8000/api/pendaftaran-event
+Content-Type: application/json
+Accept: application/json
+
+{
+    "event_id": 1,
+    "nama_siswa": "Manis.",
+    "nisn": "234567890",
+    "kelas": "XI RPL 2",
+    "catatan": "Ingin menambah pengalaman dalam event sekolah"
+}
+
+###
+
+### 3. Pendaftaran Siswa via Endpoint Alternative (Kompatibilitas Form Frontend)
+POST http://127.0.0.1:8000/api/events/1/register
+Content-Type: application/json
+Accept: application/json
+
+{
+    "nama_siswa": "Naura Lutfiah",
+    "nisn": "123456789",
+    "kelas": "XI RPL 1",
+    "catatan": "Berpartisipasi aktif dalam kegiatan OSIS"
+}
+
+###
+
+### 4. Lihat Daftar Peserta Terdaftar Khusus untuk Event Tertentu (Pop-up Modal Peserta)
+GET http://127.0.0.1:8000/api/events/1/peserta
+Accept: application/json
+
+###
+
+### 5. Hapus / Batalkan Data Pendaftar Event Berdasarkan ID
+DELETE http://127.0.0.1:8000/api/pendaftaran-event/1
+Accept: application/json

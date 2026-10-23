@@ -1,0 +1,34 @@
+# ==========================================
+# AUTHENTICATION & SYSTEM HEALTH
+# ==========================================
+
+### 1. Cek Server & Route Health Check
+GET http://127.0.0.1:8000/api/health
+Accept: application/json
+
+###
+
+### 2. Register Siswa Baru
+POST http://127.0.0.1:8000/api/register
+Content-Type: application/json
+Accept: application/json
+
+{
+    "name": "Salsabila",
+    "nisn": "0059998877",
+    "kelas": "XII RPL 1",
+    "email": "salsabila.baru@ositara.com",
+    "password": "password123"
+}
+
+###
+
+### 3. Login User / Siswa
+POST http://127.0.0.1:8000/api/login
+Content-Type: application/json
+Accept: application/json
+
+{
+    "email": "salsabila.baru@ositara.com",
+    "password": "password123"
+}

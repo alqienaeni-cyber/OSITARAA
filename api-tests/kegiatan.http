@@ -1,0 +1,53 @@
+# ==========================================
+# KELOLA KEGIATAN & PENDAFTARAN EVENT MODULE
+# ==========================================
+
+### 1. Lihat Daftar Agenda / Kegiatan OSIS
+GET http://127.0.0.1:8000/api/events
+Accept: application/json
+
+###
+
+### 2. Tambah Kegiatan Baru (Sesuai Form Kelola Kegiatan UI)
+POST http://127.0.0.1:8000/api/events
+Content-Type: application/json
+Accept: application/json
+
+{
+    "nama_event": "PPKM",
+    "tanggal": "2026-10-15",
+    "deskripsi": "Pekan Pelatihan Kreativitas Murid",
+    "status": "Mendatang"
+}
+
+###
+
+### 3. Lihat Detail Kegiatan Berdasarkan ID
+GET http://127.0.0.1:8000/api/events/1
+Accept: application/json
+
+###
+
+### 4. Pendaftaran Event (Sesuai Form Modal UI: NISN, Kelas, Catatan)
+POST http://127.0.0.1:8000/api/events/1/register
+Content-Type: application/json
+Accept: application/json
+
+{
+    "nama_siswa": "Manis.",
+    "nisn": "234567890",
+    "kelas": "xi rpl 2",
+    "catatan": "Ingin menambah pengalaman dalam organisasi"
+}
+
+###
+
+### 5. Lihat Peserta Terdaftar (Pop-up Modal UI "Peserta: PPKM")
+GET http://127.0.0.1:8000/api/events/1/peserta
+Accept: application/json
+
+###
+
+### 6. Hapus Kegiatan
+DELETE http://127.0.0.1:8000/api/events/1
+Accept: application/json

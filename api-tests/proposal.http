@@ -1,0 +1,46 @@
+# ==========================================
+# PROPOSAL KEGIATAN MODULE
+# ==========================================
+
+### 1. Lihat Semua Daftar Proposal
+GET http://127.0.0.1:8000/api/proposals
+Accept: application/json
+
+###
+
+### 2. Ajukan Proposal Kegiatan Baru
+POST http://127.0.0.1:8000/api/proposals
+Content-Type: application/json
+Accept: application/json
+
+{
+    "judul_proposal": "Lomba Classmeeting Semester Ganjil",
+    "kategori": "Kegiatan Siswa",
+    "anggaran": 2345678,
+    "pengaju": "Naura Lutfiah",
+    "deskripsi": "Kegiatan perlombaan antar kelas setelah ujian akhir semester."
+}
+
+###
+
+### 3. Lihat Detail Proposal Berdasarkan ID
+GET http://127.0.0.1:8000/api/proposals/1
+Accept: application/json
+
+###
+
+### 4. Perbarui Status & Catatan Proposal (Aksi Pembina)
+PATCH http://127.0.0.1:8000/api/proposals/1/status
+Content-Type: application/json
+Accept: application/json
+
+{
+    "status": "Disetujui",
+    "catatan_pembina": "Anggaran telah disetujui, harap lakukan koordinasi dengan bendahara."
+}
+
+###
+
+### 5. Hapus Proposal Kegiatan
+DELETE http://127.0.0.1:8000/api/proposals/1
+Accept: application/json

@@ -1,0 +1,45 @@
+# ==========================================
+# PENGURUS OSIS MODULE
+# ==========================================
+
+### 1. Lihat Semua Data Pengurus OSIS
+GET http://127.0.0.1:8000/api/pengurus-osis
+Accept: application/json
+
+###
+
+### 2. Tambah Data Pengurus OSIS Baru
+POST http://127.0.0.1:8000/api/pengurus-osis
+Content-Type: application/json
+Accept: application/json
+
+{
+    "nisn": "09876432",
+    "nama_lengkap": "K",
+    "jabatan": "Anggota",
+    "periode": "2026/2027"
+}
+
+###
+
+### 3. Lihat Detail Pengurus Berdasarkan ID
+GET http://127.0.0.1:8000/api/pengurus-osis/1
+Accept: application/json
+
+###
+
+### 4. Perbarui Data Pengurus OSIS
+PUT http://127.0.0.1:8000/api/pengurus-osis/1
+Content-Type: application/json
+Accept: application/json
+
+{
+    "nama_lengkap": "Kamilia",
+    "jabatan": "Ketua Sekbid 1"
+}
+
+###
+
+### 5. Hapus Data Pengurus OSIS
+DELETE http://127.0.0.1:8000/api/pengurus-osis/1
+Accept: application/json

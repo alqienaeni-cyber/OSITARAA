@@ -1,0 +1,101 @@
+# ===================================================
+# MENIKMATI SATU TABEL MYSQL (program_kerja)
+# HANYA PROGRAM KERJA & KELOLA KEGIATAN OSIS
+# ===================================================
+
+### -------------------------------------------------
+### 1. MENU PROGRAM KERJA (is_event = 0, Read-Only / Internal OSIS)
+### -------------------------------------------------
+
+### Lihat Semua Program Kerja OSIS
+GET http://127.0.0.1:8000/api/program-kerja
+Accept: application/json
+
+###
+
+### Tambah Program Kerja OSIS Baru (Pengurus OSIS)
+POST http://127.0.0.1:8000/api/program-kerja
+Content-Type: application/json
+Accept: application/json
+
+{
+    "nama_proker": "Pentas Seni Budaya",
+    "divisi": "Sekbid Kesenian",
+    "target": "2026-10-25"
+}
+
+###
+
+### Detail Program Kerja Berdasarkan ID
+GET http://127.0.0.1:8000/api/program-kerja/1
+Accept: application/json
+
+###
+
+### Perbarui Program Kerja OSIS
+PUT http://127.0.0.1:8000/api/program-kerja/1
+Content-Type: application/json
+Accept: application/json
+
+{
+    "nama_proker": "Pentas Seni & Bazar Budaya",
+    "divisi": "Sekbid Kesenian",
+    "target": "2026-11-01"
+}
+
+###
+
+### Hapus Program Kerja
+DELETE http://127.0.0.1:8000/api/program-kerja/1
+Accept: application/json
+
+###
+
+
+### -------------------------------------------------
+### 2. MENU KELOLA KEGIATAN OSIS (is_event = 1, Agenda Acara)
+### -------------------------------------------------
+
+### Lihat Semua Agenda Kegiatan OSIS
+GET http://127.0.0.1:8000/api/events
+Accept: application/json
+
+###
+
+### Tambah Kegiatan / Event Baru (Form Kelola Kegiatan UI)
+POST http://127.0.0.1:8000/api/events
+Content-Type: application/json
+Accept: application/json
+
+{
+    "nama_event": "PPKM",
+    "tanggal": "2026-10-15",
+    "deskripsi": "Pekan Pelatihan Kreativitas Murid",
+    "status": "Mendatang"
+}
+
+###
+
+### Detail Agenda Kegiatan Berdasarkan ID
+GET http://127.0.0.1:8000/api/events/1
+Accept: application/json
+
+###
+
+### Perbarui Agenda Kegiatan OSIS
+PUT http://127.0.0.1:8000/api/events/1
+Content-Type: application/json
+Accept: application/json
+
+{
+    "nama_event": "PPKM (Pekan Pelatihan Kreativitas Murid)",
+    "tanggal": "2026-10-18",
+    "deskripsi": "Pekan Pelatihan Kreativitas Murid Terbuka",
+    "status": "Berlangsung"
+}
+
+###
+
+### Hapus Agenda Kegiatan OSIS
+DELETE http://127.0.0.1:8000/api/events/1
+Accept: application/json
