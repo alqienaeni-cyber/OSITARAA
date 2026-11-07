@@ -9,9 +9,10 @@ class ProposalKegiatan extends Model
 {
     use HasFactory;
 
-    // Tentukan nama tabel secara eksplisit
+    // Menghubungkan langsung ke nama tabel di phpMyAdmin
     protected $table = 'proposal_kegiatan';
 
+    // Mendaftarkan SELURUH kolom agar bisa diisi dari Controller/Form
     protected $fillable = [
         'judul_proposal',
         'kategori',
@@ -22,5 +23,17 @@ class ProposalKegiatan extends Model
         'file_proposal',
         'status',
         'catatan_pembina',
+        'catatan_revisi',
+        'catatan',
+        'user_id',
+    ];
+
+    /**
+     * Konversi tipe data otomatis
+     */
+    protected $casts = [
+        'anggaran' => 'double',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 }

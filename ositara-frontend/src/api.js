@@ -1,15 +1,16 @@
 import axios from 'axios';
 
-// Membuat koneksi utama ke Laravel
+// Membuat instance utama koneksi ke backend Laravel OSITARA
 const API = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api', // Alamat backend Laravel
+  baseURL: 'http://127.0.0.1:8000/api', // Alamat server backend Laravel
+  timeout: 10000, // Batas waktu maksimal request (10 detik)
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
 });
 
-// Menempelkan token otomatis jika user sudah login
+// Interceptor untuk menyisipkan token Bearer secara otomatis di setiap request
 API.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -19,6 +20,22 @@ API.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Interceptor untuk menangani respon error global (opsional tapi sangat membantu)
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      // Jika token kedaluwarsa atau tidak valid (Unauthorized)
+      if (error.response.status === 401) {
+        console.warn('Sesi habis atau token tidak valid. Silakan login ulang.');
+        // localStorage.removeItem('token');
+        // window.location.href = '/login';
+      }
+    }
     return Promise.reject(error);
   }
 );

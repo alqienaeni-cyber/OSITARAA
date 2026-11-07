@@ -3,133 +3,151 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProgramKerja;
-use App\Models\EventRegist; // <-- Sesuaikan dengan file app/Models/EventRegist.php
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
 
 class ProgramKerjaController extends Controller
 {
     /**
-     * Get Daftar Program Kerja (is_event = 0) -> Read Only / Internal
+     * Tampilkan semua data program kerja / kegiatan
      */
-    public function getProker()
+    public function index()
     {
-        $proker = ProgramKerja::where('is_event', 0)->latest()->get();
-
-        return response()->json([
-            'success' => true,
-            'data'    => $proker
-        ], 200);
-    }
-
-    /**
-     * Tambah Program Kerja Baru
-     */
-    public function storeProker(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'nama_proker' => 'required|string|max:255',
-            'divisi'      => 'required|string|max:100',
-            'target'      => 'required|string|max:100',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        try {
+            $data = ProgramKerja::orderBy('id', 'desc')->get();
+            return response()->json($data, 200);
+        } catch (\Exception $e) {
+            return response()->json([], 200);
         }
-
-        $proker = ProgramKerja::create([
-            'nama_proker' => $request->nama_proker,
-            'divisi'      => $request->divisi,
-            'target'      => $request->target,
-            'is_event'    => 0,
-        ]);
-
-        return response()->json(['success' => true, 'data' => $proker], 201);
     }
 
     /**
-     * Get Daftar Kegiatan / Event (is_event = 1) -> Untuk Diikuti Siswa
+     * Simpan data kegiatan / program kerja baru
      */
-    public function getEvents()
+    public function store(Request $request)
     {
-        $events = ProgramKerja::where('is_event', 1)->latest()->get();
+        try {
+            $isEvent = (int) $request->input('is_event', 0);
+            $namaProker = $request->input('nama_proker', $request->input('nama_kegiatan', $request->input('nama', 'Program Kerja')));
+            $sekbidInput = $request->input('sekbid', $request->input('divisi', 'Sekretaris'));
 
-        return response()->json([
-            'success' => true,
-            'data'    => $events
-        ], 200);
-    }
+            $payload = [
+                'nama_proker' => $namaProker,
+                'sekbid'      => $sekbidInput,
+                'target'      => $request->input('target', $request->input('tanggal', date('Y-m-d'))),
+                'is_event'    => $isEvent,
+            ];
 
-    /**
-     * Tambah Kegiatan / Event Baru (Form Kelola Kegiatan)
-     */
-    public function storeEvent(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'nama_event' => 'required|string|max:255',
-            'tanggal'    => 'required|date',
-            'deskripsi'  => 'nullable|string',
-        ]);
+            // LOGIKA ATURAN ISI KONTEN (KETUA VS SEKRETARIS)
+            if ($isEvent === 1) {
+                // Kegiatan (Sekretaris): Mengikuti input dari Frontend
+                if (Schema::hasColumn('program_kerja', 'status')) {
+                    $payload['status'] = $request->input('status', 'Mendatang');
+                }
+                if (Schema::hasColumn('program_kerja', 'deskripsi')) {
+                    $payload['deskripsi'] = $request->input('deskripsi', 'Tidak ada deskripsi');
+                }
+            } else {
+                // Program Kerja (Ketua): Diisi string khusus (bukan NULL)
+                if (Schema::hasColumn('program_kerja', 'status')) {
+                    $payload['status'] = 'Tidak ada status';
+                }
+                if (Schema::hasColumn('program_kerja', 'deskripsi')) {
+                    $payload['deskripsi'] = 'Tidak ada deskripsi';
+                }
+                if (Schema::hasColumn('program_kerja', 'periode')) {
+                    $payload['periode'] = $request->input('periode', 'Mingguan');
+                }
+            }
 
-        if ($validator->fails()) {
-            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            if (Schema::hasColumn('program_kerja', 'user_id')) {
+                $payload['user_id'] = (int) $request->input('user_id', 1);
+            }
+
+            $proker = ProgramKerja::create($payload);
+
+            return response()->json([
+                'success' => true,
+                'message' => $isEvent === 1 ? 'Kegiatan berhasil disimpan!' : 'Program kerja berhasil disimpan!',
+                'data'    => $proker
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan: ' . $e->getMessage()
+            ], 500);
         }
-
-        $event = ProgramKerja::create([
-            'nama_proker' => $request->nama_event,
-            'divisi'      => $request->divisi ?? 'Sekbid OSIS',
-            'target'      => $request->tanggal,
-            'deskripsi'   => $request->deskripsi ?? 'Tidak ada deskripsi',
-            'status'      => $request->status ?? 'Mendatang',
-            'is_event'    => 1,
-        ]);
-
-        return response()->json(['success' => true, 'data' => $event], 201);
     }
 
     /**
-     * Pendaftaran Siswa ke Kegiatan
+     * Perbarui data kegiatan / program kerja
      */
-    public function registerEvent(Request $request, $id)
+    public function update(Request $request, $id)
     {
-        $event = ProgramKerja::where('id', $id)->where('is_event', 1)->first();
+        try {
+            $proker = ProgramKerja::find($id);
 
-        if (!$event) {
-            return response()->json(['success' => false, 'message' => 'Kegiatan tidak ditemukan / bukan event terbuka'], 404);
+            if (!$proker) {
+                return response()->json(['success' => false, 'message' => 'Data tidak ditemukan'], 404);
+            }
+
+            $isEvent = (int) $request->input('is_event', $proker->is_event);
+            $namaProker = $request->input('nama_proker', $request->input('nama_kegiatan', $request->input('nama', $proker->nama_proker)));
+            $sekbidInput = $request->input('sekbid', $request->input('divisi', $proker->sekbid));
+
+            $payload = [
+                'nama_proker' => $namaProker,
+                'sekbid'      => $sekbidInput,
+                'target'      => $request->input('target', $request->input('tanggal', $proker->target)),
+                'is_event'    => $isEvent,
+            ];
+
+            if ($isEvent === 1) {
+                // Kegiatan (Sekretaris)
+                if (Schema::hasColumn('program_kerja', 'status')) {
+                    $payload['status'] = $request->input('status', $proker->status ?? 'Mendatang');
+                }
+                if (Schema::hasColumn('program_kerja', 'deskripsi')) {
+                    $payload['deskripsi'] = $request->input('deskripsi', $proker->deskripsi ?? 'Tidak ada deskripsi');
+                }
+            } else {
+                // Program Kerja (Ketua)
+                if (Schema::hasColumn('program_kerja', 'status')) {
+                    $payload['status'] = 'Tidak ada status';
+                }
+                if (Schema::hasColumn('program_kerja', 'deskripsi')) {
+                    $payload['deskripsi'] = 'Tidak ada deskripsi';
+                }
+                if (Schema::hasColumn('program_kerja', 'periode')) {
+                    $payload['periode'] = $request->input('periode', $proker->periode ?? 'Mingguan');
+                }
+            }
+
+            $proker->update($payload);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Data berhasil diperbarui!',
+                'data'    => $proker
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
-
-        $validator = Validator::make($request->all(), [
-            'nisn'  => 'required|string|max:20',
-            'kelas' => 'required|string|max:50',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
-        }
-
-        $pendaftaran = EventRegist::create([
-            'event_id'           => $event->id,
-            'user_id'            => Auth::check() ? Auth::id() : null,
-            'kode_pendaftaran'   => 'REG-' . strtoupper(Str::random(6)),
-            'nisn'               => $request->nisn,
-            'nama_siswa'         => Auth::check() ? Auth::user()->name : ($request->nama_siswa ?? 'Manis.'),
-            'kelas'              => $request->kelas,
-            'catatan'            => $request->catatan ?? null,
-            'status_pendaftaran' => 'Terdaftar',
-        ]);
-
-        return response()->json(['success' => true, 'data' => $pendaftaran], 201);
     }
 
     /**
-     * Get Daftar Peserta Terdaftar di Kegiatan
+     * Hapus data
      */
-    public function getPeserta($id)
+    public function destroy($id)
     {
-        $peserta = EventRegist::where('event_id', $id)->latest()->get();
-
-        return response()->json(['success' => true, 'data' => $peserta], 200);
+        try {
+            $proker = ProgramKerja::find($id);
+            if ($proker) {
+                $proker->delete();
+            }
+            return response()->json(['success' => true, 'message' => 'Berhasil dihapus'], 200);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
 }

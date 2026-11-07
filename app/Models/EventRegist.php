@@ -11,20 +11,22 @@ class EventRegist extends Model
 
     protected $table = 'pendaftaran_event';
 
+    // Jika id pada tabel MySQL berupa INT AUTO_INCREMENT:
+    public $incrementing = true;
+    protected $keyType = 'int';
+
     protected $fillable = [
+        'id',
         'event_id',
-        'user_id',
-        'kode_pendaftaran',
-        'nisn',
+        'kegiatan_id',
+        'nama_kegiatan',
         'nama_siswa',
+        'nisn',
+        'nis',
         'kelas',
         'catatan',
+        'status',
         'status_pendaftaran',
+        'tanggal_daftar'
     ];
-
-    // Relasi ke Model Event
-    public function event()
-    {
-        return $this->belongsTo(Event::class, 'event_id');
-    }
 }

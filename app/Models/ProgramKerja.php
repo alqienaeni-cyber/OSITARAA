@@ -12,16 +12,26 @@ class ProgramKerja extends Model
     protected $table = 'program_kerja';
 
     protected $fillable = [
+        'user_id',
         'nama_proker',
-        'divisi',
+        'sekbid',
+        'periode',
         'target',
         'deskripsi',
         'status',
+        'is_event',
     ];
 
-    // Relasi 1 Kegiatan Memiliki Banyak Pendaftar
+    protected $casts = [
+        'is_event' => 'integer',
+        'user_id'  => 'integer',
+    ];
+
+    /**
+     * Relasi ke Pendaftaran Event (jika is_event = 1)
+     */
     public function pendaftar()
     {
-        return $this->hasMany(PendaftaranEvent::class, 'event_id');
+        return $this->hasMany(PendaftaranEvent::class, 'event_id', 'id');
     }
 }

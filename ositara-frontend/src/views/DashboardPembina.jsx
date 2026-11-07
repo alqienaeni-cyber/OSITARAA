@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import logoOsitara from '../assets/LOGO OSITARA.png';
 
-// --- HELPER COMPONENT: ICON ---
+// HELPER COMPONENT: ICON
 function Icon({ type }) {
   const icons = {
     beranda: (
@@ -11,7 +11,7 @@ function Icon({ type }) {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     ),
     proker: (
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 022 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2H9z" />
     ),
     keuangan: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -24,16 +24,16 @@ function Icon({ type }) {
     ),
     download: (
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-    )
+    ),
   };
   return (
-    <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       {icons[type] || null}
     </svg>
   );
 }
 
-// --- HELPER UTILS ---
+// HELPER UTILS
 const formatRupiah = (number) => {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -47,7 +47,12 @@ const getProposalData = () => {
     const dataPrimary = localStorage.getItem('ositara_proposal');
     const dataSecondary = localStorage.getItem('ositara_proposals');
     const result = dataPrimary || dataSecondary;
-    return result ? JSON.parse(result) : [];
+    const parsed = result ? JSON.parse(result) : [];
+    return parsed.map((item) => ({
+      ...item,
+      judul: item.judul || item.judul_proposal || 'Tanpa Judul',
+      tanggal: item.tanggal || item.tanggal_pengajuan || '-',
+    }));
   } catch (e) {
     console.error('Error reading proposals from localStorage', e);
     return [];
@@ -64,6 +69,8 @@ const getInitialData = (key, fallback) => {
   }
 };
 
+const API_BASE = 'http://127.0.0.1:8000/api';
+
 export default function DashboardPembina({ user, onLogout }) {
   const [activeMenu, setActiveMenu] = useState('beranda');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -76,31 +83,56 @@ export default function DashboardPembina({ user, onLogout }) {
   const [anggotaList, setAnggotaList] = useState(() => getInitialData('ositara_anggota', []));
 
   const [isRevisiModalOpen, setIsRevisiModalOpen] = useState(false);
-  const [selectedProposalId, setSelectedProposalId] = useState(null);
+  const [selectedProposal, setSelectedProposal] = useState(null);
   const [catatanRevisiInput, setCatatanRevisiInput] = useState('');
 
-  const handleSync = useCallback(() => {
-    setProposalList(getProposalData());
-    setProkerList(getInitialData('ositara_proker', []));
-    setKeuanganList(getInitialData('ositara_keuangan', []));
-    setAnggotaList(getInitialData('ositara_anggota', []));
+  // SINKRONISASI DATA DENGAN BACKEND
+  const handleSync = useCallback(async () => {
+    try {
+      let res = await fetch(`${API_BASE}/proposals`, { headers: { Accept: 'application/json' } });
+      if (!res.ok) {
+        res = await fetch(`${API_BASE}/proposal-kegiatan`, { headers: { Accept: 'application/json' } });
+      }
+      if (res.ok) {
+        const data = await res.json();
+        const arr = Array.isArray(data) ? data : (data.data || []);
+        if (arr.length > 0) {
+          const formatted = arr.map((p) => ({
+            id: p.id,
+            judul: p.judul_proposal || p.judul || 'Tanpa Judul',
+            judul_proposal: p.judul_proposal || p.judul || 'Tanpa Judul',
+            anggaran: p.anggaran || 0,
+            tanggal: p.tanggal_pengajuan || p.tanggal || '-',
+            status: p.status || 'Menunggu Persetujuan',
+            catatan_pembina: p.catatan_pembina || p.catatan_revisi || p.catatanRevisi || '-',
+            catatanRevisi: p.catatan_pembina || p.catatan_revisi || p.catatanRevisi || '-',
+            file_proposal: p.file_proposal || p.file || 'Dokumen.pdf',
+            fileData: p.file_url || p.fileData || p.file_proposal || null,
+          }));
+          setProposalList((prev) => {
+            if (JSON.stringify(prev) !== JSON.stringify(formatted)) {
+              localStorage.setItem('ositara_proposal', JSON.stringify(formatted));
+            }
+            return formatted;
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Gagal sync proposal dari backend:", e);
+      setProkerList(getInitialData('ositara_proker', []));
+      setKeuanganList(getInitialData('ositara_keuangan', []));
+      setAnggotaList(getInitialData('ositara_anggota', []));
+    }
   }, []);
 
   useEffect(() => {
+    handleSync();
     window.addEventListener('storage', handleSync);
-    window.addEventListener('ositara_proposal_updated', handleSync);
-    window.addEventListener('ositara_proker_updated', handleSync);
-    const interval = setInterval(handleSync, 1000);
-    return () => {
-      window.removeEventListener('storage', handleSync);
-      window.removeEventListener('ositara_proposal_updated', handleSync);
-      window.removeEventListener('ositara_proker_updated', handleSync);
-      clearInterval(interval);
-    };
+    return () => window.removeEventListener('storage', handleSync);
   }, [handleSync]);
 
   const handleUploadAvatar = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
         alert('Ukuran foto terlalu besar! Maksimal 2MB.');
@@ -124,27 +156,68 @@ export default function DashboardPembina({ user, onLogout }) {
     }
   };
 
-  const handleUpdateStatusProposal = (id, newStatus, catatan = '-') => {
+  // INTEGRASI UPDATE STATUS DENGAN FALLBACK ROUTE
+  const handleUpdateStatusProposal = async (proposalTarget, newStatus, catatan = '-') => {
+    const targetId = typeof proposalTarget === 'object' ? proposalTarget.id : proposalTarget;
+    const judulCari = typeof proposalTarget === 'object' ? (proposalTarget.judul || proposalTarget.judul_proposal) : '';
+    const payload = {
+      status: newStatus,
+      catatan_pembina: catatan,
+      catatan_revisi: catatan,
+      catatanRevisi: catatan,
+      judul: judulCari,
+      judul_proposal: judulCari,
+    };
+
+    // 1. Update State Frontend & LocalStorage
     const updated = proposalList.map((item) => {
-      if (item.id === id) {
+      if (String(item.id) === String(targetId)) {
         return {
           ...item,
           status: newStatus,
           catatanRevisi: catatan,
+          catatan_pembina: catatan,
         };
       }
       return item;
     });
     setProposalList(updated);
-    const serialized = JSON.stringify(updated);
-    localStorage.setItem('ositara_proposal', serialized);
-    localStorage.setItem('ositara_proposals', serialized);
-    window.dispatchEvent(new Event('ositara_proposal_updated'));
+    localStorage.setItem('ositara_proposal', JSON.stringify(updated));
+
+    // 2. Kirim Sinkronisasi ke Database MySQL
+    try {
+      let res = await fetch(`${API_BASE}/proposals/${targetId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        res = await fetch(`${API_BASE}/proposal-kegiatan/${targetId}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+      if (!res.ok) {
+        res = await fetch(`${API_BASE}/proposals/${targetId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+      if (res.ok) {
+        alert(`Proposal berhasil di-${newStatus} dan tersimpan di database MySQL!`);
+      } else {
+        console.warn('Backend mengembalikan status non-OK, tetapi data lokal telah diperbarui.');
+      }
+    } catch (error) {
+      console.error('Gagal memperbarui status ke database:', error);
+    }
   };
 
   const handleOpenRevisiModal = (item) => {
-    setSelectedProposalId(item.id);
-    setCatatanRevisiInput(item.catatanRevisi !== '-' ? item.catatanRevisi : '');
+    setSelectedProposal(item);
+    setCatatanRevisiInput(item.catatanRevisi !== '-' && item.catatanRevisi ? item.catatanRevisi : '');
     setIsRevisiModalOpen(true);
   };
 
@@ -154,22 +227,22 @@ export default function DashboardPembina({ user, onLogout }) {
       alert('Silakan masukkan catatan revisi terlebih dahulu!');
       return;
     }
-    handleUpdateStatusProposal(selectedProposalId, 'Revisi', catatanRevisiInput);
+    handleUpdateStatusProposal(selectedProposal, 'Revisi', catatanRevisiInput.trim());
     setIsRevisiModalOpen(false);
-    setSelectedProposalId(null);
+    setSelectedProposal(null);
     setCatatanRevisiInput('');
-    alert('Catatan revisi berhasil dikirimkan ke Pengurus!');
   };
 
   const totalPemasukan = keuanganList
     .filter((k) => k.kategori === 'Pemasukan' || k.jenis === 'Pemasukan')
     .reduce((acc, curr) => acc + (Number(curr.jumlah) || 0), 0);
+
   const totalPengeluaran = keuanganList
     .filter((k) => k.kategori === 'Pengeluaran' || k.jenis === 'Pengeluaran')
     .reduce((acc, curr) => acc + (Number(curr.jumlah) || 0), 0);
-  const saldoSaatIni = totalPemasukan - totalPengeluaran;
 
-  const namaPembina = user?.nama || user?.name || 'Pembina OSIS';
+  const saldoSaatIni = totalPemasukan - totalPengeluaran;
+  const namaPembina = user?.namaLengkap || user?.nama || user?.name || 'Pak Sufiyan Muthahar';
   const inisialNama = namaPembina.charAt(0).toUpperCase();
 
   const menuItems = [
@@ -186,7 +259,12 @@ export default function DashboardPembina({ user, onLogout }) {
       {/* HEADER NAVBAR MOBILE */}
       <div className="md:hidden bg-[#2158B8] text-white px-4 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-md w-full">
         <div className="flex items-center space-x-2.5">
-          <img src={logoOsitara} alt="Logo" className="w-8 h-8 object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
+          <img
+            src={logoOsitara}
+            alt="Logo"
+            className="w-8 h-8 object-contain animate-bounce cursor-pointer hover:scale-105 transition-transform duration-300 drop-shadow-md"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
           <div>
             <h1 className="text-base font-black tracking-wider leading-none">OSITARA</h1>
             <p className="text-[9px] text-[#FFF5BF] font-bold tracking-wide uppercase mt-0.5">PEMBINA OSIS</p>
@@ -194,7 +272,7 @@ export default function DashboardPembina({ user, onLogout }) {
         </div>
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition focus:outline-none cursor-pointer"
+          className="p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition-all focus:outline-none cursor-pointer"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={isMobileMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
@@ -206,46 +284,57 @@ export default function DashboardPembina({ user, onLogout }) {
       {isMobileMenuOpen && (
         <div
           onClick={() => setIsMobileMenuOpen(false)}
-          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-xs transition-opacity"
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-xs transition-opacity animate-[fadeIn_0.2s_ease-out]"
         />
       )}
 
       {/* SIDEBAR NAVIGATION */}
-      <aside className={`
-        fixed md:sticky top-0 inset-y-0 left-0 z-50 h-screen
-        w-64 bg-[#2158B8] text-white flex flex-col justify-between p-6 shrink-0 shadow-xl
-        transition-transform duration-300 ease-in-out
-        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-      `}>
+      <aside className={`fixed md:sticky top-0 inset-y-0 left-0 z-50 h-screen w-64 bg-[#2158B8] text-white flex flex-col justify-between p-6 shrink-0 shadow-2xl transition-transform duration-300 ease-in-out ${
+        isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+      }`}>
         <div>
           <div className="hidden md:flex items-center space-x-3 mb-10">
-            <img src={logoOsitara} alt="Logo OSITARA" className="w-10 h-10 object-contain shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
+            <div className="relative group cursor-pointer">
+              <img
+                src={logoOsitara}
+                alt="Logo OSITARA"
+                className="w-10 h-10 object-contain shrink-0 animate-bounce hover:scale-110 transition-transform duration-300 drop-shadow-md"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            </div>
             <div>
               <h1 className="text-xl font-black tracking-wider leading-none">OSITARA</h1>
               <p className="text-[10px] text-[#FFF5BF] font-bold tracking-wide mt-1 uppercase">PEMBINA OSIS</p>
             </div>
           </div>
+
           <nav className="space-y-1.5 mt-4 md:mt-0">
-            {menuItems.map((menu) => (
-              <button
-                key={menu.id}
-                onClick={() => {
-                  setActiveMenu(menu.id);
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer text-left ${
-                  activeMenu === menu.id ? 'bg-[#FFF3BF] text-[#2158B8] shadow-sm' : 'hover:bg-white/10 text-white'
-                }`}
-              >
-                <Icon type={menu.icon} />
-                <span className="leading-snug">{menu.label}</span>
-              </button>
-            ))}
+            {menuItems.map((menu) => {
+              const isActive = activeMenu === menu.id;
+              return (
+                <button
+                  key={menu.id}
+                  onClick={() => {
+                    setActiveMenu(menu.id);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`group w-full flex items-center space-x-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer text-left ${
+                    isActive
+                      ? 'bg-[#FFF3BF] text-[#2158B8] shadow-md hover:shadow-lg'
+                      : 'hover:bg-white/10 text-white hover:shadow-sm'
+                  }`}
+                >
+                  <Icon type={menu.icon} />
+                  <span className="leading-snug">{menu.label}</span>
+                </button>
+              );
+            })}
           </nav>
         </div>
+
         <button
           onClick={onLogout}
-          className="flex items-center space-x-3 px-4 py-3 text-white hover:bg-white/10 rounded-2xl font-bold text-sm transition cursor-pointer text-left mt-8 md:mt-0"
+          className="group flex items-center space-x-3 px-4 py-3 text-white hover:bg-rose-600/80 rounded-2xl font-bold text-sm transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer text-left shadow-sm hover:shadow-md mt-8 md:mt-0"
         >
           <Icon type="logout" />
           <span>Logout</span>
@@ -254,20 +343,29 @@ export default function DashboardPembina({ user, onLogout }) {
 
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 p-3.5 sm:p-6 lg:p-8 overflow-x-hidden min-w-0 w-full">
+
         {/* HEADER USER */}
-        <div className="flex items-center justify-between mb-6 sm:mb-8 bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200">
+        <div className="flex items-center justify-between mb-6 sm:mb-8 p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg border bg-white border-slate-200/80 transition-all duration-300">
           <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 w-full">
             <div
               onClick={() => setShowAvatarModal(true)}
               className="relative group cursor-pointer shrink-0"
+              title="Atur Foto Profil"
             >
               {avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-white shadow-sm" />
+                <img
+                  src={avatarUrl}
+                  alt="Avatar"
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-white shadow-md group-hover:scale-105 group-hover:shadow-lg transition-all duration-300"
+                />
               ) : (
-                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-slate-200 rounded-full flex items-center justify-center text-[#2158B8] border-2 border-white shadow-sm font-black text-lg sm:text-xl">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-[#2158B8] border-2 border-white shadow-md rounded-full font-black text-lg sm:text-xl group-hover:scale-105 transition-transform duration-300">
                   {inisialNama}
                 </div>
               )}
+              <div className="absolute inset-0 bg-black/20 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition-opacity">
+                Ubah
+              </div>
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="text-base sm:text-2xl font-black text-[#2158B8] leading-tight break-words">
@@ -282,54 +380,63 @@ export default function DashboardPembina({ user, onLogout }) {
 
         {/* 1. BERANDA */}
         {activeMenu === 'beranda' && (
-          <div className="space-y-6 sm:space-y-8">
+          <div className="space-y-6 sm:space-y-8 animate-[fadeIn_0.3s_ease-out]">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-              <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+
+              <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-between">
                 <div>
                   <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">Total Proposal</p>
                   <h3 className="text-xl sm:text-2xl font-black text-[#2158B8] mt-1">{proposalList.length}</h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 text-[#2158B8] rounded-2xl flex items-center justify-center shrink-0 ml-2">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 text-[#2158B8] rounded-2xl flex items-center justify-center shrink-0 ml-2 shadow-inner">
                   <Icon type="proposal" />
                 </div>
               </div>
-              <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+
+              <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-between">
                 <div>
                   <p className="text-[11px] sm:text-xs font-bold text-amber-500 uppercase tracking-wide">Menunggu Persetujuan</p>
                   <h3 className="text-xl sm:text-2xl font-black text-amber-600 mt-1">
                     {proposalList.filter((p) => p.status === 'Menunggu Persetujuan' || !p.status).length}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shrink-0 ml-2">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shrink-0 ml-2 shadow-inner">
                   <Icon type="proposal" />
                 </div>
               </div>
-              <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+
+              <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-between">
                 <div>
                   <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">Program Kerja</p>
                   <h3 className="text-xl sm:text-2xl font-black text-[#2158B8] mt-1">{prokerList.length}</h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center shrink-0 ml-2">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center shrink-0 ml-2 shadow-inner">
                   <Icon type="proker" />
                 </div>
               </div>
-              <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+
+              <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-between">
                 <div className="min-w-0">
                   <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">Saldo Kas OSIS</p>
                   <h3 className="text-lg sm:text-xl font-black text-emerald-600 mt-1 truncate">{formatRupiah(saldoSaatIni)}</h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0 ml-2">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0 ml-2 shadow-inner">
                   <Icon type="keuangan" />
                 </div>
               </div>
+
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm">
+
+              <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-base sm:text-lg font-bold text-[#2158B8]">Proposal Perlu Validasi</h3>
-                  <button onClick={() => setActiveMenu('proposal')} className="text-xs font-bold text-[#2158B8] hover:underline cursor-pointer">
-                    Lihat Semua →
+                  <button
+                    onClick={() => setActiveMenu('proposal')}
+                    className="text-xs font-bold text-[#2158B8] hover:text-amber-500 hover:underline transition-colors duration-200 cursor-pointer"
+                  >
+                    Lihat Semua &rarr;
                   </button>
                 </div>
                 <div className="space-y-3">
@@ -337,14 +444,16 @@ export default function DashboardPembina({ user, onLogout }) {
                     <p className="text-xs text-slate-400 text-center py-6">Belum ada proposal diajukan.</p>
                   ) : (
                     proposalList.slice(0, 4).map((p) => (
-                      <div key={p.id} className="p-3 sm:p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div key={p.id} className="p-3 sm:p-3.5 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm">
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs sm:text-sm font-bold text-slate-800 leading-snug break-words">{p.judul || p.judul_proposal}</p>
+                          <p className="text-xs sm:text-sm font-bold text-slate-800 leading-snug break-words">{p.judul}</p>
                           <p className="text-[11px] text-slate-500 font-medium mt-0.5">{formatRupiah(p.anggaran)}</p>
                         </div>
                         <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full self-start sm:self-center shrink-0 ${
-                          p.status === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' :
-                          p.status === 'Ditolak' ? 'bg-gray-100 text-gray-700' : 'bg-[#FFF5BF] text-amber-800'
+                          p.status === 'Diterima' || p.status === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' :
+                          p.status === 'Ditolak' ? 'bg-rose-100 text-rose-700' :
+                          p.status === 'Revisi' ? 'bg-amber-100 text-amber-700' :
+                          'bg-[#FFF5BF] text-amber-800'
                         }`}>
                           {p.status || 'Menunggu'}
                         </span>
@@ -354,11 +463,14 @@ export default function DashboardPembina({ user, onLogout }) {
                 </div>
               </div>
 
-              <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm">
+              <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-base sm:text-lg font-bold text-[#2158B8]">Program Kerja Pengurus</h3>
-                  <button onClick={() => setActiveMenu('proker')} className="text-xs font-bold text-[#2158B8] hover:underline cursor-pointer">
-                    Lihat Semua →
+                  <button
+                    onClick={() => setActiveMenu('proker')}
+                    className="text-xs font-bold text-[#2158B8] hover:text-amber-500 hover:underline transition-colors duration-200 cursor-pointer"
+                  >
+                    Lihat Semua &rarr;
                   </button>
                 </div>
                 <div className="space-y-3">
@@ -366,10 +478,10 @@ export default function DashboardPembina({ user, onLogout }) {
                     <p className="text-xs text-slate-400 text-center py-6">Belum ada program kerja terdaftar.</p>
                   ) : (
                     prokerList.slice(0, 4).map((pk) => (
-                      <div key={pk.id} className="p-3 sm:p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between gap-2">
+                      <div key={pk.id} className="p-3 sm:p-3.5 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 flex items-center justify-between gap-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm">
                         <div className="min-w-0">
-                          <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">{pk.nama}</p>
-                          <p className="text-[11px] text-slate-500 font-medium truncate">{pk.divisi || pk.sekbid || 'Umum'} • {pk.target || pk.tanggal || '-'}</p>
+                          <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">{pk.nama || pk.nama_proker}</p>
+                          <p className="text-[11px] text-slate-500 font-medium truncate">{pk.divisi || pk.sekbid || 'Umum'} | {pk.target || pk.tanggal || '-'}</p>
                         </div>
                         <span className="px-2.5 py-1 text-[10px] font-bold rounded-lg border bg-blue-50 text-blue-700 border-blue-200 shrink-0">
                           {pk.periode || 'Mingguan'}
@@ -379,15 +491,16 @@ export default function DashboardPembina({ user, onLogout }) {
                   )}
                 </div>
               </div>
+
             </div>
           </div>
         )}
 
         {/* 2. PENGAJUAN PROPOSAL */}
         {activeMenu === 'proposal' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
             <h3 className="text-lg sm:text-xl font-bold text-[#2158B8]">Validasi & Persetujuan Proposal</h3>
-            <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm overflow-x-auto w-full">
+            <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300 overflow-x-auto w-full">
               <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[750px]">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-700 font-bold bg-[#F2F4F7]">
@@ -407,23 +520,26 @@ export default function DashboardPembina({ user, onLogout }) {
                     </tr>
                   ) : (
                     proposalList.map((item) => {
-                      const fileContent = item.fileData || item.fileUrl || item.file;
-                      let displayName = item.fileProposal || item.fileNama;
-                      if (!displayName || displayName.startsWith('data:')) {
-                        displayName = typeof item.file === 'string' && !item.file.startsWith('data:') ? item.file : `${item.judul}.pdf`;
+                      const fileContent = item.fileData || item.fileUrl || item.file_proposal || item.file;
+                      let displayName = item.file_proposal || item.fileProposal || item.file;
+                      if (!displayName || typeof displayName !== 'string' || displayName.startsWith('data:')) {
+                        displayName = `${item.judul}.pdf`;
+                      } else {
+                        displayName = displayName.split('/').pop();
                       }
+
                       return (
-                        <tr key={item.id} className="hover:bg-slate-50 transition">
-                          <td className="py-3 px-3 sm:px-4 text-slate-500 font-medium">{item.tanggal || '-'}</td>
+                        <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-3 sm:px-4 text-slate-500 font-medium">{item.tanggal}</td>
                           <td className="py-3 px-3 sm:px-4 font-bold text-slate-800">{item.judul}</td>
                           <td className="py-3 px-3 sm:px-4">
                             {fileContent ? (
                               <a
-                                href={fileContent}
+                                href={fileContent.startsWith('http') || fileContent.startsWith('data:') ? fileContent : `${API_BASE}/storage/${fileContent}`}
                                 target="_blank"
                                 rel="noreferrer"
                                 download={displayName}
-                                className="inline-flex items-center space-x-1.5 bg-[#86C5FF]/30 hover:bg-[#86C5FF]/50 text-[#2158B8] font-bold px-2.5 py-1.5 rounded-xl border border-[#86C5FF] text-xs transition"
+                                className="inline-flex items-center space-x-1.5 bg-[#86C5FF]/30 hover:bg-[#86C5FF]/50 text-[#2158B8] font-bold px-2.5 py-1.5 rounded-xl border border-[#86C5FF] text-xs transition-all duration-200 hover:-translate-y-0.5 active:scale-95 shadow-xs"
                               >
                                 <Icon type="download" />
                                 <span className="truncate max-w-[100px] sm:max-w-[140px]">{displayName}</span>
@@ -435,32 +551,34 @@ export default function DashboardPembina({ user, onLogout }) {
                           <td className="py-3 px-3 sm:px-4 text-slate-700 font-semibold">{formatRupiah(item.anggaran)}</td>
                           <td className="py-3 px-3 sm:px-4">
                             <span className={`px-2.5 py-1 font-bold text-[10px] sm:text-xs rounded-full inline-block ${
-                              item.status === 'Disetujui' ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' :
-                              item.status === 'Ditolak' ? 'bg-gray-100 text-gray-700 border border-gray-300' :
-                              item.status === 'Revisi' || item.status === 'Perlu Revisi' ? 'bg-rose-100 text-rose-700 border border-rose-300' :
+                              item.status === 'Diterima' || item.status === 'Disetujui' ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' :
+                              item.status === 'Ditolak' ? 'bg-rose-100 text-rose-700 border border-rose-300' :
+                              item.status === 'Revisi' || item.status === 'Perlu Revisi' ? 'bg-amber-100 text-amber-700 border border-amber-300' :
                               'bg-[#FFF5BF] text-amber-800 border border-[#FFC42B]'
                             }`}>
                               {item.status || 'Menunggu Persetujuan'}
                             </span>
                           </td>
-                          <td className="py-3 px-3 sm:px-4 text-slate-600 font-medium italic text-xs">{item.catatanRevisi || '-'}</td>
+                          <td className="py-3 px-3 sm:px-4 text-slate-600 font-medium italic text-xs">
+                            {item.catatan_pembina || item.catatanRevisi || '-'}
+                          </td>
                           <td className="py-3 px-3 sm:px-4 text-center">
-                            <div className="flex items-center justify-center space-x-1">
+                            <div className="flex items-center justify-center space-x-1.5">
                               <button
-                                onClick={() => handleUpdateStatusProposal(item.id, 'Disetujui', '-')}
-                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg transition"
+                                onClick={() => handleUpdateStatusProposal(item, 'Diterima', 'Proposal disetujui oleh Pembina OSIS')}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-95 shadow-sm hover:shadow-emerald-600/30 cursor-pointer"
                               >
                                 Setujui
                               </button>
                               <button
                                 onClick={() => handleOpenRevisiModal(item)}
-                                className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] rounded-lg transition"
+                                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-95 shadow-sm hover:shadow-amber-500/30 cursor-pointer"
                               >
                                 Revisi
                               </button>
                               <button
-                                onClick={() => handleUpdateStatusProposal(item.id, 'Ditolak', 'Proposal ditolak oleh Pembina')}
-                                className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] rounded-lg transition"
+                                onClick={() => handleUpdateStatusProposal(item, 'Ditolak', 'Proposal ditolak oleh Pembina OSIS')}
+                                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-95 shadow-sm hover:shadow-rose-600/30 cursor-pointer"
                               >
                                 Tolak
                               </button>
@@ -478,12 +596,12 @@ export default function DashboardPembina({ user, onLogout }) {
 
         {/* 3. PROGRAM KERJA */}
         {activeMenu === 'proker' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
             <div>
               <h3 className="text-lg sm:text-xl font-bold text-[#2158B8]">Program Kerja OSIS</h3>
               <p className="text-xs text-slate-500">Tampilan Mode Pemantauan (Read-Only)</p>
             </div>
-            <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm overflow-x-auto w-full">
+            <div className="bg-white p-4 sm:py-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300 overflow-x-auto w-full">
               <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[500px]">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-700 font-bold bg-[#F2F4F7]">
@@ -499,10 +617,10 @@ export default function DashboardPembina({ user, onLogout }) {
                     </tr>
                   ) : (
                     prokerList.map((pk) => (
-                      <tr key={pk.id} className="hover:bg-slate-50 transition">
-                        <td className="py-3.5 px-3 sm:px-4 font-bold text-slate-800">{pk.nama}</td>
-                        <td className="py-3.5 px-3 sm:px-4 font-semibold text-slate-600">{pk.divisi || pk.sekbid || '-'}</td>
-                        <td className="py-3.5 px-3 sm:px-4 text-slate-500">{pk.target || pk.tanggal || '-'}</td>
+                      <tr key={pk.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3.5 px-3 sm:px-4 font-bold text-slate-800">{pk.nama || pk.nama_proker}</td>
+                        <td className="py-3.5 px-3 sm:px-4 text-slate-600">{pk.divisi || pk.sekbid || '-'}</td>
+                        <td className="py-3.5 px-3 sm:px-4 text-slate-500 font-medium">{pk.target || pk.tanggal || '-'}</td>
                       </tr>
                     ))
                   )}
@@ -514,26 +632,31 @@ export default function DashboardPembina({ user, onLogout }) {
 
         {/* 4. AUDIT KEUANGAN */}
         {activeMenu === 'keuangan' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
             <div>
               <h3 className="text-lg sm:text-xl font-bold text-[#2158B8]">Laporan Kas Keuangan OSIS</h3>
               <p className="text-xs text-slate-500">Tampilan Mode Audit/Pemantauan (Read-Only)</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-              <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm">
-                <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase">Total Pemasukan</p>
+
+              <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">Total Pemasukan</p>
                 <h3 className="text-lg sm:text-2xl font-black text-emerald-600 mt-1 sm:mt-2 truncate">{formatRupiah(totalPemasukan)}</h3>
               </div>
-              <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm">
-                <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase">Total Pengeluaran</p>
+
+              <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">Total Pengeluaran</p>
                 <h3 className="text-lg sm:text-2xl font-black text-rose-500 mt-1 sm:mt-2 truncate">{formatRupiah(totalPengeluaran)}</h3>
               </div>
-              <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm">
-                <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase">Saldo Kas Saat Ini</p>
+
+              <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">Saldo Kas Saat Ini</p>
                 <h3 className="text-lg sm:text-2xl font-black text-[#2158B8] mt-1 sm:mt-2 truncate">{formatRupiah(saldoSaatIni)}</h3>
               </div>
+
             </div>
-            <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm overflow-x-auto w-full">
+
+            <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300 overflow-x-auto w-full">
               <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[500px]">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-700 font-bold bg-[#F2F4F7]">
@@ -550,17 +673,21 @@ export default function DashboardPembina({ user, onLogout }) {
                     </tr>
                   ) : (
                     keuanganList.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50 transition">
+                      <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3.5 px-3 sm:px-4 text-slate-500 font-medium">{item.tanggal || '-'}</td>
                         <td className="py-3.5 px-3 sm:px-4 font-bold text-slate-800">{item.keterangan}</td>
                         <td className="py-3.5 px-3 sm:px-4">
                           <span className={`px-2.5 py-1 font-bold text-[10px] sm:text-xs rounded-full inline-block ${
-                            item.kategori === 'Pemasukan' || item.jenis === 'Pemasukan' ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-rose-100 text-rose-700 border border-rose-300'
+                            item.kategori === 'Pemasukan' || item.jenis === 'Pemasukan'
+                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                              : 'bg-rose-100 text-rose-700 border border-rose-300'
                           }`}>
                             {item.kategori || item.jenis}
                           </span>
                         </td>
-                        <td className={`py-3.5 px-3 sm:px-4 text-right font-black ${item.kategori === 'Pemasukan' || item.jenis === 'Pemasukan' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                        <td className={`py-3.5 px-3 sm:px-4 text-right font-black ${
+                          item.kategori === 'Pemasukan' || item.jenis === 'Pemasukan' ? 'text-emerald-600' : 'text-rose-500'
+                        }`}>
                           {item.kategori === 'Pemasukan' || item.jenis === 'Pemasukan' ? '+' : '-'} {formatRupiah(item.jumlah)}
                         </td>
                       </tr>
@@ -574,7 +701,7 @@ export default function DashboardPembina({ user, onLogout }) {
 
         {/* 5. ANGGOTA OSIS */}
         {activeMenu === 'anggota' && (
-          <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm overflow-x-auto w-full">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300 overflow-x-auto w-full animate-[fadeIn_0.3s_ease-out]">
             <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">Daftar Anggota OSIS</h3>
             <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[500px]">
               <thead>
@@ -592,7 +719,7 @@ export default function DashboardPembina({ user, onLogout }) {
                   </tr>
                 ) : (
                   anggotaList.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50 transition">
+                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3.5 px-3 sm:px-4 text-slate-500 font-medium">{item.nis || '-'}</td>
                       <td className="py-3.5 px-3 sm:px-4 font-bold text-slate-800">{item.nama}</td>
                       <td className="py-3.5 px-3 sm:px-4 font-semibold text-slate-700">{item.jabatan || '-'}</td>
@@ -604,17 +731,18 @@ export default function DashboardPembina({ user, onLogout }) {
             </table>
           </div>
         )}
+
       </main>
 
       {/* MODAL REVISI PROPOSAL */}
       {isRevisiModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-200">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-200 transform transition-all duration-300 animate-[scaleIn_0.2s_ease-out]">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-base sm:text-xl font-bold text-[#2158B8]">Catatan Revisi Proposal</h3>
               <button
                 onClick={() => setIsRevisiModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer"
               >
                 ✕
               </button>
@@ -630,20 +758,20 @@ export default function DashboardPembina({ user, onLogout }) {
                   placeholder="Contoh: Tolong sesuaikan lagi rincian anggaran pada seksi konsumsi..."
                   value={catatanRevisiInput}
                   onChange={(e) => setCatatanRevisiInput(e.target.value)}
-                  className="w-full p-3 rounded-2xl border border-slate-300 bg-[#F2F4F7] text-xs focus:outline-none focus:ring-2 focus:ring-[#2158B8]"
+                  className="w-full p-3 rounded-2xl border border-slate-300 bg-[#F2F4F7] text-xs focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:bg-white hover:-translate-y-0.5 transition-all duration-200 shadow-inner"
                 />
               </div>
               <div className="flex justify-end space-x-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsRevisiModalOpen(false)}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-all duration-200 active:scale-95 cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition shadow-sm cursor-pointer"
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-95 shadow-md hover:shadow-amber-500/30 cursor-pointer"
                 >
                   Kirim Revisi
                 </button>
@@ -655,13 +783,13 @@ export default function DashboardPembina({ user, onLogout }) {
 
       {/* MODAL FOTO PROFIL */}
       {showAvatarModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-5 sm:p-6 shadow-xl space-y-4 border border-blue-100">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 border border-blue-100 transform transition-all duration-300 animate-[scaleIn_0.2s_ease-out]">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h3 className="text-base sm:text-lg font-bold text-[#2158B8]">Atur Foto Profil</h3>
               <button
                 onClick={() => setShowAvatarModal(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer"
               >
                 ✕
               </button>
@@ -669,7 +797,7 @@ export default function DashboardPembina({ user, onLogout }) {
             <div className="space-y-3 pt-2">
               <label
                 htmlFor="avatar-file-input-pembina"
-                className="w-full py-3 bg-[#2158B8] text-white rounded-2xl font-bold text-xs flex items-center justify-center space-x-2 cursor-pointer hover:bg-blue-700 transition"
+                className="w-full py-3 bg-[#2158B8] hover:bg-blue-700 text-white rounded-2xl font-bold text-xs flex items-center justify-center space-x-2 cursor-pointer shadow-md hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 hover:-translate-y-0.5 active:scale-95"
               >
                 <span>Ganti / Unggah Foto Baru</span>
               </label>
@@ -684,7 +812,7 @@ export default function DashboardPembina({ user, onLogout }) {
                 <button
                   type="button"
                   onClick={handleHapusAvatar}
-                  className="w-full py-3 bg-rose-100 text-rose-700 rounded-2xl font-bold text-xs flex items-center justify-center space-x-2 cursor-pointer hover:bg-rose-200 transition"
+                  className="w-full py-3 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-2xl font-bold text-xs flex items-center justify-center space-x-2 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 active:scale-95 shadow-xs"
                 >
                   <span>Hapus Foto Profil</span>
                 </button>
@@ -692,7 +820,7 @@ export default function DashboardPembina({ user, onLogout }) {
               <button
                 type="button"
                 onClick={() => setShowAvatarModal(false)}
-                className="w-full py-2.5 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs hover:bg-slate-200 transition cursor-pointer"
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-bold text-xs transition-all duration-200 active:scale-95 cursor-pointer"
               >
                 Batal
               </button>
@@ -700,6 +828,7 @@ export default function DashboardPembina({ user, onLogout }) {
           </div>
         </div>
       )}
+
     </div>
   );
 }

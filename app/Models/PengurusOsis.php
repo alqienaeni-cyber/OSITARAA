@@ -16,6 +16,7 @@ class PengurusOsis extends Model
         'nisn',
         'nama_lengkap',
         'jabatan',
+        'sekbid',   // <-- Tambahkan ini di sini!
         'periode',
     ];
 }

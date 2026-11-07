@@ -18,7 +18,11 @@ Accept: application/json
     "kategori": "Kegiatan Siswa",
     "anggaran": 2345678,
     "pengaju": "Naura Lutfiah",
-    "deskripsi": "Kegiatan perlombaan antar kelas setelah ujian akhir semester."
+    "deskripsi": "Kegiatan perlombaan antar kelas setelah ujian akhir semester.",
+    "tanggal_pengajuan": "31 Oktober 2026",
+    "status": "Menunggu Persetujuan",
+    "file_proposal": "Proposal_Classmeeting.pdf",
+    "file_url": "data:application/pdf;base64,JVBERi0xLjQK..."
 }
 
 ###
@@ -29,7 +33,7 @@ Accept: application/json
 
 ###
 
-### 4. Perbarui Status & Catatan Proposal (Aksi Pembina)
+### 4. Perbarui Status & Catatan Proposal (Aksi Pembina/Revisi)
 PATCH http://127.0.0.1:8000/api/proposals/1/status
 Content-Type: application/json
 Accept: application/json

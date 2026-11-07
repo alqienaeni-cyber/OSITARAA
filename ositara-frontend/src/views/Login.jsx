@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import logoOsitara from '../assets/LOGO OSITARA.png';
+import logoositara from '../assets/LOGO OSITARA.png';
 
 export default function Login({ onLoginSuccess, onGoToRegister }) {
   const [email, setEmail] = useState('');
@@ -11,7 +11,9 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
   const whatsappAdminNumber = "6283853924997";
 
   const handleForgotPassword = () => {
-    const message = encodeURIComponent("Halo Admin OSITARA, saya lupa password akun saya. Mohon bantuannya untuk melakukan reset password.");
+    const message = encodeURIComponent(
+      "Halo Admin OSITARA, saya lupa password akun saya. Mohon bantuannya untuk melakukan reset password."
+    );
     window.open(`https://wa.me/${whatsappAdminNumber}?text=${message}`, '_blank');
   };
 
@@ -49,7 +51,6 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
 
       if (response.ok) {
         if (data.token) localStorage.setItem('token', data.token);
-
         const userData = data.user || data.data?.user || data.data || data;
         localStorage.setItem('user', JSON.stringify(userData));
         onLoginSuccess(userData);
@@ -68,7 +69,6 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
         const storedUsers1 = localStorage.getItem('ositara_users');
         const storedUsers2 = localStorage.getItem('usersList');
         const storedUsers3 = localStorage.getItem('users');
-
         registeredUsers = [
           ...(storedUsers1 ? JSON.parse(storedUsers1) : []),
           ...(storedUsers2 ? JSON.parse(storedUsers2) : []),
@@ -82,7 +82,6 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
       const matchedSeeder = seederUsers.find(
         (u) => u.email === cleanEmail && u.password === password
       );
-
       const matchedRegister = registeredUsers.find(
         (u) =>
           u.email?.toLowerCase().trim() === cleanEmail &&
@@ -94,19 +93,18 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
       // 4. Jika akun terdaftar & password benar
       if (validUser) {
         const loggedInUser = {
-          id: validUser.id || Date.now(),
+          id: validUser.id || 2,
           name: validUser.name || validUser.nama || validUser.namaLengkap || 'Siswa OSITARA',
           email: validUser.email,
           role: validUser.role || 'siswa',
           nisn: validUser.nisn || '',
-          kelas: validUser.kelas || ''
+          kelas: validUser.kelas || '',
         };
 
         localStorage.setItem('token', 'dummy-token-' + Date.now());
         localStorage.setItem('user', JSON.stringify(loggedInUser));
         onLoginSuccess(loggedInUser);
       } else {
-        // JIKA AKUN TIDAK TERDAFTAR SAMA SEKALI
         setError('Akun belum terdaftar atau password salah. Silakan daftar terlebih dahulu!');
       }
     } finally {
@@ -115,21 +113,41 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F2F4F7] flex items-center justify-center p-4 font-nunito">
-      <div className="bg-white rounded-3xl p-8 md:p-10 shadow-xl w-full max-w-md border border-slate-100 text-center">
-        <div className="flex justify-center mb-4">
-          <img src={logoOsitara} alt="OSITARA Logo" className="w-20 h-20 object-contain" />
+    <div className="min-h-screen bg-[#2158B8] flex items-center justify-center p-4 font-nunito">
+      {/* Container utama dengan Shadow 3D yang halus & kuat */}
+      <div className="bg-white rounded-3xl p-8 md:p-10 shadow-[0_20px_50px_rgba(15,23,42,0.35)] w-full max-w-md border border-white/40 text-center select-none transform transition-all duration-300">
+
+        {/* LOGO OSITARA DENGAN ANIMASI INTERAKTIF */}
+        <div className="flex justify-center mb-3">
+          <div className="relative group cursor-pointer">
+            <img
+              src={logoositara}
+              alt="OSITARA Logo"
+              className="w-24 h-24 md:w-28 md:h-28 object-contain drop-shadow-xl animate-bounce hover:scale-110 transition-transform duration-300"
+            />
+          </div>
         </div>
 
-        <h1 className="text-3xl font-black font-poppins text-[#2158B8] tracking-wider mb-1">
-          OSITARA
+        {/* TEKS OSITARA DENGAN ANIMASI POP-UP PER HURUF */}
+        <h1 className="text-3xl font-black font-poppins text-[#2158B8] tracking-wider mb-1 flex justify-center items-center overflow-hidden py-1">
+          {['O', 'S', 'I', 'T', 'A', 'R', 'A'].map((char, index) => (
+            <span
+              key={index}
+              className="inline-block animate-[bounce_1s_ease-in-out_infinite] hover:scale-125 hover:text-amber-500 transition-all cursor-default"
+              style={{ animationDelay: `${index * 150}ms` }}
+            >
+              {char}
+            </span>
+          ))}
         </h1>
+
+        {/* SUBTITLE */}
         <p className="text-sm font-bold text-[#2158B8] mb-6">
           Masuk Ke Akun Anda
         </p>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-600 rounded-xl text-xs font-bold text-center border border-red-200">
+          <div className="mb-4 p-3 bg-red-100 text-red-600 rounded-xl text-xs font-bold text-center border border-red-200 shadow-sm animate-shake">
             {error}
           </div>
         )}
@@ -142,10 +160,10 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className={`w-full px-5 py-3.5 border rounded-2xl text-slate-700 font-semibold text-sm focus:outline-none transition-all ${
+              className={`w-full px-5 py-3.5 border rounded-2xl text-slate-700 font-semibold text-sm focus:outline-none transition-all duration-200 hover:-translate-y-0.5 shadow-sm ${
                 email.trim() !== ''
-                  ? 'bg-[#86C5FF]/20 border-[#2158B8]'
-                  : 'bg-slate-100 border-slate-300 focus:border-[#2158B8]'
+                  ? 'bg-[#86C5FF]/20 border-[#2158B8] ring-2 ring-[#2158B8]/20'
+                  : 'bg-slate-100 border-slate-300 focus:border-[#2158B8] focus:bg-white focus:ring-2 focus:ring-[#2158B8]/30'
               }`}
             />
           </div>
@@ -153,32 +171,34 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
           <div>
             <input
               type="password"
-              placeholder="••••••••"
+              placeholder="........"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className={`w-full px-5 py-3.5 border rounded-2xl text-slate-700 font-semibold text-sm focus:outline-none transition-all ${
+              className={`w-full px-5 py-3.5 border rounded-2xl text-slate-700 font-semibold text-sm focus:outline-none transition-all duration-200 hover:-translate-y-0.5 shadow-sm ${
                 password !== ''
-                  ? 'bg-[#86C5FF]/20 border-[#2158B8]'
-                  : 'bg-slate-100 border-slate-300 focus:border-[#2158B8]'
+                  ? 'bg-[#86C5FF]/20 border-[#2158B8] ring-2 ring-[#2158B8]/20'
+                  : 'bg-slate-100 border-slate-300 focus:border-[#2158B8] focus:bg-white focus:ring-2 focus:ring-[#2158B8]/30'
               }`}
             />
           </div>
 
+          {/* Lupa Password dengan Efek Hover */}
           <div className="text-right">
             <button
               type="button"
               onClick={handleForgotPassword}
-              className="text-xs font-bold text-[#2158B8] hover:underline cursor-pointer"
+              className="text-xs font-bold text-[#2158B8] hover:text-amber-500 hover:underline transition-colors duration-200 cursor-pointer"
             >
               Lupa Password?
             </button>
           </div>
 
+          {/* Tombol Masuk Interaktif */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 bg-[#FFC700] hover:bg-[#e0af00] text-[#2158B8] font-black text-base rounded-2xl shadow-md transition transform active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="w-full py-3.5 bg-[#FFC700] hover:bg-[#e0af00] text-[#2158B8] font-black text-base rounded-2xl shadow-md hover:shadow-lg hover:shadow-amber-400/40 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             {loading ? 'Memproses...' : 'Masuk'}
           </button>
@@ -189,11 +209,12 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
           <button
             type="button"
             onClick={() => onGoToRegister && onGoToRegister()}
-            className="text-[#2158B8] font-black hover:underline cursor-pointer"
+            className="text-[#2158B8] font-black hover:text-amber-500 hover:underline transition-colors duration-200 cursor-pointer"
           >
             Daftar
           </button>
         </p>
+
       </div>
     </div>
   );

@@ -15,8 +15,9 @@ Accept: application/json
 
 {
     "nisn": "09876432",
-    "nama_lengkap": "K",
+    "nama_lengkap": "Kamilia",
     "jabatan": "Anggota",
+    "sekbid": "Sekbid 1",
     "periode": "2026/2027"
 }
 
@@ -34,8 +35,11 @@ Content-Type: application/json
 Accept: application/json
 
 {
-    "nama_lengkap": "Kamilia",
-    "jabatan": "Ketua Sekbid 1"
+    "nisn": "09876432",
+    "nama_lengkap": "Kamilia Aisyah",
+    "jabatan": "Ketua Sekbid 1",
+    "sekbid": "Sekbid 1",
+    "periode": "2026/2027"
 }
 
 ###

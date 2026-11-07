@@ -4,7 +4,7 @@
 # ===================================================
 
 ### -------------------------------------------------
-### 1. MENU PROGRAM KERJA (is_event = 0, Read-Only / Internal OSIS)
+### 1. MENU PROGRAM KERJA (is_event = 0, Internal OSIS)
 ### -------------------------------------------------
 
 ### Lihat Semua Program Kerja OSIS
@@ -13,7 +13,7 @@ Accept: application/json
 
 ###
 
-### Tambah Program Kerja OSIS Baru (Pengurus OSIS)
+### Tambah Program Kerja OSIS Baru
 POST http://127.0.0.1:8000/api/program-kerja
 Content-Type: application/json
 Accept: application/json
@@ -21,7 +21,10 @@ Accept: application/json
 {
     "nama_proker": "Pentas Seni Budaya",
     "divisi": "Sekbid Kesenian",
-    "target": "2026-10-25"
+    "target": "2026-10-25",
+    "deskripsi": "Kegiatan pentas seni tahunan OSIS",
+    "status": "Mendatang",
+    "is_event": 0
 }
 
 ###
@@ -40,7 +43,10 @@ Accept: application/json
 {
     "nama_proker": "Pentas Seni & Bazar Budaya",
     "divisi": "Sekbid Kesenian",
-    "target": "2026-11-01"
+    "target": "2026-11-01",
+    "deskripsi": "Pentas seni gabungan dengan bazar kewirausahaan",
+    "status": "Berlangsung",
+    "is_event": 0
 }
 
 ###
@@ -53,7 +59,7 @@ Accept: application/json
 
 
 ### -------------------------------------------------
-### 2. MENU KELOLA KEGIATAN OSIS (is_event = 1, Agenda Acara)
+### 2. MENU KELOLA KEGIATAN OSIS (is_event = 1, Agenda Acara / Event)
 ### -------------------------------------------------
 
 ### Lihat Semua Agenda Kegiatan OSIS
@@ -62,16 +68,18 @@ Accept: application/json
 
 ###
 
-### Tambah Kegiatan / Event Baru (Form Kelola Kegiatan UI)
+### Tambah Kegiatan / Event Baru (is_event = 1)
 POST http://127.0.0.1:8000/api/events
 Content-Type: application/json
 Accept: application/json
 
 {
-    "nama_event": "PPKM",
-    "tanggal": "2026-10-15",
-    "deskripsi": "Pekan Pelatihan Kreativitas Murid",
-    "status": "Mendatang"
+    "nama_proker": "PPKM (Pekan Pelatihan Kreativitas Murid)",
+    "divisi": "Sekbid Hubungan Masyarakat",
+    "target": "2026-10-15",
+    "deskripsi": "Pekan Pelatihan Kreativitas Murid Terbuka",
+    "status": "Mendatang",
+    "is_event": 1
 }
 
 ###
@@ -88,10 +96,12 @@ Content-Type: application/json
 Accept: application/json
 
 {
-    "nama_event": "PPKM (Pekan Pelatihan Kreativitas Murid)",
-    "tanggal": "2026-10-18",
+    "nama_proker": "PPKM (Pekan Pelatihan Kreativitas Murid)",
+    "divisi": "Sekbid Hubungan Masyarakat",
+    "target": "2026-10-18",
     "deskripsi": "Pekan Pelatihan Kreativitas Murid Terbuka",
-    "status": "Berlangsung"
+    "status": "Berlangsung",
+    "is_event": 1
 }
 
 ###
