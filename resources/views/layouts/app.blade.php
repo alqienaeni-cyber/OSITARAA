@@ -3,31 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OSITARA - @yield('title', 'Sistem Manajemen OSIS')</title>
+    <title>OSITARA - Sistem Manajemen OSIS</title>
 
-    <!-- Framework CSS: Bootstrap 5 CDN untuk Production yang Aman -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <style>
-        body { background-color: #F8FAFC; color: #0F172A; font-family: 'Segoe UI', Tahoma, sans-serif; }
-        .navbar-custom { background-color: #2158B8; }
-        .btn-teal { background-color: #0D9488; color: #ffffff; }
-        .btn-teal:hover { background-color: #0F766E; color: #ffffff; }
-    </style>
+    <!-- Memuat Asset Vite & Tailwind CSS Asli -->
+    @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @else
+        <!-- Fallback jika build belum siap -->
+        <script src="https://cdn.tailwindcss.com"></script>
+    @endif
 </head>
-<body>
-    <!-- Navbar Shell Utama -->
-    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom shadow-sm">
-        <div class="container">
-            <a class="navbar-brand fw-bold" href="{{ url('/') }}">OSITARA</a>
-        </div>
-    </nav>
-
-    <!-- Konten Utama Halaman -->
-    <main class="py-4">
-        <div class="container">
-            @yield('content')
-        </div>
-    </main>
+<body class="bg-[#FDFDFC] text-[#1b1b1b]">
+    @yield('content')
 </body>
 </html>

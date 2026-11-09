@@ -1,19 +1,12 @@
 @extends('layouts.app')
 
-@section('title', 'Beranda')
-
 @section('content')
-<div class="row justify-content-center">
-    <div class="col-md-10">
-        <div class="p-5 mb-4 bg-white rounded-3 shadow-sm border">
-            <div class="container-fluid py-3">
-                <h1 class="display-5 fw-bold text-primary">Selamat Datang di OSITARA</h1>
-                <p class="col-md-8 fs-4 text-muted">Sistem Manajemen Pengelolaan Administrasi OSIS SMK Budi Bakti Ciwidey.</p>
-                <hr class="my-4">
-                <p>Aplikasi pengelolaan organisasi siswa berbasis web untuk mendukung efisiensi kegiatan sekolah.</p>
-                <a href="#" class="btn btn-teal btn-lg">Masuk ke Sistem</a>
-            </div>
-        </div>
+<div class="min-h-screen bg-[#FDFDFC] text-[#1b1b1b] flex flex-col items-center justify-center p-6">
+    <!-- Konten atau komponen frontend asli kamu di sini -->
+    <div class="text-center">
+        <h1 class="text-4xl font-bold mb-4">OSITARA</h1>
+        <p class="text-lg text-gray-600 mb-6">Sistem Manajemen Pengelolaan Administrasi OSIS SMK Budi Bakti Ciwidey</p>
+        <a href="/login" class="px-6 py-3 bg-[#2158B8] text-white rounded-lg shadow hover:bg-blue-700 transition">Masuk ke Sistem</a>
     </div>
 </div>
 @endsection
