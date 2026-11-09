@@ -24,7 +24,7 @@ Route::get('/health', [HealthController::class, 'check']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-// 2. KELOLA KEGIATAN OSIS (Sekretaris & Event)
+// 2. KELOLA KEGIATAN OSIS
 Route::get('/events', [EventController::class, 'index']);
 Route::get('/events/{id}', [EventController::class, 'show']);
 Route::post('/events', [EventController::class, 'store']);
@@ -51,13 +51,12 @@ Route::get('/pendaftaran', [PendaftaranEventController::class, 'index']);
 Route::post('/pendaftaran', [PendaftaranEventController::class, 'store']);
 Route::delete('/pendaftaran/{id}', [PendaftaranEventController::class, 'destroy']);
 
-// 4. PROPOSAL KEGIATAN (Sekretaris, Ketua, Pembina)
+// 4. PROPOSAL KEGIATAN
 Route::get('/proposals', [ProposalKegiatanController::class, 'index']);
 Route::get('/proposals/{id}', [ProposalKegiatanController::class, 'show']);
 Route::post('/proposals', [ProposalKegiatanController::class, 'store']);
 Route::put('/proposals/{id}', [ProposalKegiatanController::class, 'update']);
 Route::patch('/proposals/{id}/status', [ProposalKegiatanController::class, 'updateStatus']);
-Route::put('/proposals/{id}/status', [ProposalKegiatanController::class, 'updateStatus']);
 Route::delete('/proposals/{id}', [ProposalKegiatanController::class, 'destroy']);
 
 // Alias Route Proposal Kegiatan
@@ -66,17 +65,16 @@ Route::get('/proposal-kegiatan/{id}', [ProposalKegiatanController::class, 'show'
 Route::post('/proposal-kegiatan', [ProposalKegiatanController::class, 'store']);
 Route::put('/proposal-kegiatan/{id}', [ProposalKegiatanController::class, 'update']);
 Route::patch('/proposal-kegiatan/{id}/status', [ProposalKegiatanController::class, 'updateStatus']);
-Route::put('/proposal-kegiatan/{id}/status', [ProposalKegiatanController::class, 'updateStatus']);
 Route::delete('/proposal-kegiatan/{id}', [ProposalKegiatanController::class, 'destroy']);
 
-// 5. PROGRAM KERJA OSIS (Ketua OSIS)
+// 5. PROGRAM KERJA OSIS
 Route::get('/program-kerja', [ProgramKerjaController::class, 'index']);
 Route::get('/program-kerja/{id}', [ProgramKerjaController::class, 'show']);
 Route::post('/program-kerja', [ProgramKerjaController::class, 'store']);
 Route::put('/program-kerja/{id}', [ProgramKerjaController::class, 'update']);
 Route::delete('/program-kerja/{id}', [ProgramKerjaController::class, 'destroy']);
 
-// 6. LAPORAN KEUANGAN OSIS (Bendahara OSIS)
+// 6. LAPORAN KEUANGAN OSIS
 Route::get('/keuangan', [FinancialReportController::class, 'index']);
 Route::post('/keuangan', [FinancialReportController::class, 'store']);
 Route::put('/keuangan/{id}', [FinancialReportController::class, 'update']);
