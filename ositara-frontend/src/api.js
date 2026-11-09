@@ -2,7 +2,8 @@ import axios from 'axios';
 
 // Membuat instance utama koneksi ke backend Laravel OSITARA
 const API = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api', // Alamat server backend Laravel
+  // Otomatis membaca dari .env atau fallback ke URL Railway produksi jika .env kosong
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://ositaraa-production.up.railway.app/api',
   timeout: 10000, // Batas waktu maksimal request (10 detik)
   headers: {
     'Content-Type': 'application/json',
@@ -24,7 +25,7 @@ API.interceptors.request.use(
   }
 );
 
-// Interceptor untuk menangani respon error global (opsional tapi sangat membantu)
+// Interceptor untuk menangani respon error global
 API.interceptors.response.use(
   (response) => response,
   (error) => {
