@@ -6,19 +6,25 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
         Schema::create('laporan_keuangan', function (Blueprint $table) {
             $table->id();
-            $table->enum('sumber', ['Kas OSIS', 'Anggaran Sekolah']);
+            $table->string('sumber'); // Menampung "Kas OSIS", "Anggaran Sekolah", atau sumber dana lainnya
             $table->enum('jenis', ['Pemasukan', 'Pengeluaran']);
-            $table->string('keterangan');
+            $table->text('keterangan');
             $table->decimal('nominal', 15, 2);
             $table->date('tanggal');
             $table->timestamps();
         });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
         Schema::dropIfExists('laporan_keuangan');

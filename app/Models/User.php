@@ -5,18 +5,23 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
+
+    protected $table = 'users';
 
     protected $fillable = [
         'name',
         'nisn',
         'kelas',
         'email',
+        'email_verified_at', // <-- Ditambahkan
         'password',
-        'role', // <-- Tambahkan 'role' di sini supaya bisa disimpan ke database!
+        'role',
+        'remember_token',    // <-- Ditambahkan
     ];
 
     protected $hidden = [
@@ -24,10 +29,10 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'password' => 'hashed',
-        ];
-    }
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password'          => 'hashed',
+        'created_at'        => 'datetime:Y-m-d H:i:s',
+        'updated_at'        => 'datetime:Y-m-d H:i:s',
+    ];
 }

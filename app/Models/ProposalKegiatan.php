@@ -9,31 +9,39 @@ class ProposalKegiatan extends Model
 {
     use HasFactory;
 
-    // Menghubungkan langsung ke nama tabel di phpMyAdmin
+    /**
+     * Nama tabel di database MySQL.
+     *
+     * @var string
+     */
     protected $table = 'proposal_kegiatan';
 
-    // Mendaftarkan SELURUH kolom agar bisa diisi dari Controller/Form
+    /**
+     * Kolom yang dapat diisi secara masal (mass assignable).
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'judul_proposal',
         'kategori',
         'anggaran',
         'pengaju',
         'tanggal_pengajuan',
-        'deskripsi',
-        'file_proposal',
         'status',
         'catatan_pembina',
         'catatan_revisi',
-        'catatan',
-        'user_id',
+        'deskripsi',
+        'file_proposal',
+        'file_url',
     ];
 
     /**
-     * Konversi tipe data otomatis
+     * Tipe data bawaan yang di-cast otomatis oleh Eloquent.
+     *
+     * @var array<string, string>
      */
     protected $casts = [
-        'anggaran' => 'double',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'anggaran'          => 'decimal:2',
+        'tanggal_pengajuan' => 'date:Y-m-d',
     ];
 }

@@ -5,10 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Exception;
 
 class PendaftaranEventController extends Controller
 {
-    // GET /api/pendaftaran-event
+    /**
+     * GET /api/pendaftaran-event
+     * Mengambil daftar pendaftaran event
+     */
     public function index()
     {
         try {
@@ -17,12 +21,18 @@ class PendaftaranEventController extends Controller
                 ->get();
 
             return response()->json($data, 200);
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'Gagal mengambil data', 'error' => $e->getMessage()], 500);
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Gagal mengambil data',
+                'error'   => $e->getMessage()
+            ], 500);
         }
     }
 
-    // POST /api/pendaftaran-event
+    /**
+     * POST /api/pendaftaran-event
+     * Menyimpan data pendaftaran event baru
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -31,11 +41,11 @@ class PendaftaranEventController extends Controller
             'kelas'         => 'required|string',
         ]);
 
-        $rawId        = $request->id ?? (string) Str::uuid();
-        $newId        = strlen($rawId) > 36 ? (string) Str::uuid() : $rawId;
+        $rawId = $request->id ?? (string) Str::uuid();
+        $newId = strlen($rawId) > 36 ? (string) Str::uuid() : $rawId;
 
-        $rawKegId     = $request->kegiatan_id ?? $request->event_id ?? '1';
-        $kegiatanId   = is_numeric($rawKegId) ? (int)$rawKegId : (string)$rawKegId;
+        $rawKegId = $request->kegiatan_id ?? $request->event_id ?? '1';
+        $kegiatanId = is_numeric($rawKegId) ? (int) $rawKegId : (string) $rawKegId;
 
         $nisFix       = $request->nis ?? $request->nisn ?? '-';
         $namaKegiatan = $request->nama_kegiatan;
@@ -46,6 +56,7 @@ class PendaftaranEventController extends Controller
         $tglDaftar    = $request->tanggal_daftar ?? now()->format('Y-m-d');
 
         try {
+            // Percobaan 1: Simpan dengan String/UUID ID
             DB::table('pendaftaran_event')->insert([
                 'id'             => $newId,
                 'kegiatan_id'    => $kegiatanId,
@@ -71,7 +82,7 @@ class PendaftaranEventController extends Controller
                 ]
             ], 201);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Fallback jika ID di tabel MySQL berupa INT Auto Increment
             try {
                 $insertedId = DB::table('pendaftaran_event')->insertGetId([
@@ -90,10 +101,13 @@ class PendaftaranEventController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Pendaftaran berhasil disimpan',
-                    'data'    => ['id' => $insertedId, 'nama_kegiatan' => $namaKegiatan]
+                    'data'    => [
+                        'id'            => $insertedId,
+                        'nama_kegiatan' => $namaKegiatan
+                    ]
                 ], 201);
 
-            } catch (\Exception $err) {
+            } catch (Exception $err) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Gagal menyimpan pendaftaran: ' . $err->getMessage()
@@ -102,7 +116,10 @@ class PendaftaranEventController extends Controller
         }
     }
 
-    // DELETE /api/pendaftaran-event/{id}
+    /**
+     * DELETE /api/pendaftaran-event/{id}
+     * Menghapus pendaftaran event berdasarkan ID
+     */
     public function destroy($id)
     {
         try {
@@ -113,8 +130,12 @@ class PendaftaranEventController extends Controller
             }
 
             return response()->json(['message' => 'Pendaftaran berhasil dihapus'], 200);
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'Gagal menghapus', 'error' => $e->getMessage()], 500);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Gagal menghapus',
+                'error'   => $e->getMessage()
+            ], 500);
         }
     }
 }

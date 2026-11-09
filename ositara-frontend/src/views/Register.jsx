@@ -16,7 +16,10 @@ export default function Register({ onGoToLogin }) {
   const [error, setError] = useState('');
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -27,26 +30,57 @@ export default function Register({ onGoToLogin }) {
     const cleanEmail = formData.email.toLowerCase().trim();
 
     try {
-      // 1. Coba kirim data ke API Backend Laravel via Axios
+      // 1. Kirim data pendaftaran ke API Backend Laravel via Axios
       const response = await API.post('/register', {
         ...formData,
         email: cleanEmail,
       });
 
       alert(response.data.message || 'Pendaftaran Siswa Berhasil!');
-      onGoToLogin();
+      if (onGoToLogin) {
+        onGoToLogin();
+      }
     } catch (err) {
+      // PENANGANAN RESPON ERROR DARI SERVER LARAVEL (HTTP 422, 400, 500)
+      if (err.response) {
+        const resData = err.response.data;
+
+        // Jika terdapat kesalahan validasi spesifik (misal email duplikat / NISN kosong)
+        if (resData.errors) {
+          if (resData.errors.email) {
+            setError(resData.errors.email[0]); // Menampilkan: "Email ini sudah terdaftar! Gunakan email lain."
+          } else if (resData.errors.nisn) {
+            setError(resData.errors.nisn[0]);
+          } else if (resData.errors.name) {
+            setError(resData.errors.name[0]);
+          } else if (resData.errors.kelas) {
+            setError(resData.errors.kelas[0]);
+          } else if (resData.errors.password) {
+            setError(resData.errors.password[0]);
+          } else {
+            setError(resData.message || 'Validasi pendaftaran gagal.');
+          }
+        } else if (resData.message) {
+          setError(resData.message);
+        } else {
+          setError('Gagal mendaftar. Silakan periksa kembali data Anda.');
+        }
+
+        setLoading(false);
+        return; // BERHENTI DI SINI! Jangan masuk ke mode fallback lokal.
+      }
+
+      // 2. MODE FALLBACK: Hanya berjalan jika SERVER LARAVEL BENAR-BENAR OFFLINE / NETWORK ERROR
       console.warn(
         'API Laravel tidak merespon / Network Error. Menyalakan mode fallback lokal...',
         err
       );
 
-      // 2. MODE FALLBACK: Jika server Laravel mati/offline, simpan ke localStorage
       try {
         const storedUsers = localStorage.getItem('ositara_users');
         const registeredUsers = storedUsers ? JSON.parse(storedUsers) : [];
 
-        // Cek apakah email sudah terdaftar sebelumnya
+        // Cek apakah email sudah terdaftar secara lokal
         const isExist = registeredUsers.some(
           (u) => u.email?.toLowerCase().trim() === cleanEmail
         );
@@ -78,7 +112,9 @@ export default function Register({ onGoToLogin }) {
         alert(
           'Pendaftaran Berhasil (Mode Lokal)! Silakan login dengan akun yang baru dibuat.'
         );
-        onGoToLogin();
+        if (onGoToLogin) {
+          onGoToLogin();
+        }
       } catch (storageErr) {
         console.error('Gagal menyimpan ke localStorage:', storageErr);
         setError('Gagal memproses pendaftaran secara lokal.');
@@ -98,14 +134,13 @@ export default function Register({ onGoToLogin }) {
           onClick={onGoToLogin}
           className="absolute top-6 left-6 inline-flex items-center gap-1.5 bg-slate-400 hover:bg-slate-500 text-white px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95 cursor-pointer"
         >
-          <span>‹</span> Kembali
+          <span>&lt;</span> Kembali
         </button>
 
         <div className="grid md:grid-cols-2 gap-8 items-center mt-6 md:mt-0">
 
           {/* BAGIAN LOGO & JUDUL */}
           <div className="flex flex-col items-center justify-center text-center py-4 select-none">
-
             {/* Logo OSITARA Interaktif */}
             <div className="relative mb-3 group cursor-pointer">
               <img
@@ -132,11 +167,11 @@ export default function Register({ onGoToLogin }) {
             <p className="text-xs text-blue-800 font-bold mt-1">
               Buat Akun Siswa
             </p>
-
           </div>
 
           {/* FORM PENDAFTARAN DENGAN INTERAKSI KONTROL */}
           <div>
+            {/* Notifikasi Error jika email sudah terdaftar atau input tidak valid */}
             {error && (
               <div className="text-xs text-red-500 bg-red-50 p-3 rounded-xl mb-4 border border-red-200 text-center font-semibold shadow-sm animate-shake">
                 {error}
@@ -163,7 +198,7 @@ export default function Register({ onGoToLogin }) {
                   required
                   value={formData.nisn}
                   onChange={handleChange}
-                  placeholder="NISN/NIPD"
+                  placeholder="NISN / NIPD"
                   className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/30 hover:border-blue-300 transition-all duration-200 hover:-translate-y-0.5"
                 />
               </div>
@@ -208,7 +243,7 @@ export default function Register({ onGoToLogin }) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-amber-400 hover:bg-amber-500 text-blue-950 font-extrabold py-3 rounded-xl text-xs shadow-md hover:shadow-lg hover:shadow-amber-400/30 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 cursor-pointer mt-4"
+                className="w-full bg-amber-400 text-blue-950 font-extrabold py-3 shadow-md hover:shadow-lg hover:bg-amber-500 rounded-xl text-xs hover:shadow-amber-400/30 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 cursor-pointer mt-4"
               >
                 {loading ? 'Mendaftarkan...' : 'Daftar'}
               </button>
@@ -216,7 +251,6 @@ export default function Register({ onGoToLogin }) {
           </div>
 
         </div>
-
       </div>
     </div>
   );

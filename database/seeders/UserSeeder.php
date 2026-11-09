@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class UserSeeder extends Seeder
 {
@@ -12,78 +13,94 @@ class UserSeeder extends Seeder
     {
         // 1. Akun Pembina
         User::create([
-            'name'     => 'Pak Sufiyan Muthahar',
-            'nisn'     => '0000000000',
-            'kelas'    => '-',
-            'email'    => 'pembina@ositara.com',
-            'password' => Hash::make('Osis26/27'),
-            'role'     => 'pembina',
+            'name'              => 'Pak Sufiyan Muthahar',
+            'nisn'              => '0000000000',
+            'kelas'             => '-',
+            'email'             => 'pembina@ositara.com',
+            'password'          => Hash::make('Osis26/27'),
+            'role'              => 'pembina',
+            'email_verified_at' => now(),
+            'remember_token'    => Str::random(10),
         ]);
 
         // 2. Akun Pengurus (Ketua OSIS dan Wakil Ketua OSIS)
         User::create([
-            'name'     => 'Anggi Anggraeni',
-            'nisn'     => '0051234567',
-            'kelas'    => 'XII RPL 4',
-            'email'    => 'ketuaosis@ositara.com',
-            'password' => Hash::make('Osis26/27'),
-            'role'     => 'pengurus',
+            'name'              => 'Anggi Anggraeni',
+            'nisn'              => '0051234567',
+            'kelas'             => 'XII RPL 4',
+            'email'             => 'ketuaosis@ositara.com',
+            'password'          => Hash::make('Osis26/27'),
+            'role'              => 'pengurus',
+            'email_verified_at' => now(),
+            'remember_token'    => Str::random(10),
         ]);
 
         User::create([
-            'name'     => 'Devi Fauziah',
-            'nisn'     => '0091142060',
-            'kelas'    => 'XII RPL 4',
-            'email'    => 'wakilketuaosis1@ositara.com',
-            'password' => Hash::make('Osis26/27'),
-            'role'     => 'pengurus',
+            'name'              => 'Devi Fauziah',
+            'nisn'              => '0091142060',
+            'kelas'             => 'XII RPL 4',
+            'email'             => 'wakilketuaosis1@ositara.com',
+            'password'          => Hash::make('Osis26/27'),
+            'role'              => 'pengurus',
+            'email_verified_at' => now(),
+            'remember_token'    => Str::random(10),
         ]);
 
         User::create([
-            'name'     => 'Oka Karina Siwi',
-            'nisn'     => '0051234569',
-            'kelas'    => 'XII DKV 2',
-            'email'    => 'wakilketuaosis2@ositara.com',
-            'password' => Hash::make('Osis26/27'),
-            'role'     => 'pengurus',
+            'name'              => 'Oka Karina Siwi',
+            'nisn'              => '0051234569',
+            'kelas'             => 'XII DKV 2',
+            'email'             => 'wakilketuaosis2@ositara.com',
+            'password'          => Hash::make('Osis26/27'),
+            'role'              => 'pengurus',
+            'email_verified_at' => now(),
+            'remember_token'    => Str::random(10),
         ]);
 
         // 3. Akun Pengurus (Sekretaris OSIS)
         User::create([
-            'name'     => 'Naura Lutfiah',
-            'nisn'     => '0051234568',
-            'kelas'    => 'XII RPL 2',
-            'email'    => 'sekretaris1@ositara.com',
-            'password' => Hash::make('Osis26/27'),
-            'role'     => 'pengurus',
+            'name'              => 'Naura Lutfiah',
+            'nisn'              => '0051234568',
+            'kelas'             => 'XII RPL 2',
+            'email'             => 'sekretaris1@ositara.com',
+            'password'          => Hash::make('Osis26/27'),
+            'role'              => 'pengurus',
+            'email_verified_at' => now(),
+            'remember_token'    => Str::random(10),
         ]);
 
         User::create([
-            'name'     => 'Salfa Alena Eka Putri',
-            'nisn'     => '3092885812',
-            'kelas'    => 'XII RPL 1',
-            'email'    => 'sekretaris2@ositara.com',
-            'password' => Hash::make('Osis26/27'),
-            'role'     => 'pengurus',
+            'name'              => 'Salfa Alena Eka Putri',
+            'nisn'              => '3092885812',
+            'kelas'             => 'XII RPL 1',
+            'email'             => 'sekretaris2@ositara.com',
+            'password'          => Hash::make('Osis26/27'),
+            'role'              => 'pengurus',
+            'email_verified_at' => now(),
+            'remember_token'    => Str::random(10),
         ]);
 
         // 4. Akun Pengurus (Bendahara OSIS)
         User::create([
-            'name'     => 'Salsabila Zahir A',
-            'nisn'     => '0092082502',
-            'kelas'    => 'XII RPL 2',
-            'email'    => 'bendahara1@ositara.com',
-            'password' => Hash::make('Osis26/27'),
-            'role'     => 'pengurus',
+            'name'              => 'Salsabila Zahir A',
+            'nisn'              => '0092082502',
+            'kelas'             => 'XII RPL 2',
+            'email'             => 'bendahara1@ositara.com',
+            'password'          => Hash::make('Osis26/27'),
+            'role'              => 'pengurus',
+            'email_verified_at' => now(),
+            'remember_token'    => Str::random(10),
         ]);
 
         User::create([
-            'name'     => 'Shopia Widarti Noviani',
-            'nisn'     => '0088157818',
-            'kelas'    => 'XII DKV 2',
-            'email'    => 'bendahara2@ositara.com',
-            'password' => Hash::make('Osis26/27'),
-            'role'     => 'pengurus',
+            'name'              => 'Shopia Widarti Noviani',
+            'nisn'              => '0088157818',
+            'kelas'             => 'XII DKV 2',
+            'email'             => 'bendahara2@ositara.com',
+            'password'          => Hash::make('Osis26/27'),
+            'role'              => 'pengurus',
+            'email_verified_at' => now(),
+            'remember_token'    => Str::random(10),
         ]);
     }
 }

@@ -4,20 +4,214 @@ import logoOsitara from '../assets/LOGO OSITARA.png';
 //--- KONFIGURASI API BACKEND
 const API_BASE = 'http://127.0.0.1:8000/api';
 
-//--- DEKLARASI IKON SVG---
-const SvgHome = () => <svg className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>;
-const SvgProposal = () => <svg className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>;
-const SvgKegiatan = () => <svg className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>;
-const SvgProker = () => <svg className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2H9z"/></svg>;
-const SvgAnggota = () => <svg className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>;
-const SvgKeuangan = () => <svg className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>;
-const SvgLogout = () => <svg className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>;
-const SvgEdit = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>;
-const SvgTrash = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>;
-const SvgSend = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>;
-const SvgUsersGroup = () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>;
-const SvgDownload = () => <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>;
-const SvgCalendarSmall = () => <svg className="w-3.5 h-3.5 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>;
+//--- DEKLARASI IKON SVG
+const SvgHome = () => (
+  <svg
+    className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+    />
+  </svg>
+);
+
+const SvgProposal = () => (
+  <svg
+    className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+    />
+  </svg>
+);
+
+const SvgKegiatan = () => (
+  <svg
+    className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+    />
+  </svg>
+);
+
+const SvgProker = () => (
+  <svg
+    className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2H9z"
+    />
+  </svg>
+);
+
+const SvgAnggota = () => (
+  <svg
+    className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+    />
+  </svg>
+);
+
+const SvgKeuangan = () => (
+  <svg
+    className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2V7a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+    />
+  </svg>
+);
+
+const SvgLogout = () => (
+  <svg
+    className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:translate-x-1"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+    />
+  </svg>
+);
+
+const SvgEdit = () => (
+  <svg
+    className="w-4 h-4"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+    />
+  </svg>
+);
+
+const SvgTrash = () => (
+  <svg
+    className="w-4 h-4"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+    />
+  </svg>
+);
+
+const SvgSend = () => (
+  <svg
+    className="w-4 h-4"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+    />
+  </svg>
+);
+
+const SvgUsersGroup = () => (
+  <svg
+    className="w-4 h-4"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+    />
+  </svg>
+);
+
+const SvgDownload = () => (
+  <svg
+    className="w-4 h-4 shrink-0"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+    />
+  </svg>
+);
+
+const SvgCalendarSmall = () => (
+  <svg
+    className="w-3.5 h-3.5 shrink-0 text-slate-400"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+    />
+  </svg>
+);
 
 const getInitialData = (key, fallback) => {
   try {
@@ -34,12 +228,20 @@ const getInitialData = (key, fallback) => {
 
 const filterOnlyKegiatanSekre = (list) => {
   if (!Array.isArray(list)) return [];
-  return list.filter((item) => String(item.is_event) === '1' || String(item.sekbid || item.divisi || '').toLowerCase().trim() === 'sekretaris');
+  return list.filter(
+    (item) =>
+      String(item.is_event) === '1' ||
+      String(item.sekbid || item.divisi || '').toLowerCase().trim() === 'sekretaris'
+  );
 };
 
 const filterOnlyProkerKetua = (list) => {
   if (!Array.isArray(list)) return [];
-  return list.filter((item) => String(item.is_event) !== '1' && String(item.sekbid || item.divisi || '').toLowerCase().trim() !== 'sekretaris');
+  return list.filter(
+    (item) =>
+      String(item.is_event) !== '1' &&
+      String(item.sekbid || item.divisi || '').toLowerCase().trim() !== 'sekretaris'
+  );
 };
 
 export default function DashboardSekretaris({
@@ -52,7 +254,7 @@ export default function DashboardSekretaris({
   onTambahProposal,
   initialProker = [],
   initialAnggota = [],
-  initialKeuangan = []
+  initialKeuangan = [],
 }) {
   const [activeMenu, setActiveMenu] = useState('beranda');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -62,8 +264,12 @@ export default function DashboardSekretaris({
     return filterOnlyKegiatanSekre(raw);
   });
 
-  const [proposalList, setProposalList] = useState(() => getInitialData('ositara_proposal', initialProposal));
-  const [keuanganList] = useState(() => getInitialData('ositara_keuangan', initialKeuangan));
+  const [proposalList, setProposalList] = useState(() =>
+    getInitialData('ositara_proposal', initialProposal)
+  );
+  const [keuanganList] = useState(() =>
+    getInitialData('ositara_keuangan', initialKeuangan)
+  );
 
   const [pendaftaranList, setPendaftaranList] = useState(() => {
     const primary = getInitialData('ositara_pendaftaran', null);
@@ -76,24 +282,34 @@ export default function DashboardSekretaris({
     return filterOnlyProkerKetua(raw);
   });
 
-  const [anggotaList] = useState(() => getInitialData('ositara_anggota', initialAnggota));
-  const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('ositara_user_avatar') || null);
+  const [anggotaList] = useState(() =>
+    getInitialData('ositara_anggota', initialAnggota)
+  );
+
+  const [avatarUrl, setAvatarUrl] = useState(
+    () => localStorage.getItem('ositara_user_avatar') || null
+  );
   const [selectedKegiatanPeserta, setSelectedKegiatanPeserta] = useState(null);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
-  const namaDisplay = user?.namaLengkap || user?.nama || user?.name || user?.username || 'Salfa Alena Eka Putri';
+  const namaDisplay =
+    user?.namaLengkap || user?.nama || user?.name || user?.username || 'Salfa Alena Eka Putri';
   const inisialNama = namaDisplay.charAt(0).toUpperCase();
 
   //--- SINKRONISASI PROPOSAL DARI MYSQL BACKEND
   const fetchProposalsFromBackend = useCallback(async () => {
     try {
-      let res = await fetch(`${API_BASE}/proposals`, { headers: { Accept: 'application/json' } });
+      let res = await fetch(`${API_BASE}/proposals`, {
+        headers: { Accept: 'application/json' },
+      });
       if (!res.ok) {
-        res = await fetch(`${API_BASE}/proposal-kegiatan`, { headers: { Accept: 'application/json' } });
+        res = await fetch(`${API_BASE}/proposal-kegiatan`, {
+          headers: { Accept: 'application/json' },
+        });
       }
       if (res.ok) {
         const result = await res.json();
-        const dataArr = Array.isArray(result) ? result : (result.data || []);
+        const dataArr = Array.isArray(result) ? result : result.data || [];
         if (dataArr.length > 0) {
           const formatted = dataArr.map((p) => ({
             id: p.id,
@@ -103,23 +319,31 @@ export default function DashboardSekretaris({
             anggaran: Number(p.anggaran) || 0,
             file: p.file_proposal || p.file || 'Dokumen.pdf',
             fileData: p.file_url || p.fileData || p.file_proposal || null,
-            tanggal: p.tanggal_pengajuan || p.tanggal || new Date().toLocaleDateString("id-ID"),
+            tanggal:
+              p.tanggal_pengajuan ||
+              p.tanggal ||
+              new Date().toLocaleDateString('id-ID'),
             status: p.status || 'Menunggu Persetujuan',
-            catatan_revisi: p.catatan_pembina || p.catatan_revisi || '-'
+            catatan_revisi:
+              p.catatan_pembina || p.catatan_revisi || p.catatan || '-',
           }));
           setProposalList(formatted);
           localStorage.setItem('ositara_proposal', JSON.stringify(formatted));
         }
       }
     } catch (err) {
-      console.error("Gagal fetch proposal dari MySQL:", err);
+      console.error('Gagal fetch proposal dari MySQL:', err);
     }
   }, []);
 
   useEffect(() => {
     fetchProposalsFromBackend();
+    const interval = setInterval(fetchProposalsFromBackend, 3000); // Polling otomatis setiap 3 detik
     window.addEventListener('storage', fetchProposalsFromBackend);
-    return () => window.removeEventListener('storage', fetchProposalsFromBackend);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', fetchProposalsFromBackend);
+    };
   }, [fetchProposalsFromBackend]);
 
   const syncProkerFromKetua = useCallback(() => {
@@ -133,28 +357,37 @@ export default function DashboardSekretaris({
     return () => window.removeEventListener('storage', syncProkerFromKetua);
   }, [syncProkerFromKetua]);
 
-  //--- SINKRONISASI PENDAFTARAN
   const syncPendaftaran = useCallback(async () => {
     try {
-      let res = await fetch(`${API_BASE}/pendaftaran-event`, { headers: { Accept: 'application/json' } });
+      let res = await fetch(`${API_BASE}/pendaftaran-event`, {
+        headers: { Accept: 'application/json' },
+      });
       if (!res.ok) {
-        res = await fetch(`${API_BASE}/pendaftaran`, { headers: { Accept: 'application/json' } });
+        res = await fetch(`${API_BASE}/pendaftaran`, {
+          headers: { Accept: 'application/json' },
+        });
       }
       if (res.ok) {
         const data = await res.json();
-        const arr = Array.isArray(data) ? data : (data.data || []);
+        const arr = Array.isArray(data) ? data : data.data || [];
         if (arr.length > 0) {
-          const formatted = arr.map(p => ({
+          const formatted = arr.map((p) => ({
             id: p.id,
             kegiatanId: p.kegiatan_id || p.kegiatanId || p.event_id,
-            namaKegiatan: p.nama_kegiatan || p.namaKegiatan || p.nama_event || p.nama_proker || p.nama || 'Kegiatan OSIS',
+            namaKegiatan:
+              p.nama_kegiatan ||
+              p.namaKegiatan ||
+              p.nama_event ||
+              p.nama_proker ||
+              p.nama ||
+              'Kegiatan OSIS',
             namaSiswa: p.nama_siswa || p.namaSiswa || p.nama,
             nama: p.nama_siswa || p.namaSiswa || p.nama,
-            nis: p.nis || p.nisn || '',
-            kelas: p.kelas || '',
-            catatan: p.catatan || '',
+            nis: p.nis || p.nisn || '-',
+            kelas: p.kelas || '-',
+            catatan: p.catatan || '-',
             tanggalDaftar: p.tanggal_daftar || p.tanggalDaftar || '',
-            status: p.status || 'Terdaftar'
+            status: p.status || 'Terdaftar',
           }));
           setPendaftaranList(formatted);
           localStorage.setItem('ositara_pendaftaran', JSON.stringify(formatted));
@@ -162,7 +395,7 @@ export default function DashboardSekretaris({
         }
       }
     } catch (e) {
-      console.error("Gagal sync pendaftaran dari API MySQL:", e);
+      console.error('Gagal sync pendaftaran dari API MYSQL:', e);
     }
   }, []);
 
@@ -185,17 +418,17 @@ export default function DashboardSekretaris({
     const file = e.target.files?.[0];
     if (file) {
       if (file.size >= 2 * 1024 * 1024) {
-        alert("Ukuran foto terlalu besar! Maksimal 2MB.");
+        alert('Ukuran foto terlalu besar! Maksimal 2MB.');
         return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatarUrl(reader.result);
         localStorage.setItem('ositara_user_avatar', reader.result);
-        setShowAvatarModal(false);
       };
       reader.readAsDataURL(file);
     }
+    setShowAvatarModal(false);
   };
 
   const handleHapusAvatar = () => {
@@ -206,7 +439,7 @@ export default function DashboardSekretaris({
     }
   };
 
-  //--- HANDLER PROPOSAL
+  //--- HANDLER PROPOSAL (SUBMIT & REVISI DIKIRIM ULANG KE DATABASE MYSQL)
   const [editingProposalId, setEditingProposalId] = useState(null);
   const [judulProposal, setJudulProposal] = useState('');
   const [kategoriProposal, setKategoriProposal] = useState('Kegiatan');
@@ -216,7 +449,7 @@ export default function DashboardSekretaris({
   const handleSubmitProposal = async (e) => {
     e.preventDefault();
     if (!judulProposal.trim() || !anggaranProposal) {
-      return alert("Judul dan Anggaran wajib diisi!");
+      return alert('Judul dan Anggaran wajib diisi!');
     }
 
     const formData = new FormData();
@@ -226,7 +459,12 @@ export default function DashboardSekretaris({
     formData.append('anggaran', Number(anggaranProposal));
     formData.append('pengaju', 'Sekretaris OSIS');
     formData.append('status', 'Menunggu Persetujuan');
-    formData.append('deskripsi', 'Proposal diajukan oleh Sekretaris OSIS');
+    formData.append('catatan_pembina', '-');
+    formData.append('catatan_revisi', '-');
+    formData.append(
+      'deskripsi',
+      'Proposal telah direvisi dan diajukan ulang oleh Sekretaris OSIS'
+    );
 
     if (fileProposal) {
       formData.append('file_proposal', fileProposal);
@@ -234,56 +472,82 @@ export default function DashboardSekretaris({
     }
 
     try {
-      let url = editingProposalId ? `${API_BASE}/proposals/${editingProposalId}` : `${API_BASE}/proposals`;
+      let isSuccess = false;
       if (editingProposalId) {
         formData.append('_method', 'PUT');
-      }
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { Accept: 'application/json' },
-        body: formData
-      });
-
-      if (response.ok) {
-        alert(editingProposalId ? 'Proposal berhasil diperbarui!' : 'Proposal baru berhasil diajukan!');
-        fetchProposalsFromBackend();
-      } else {
-        const fallbackRes = await fetch(`${API_BASE}/proposal-kegiatan`, {
+        let response = await fetch(`${API_BASE}/proposals/${editingProposalId}`, {
           method: 'POST',
           headers: { Accept: 'application/json' },
-          body: formData
+          body: formData,
         });
-        if (fallbackRes.ok) {
-          alert('Proposal baru berhasil diajukan!');
-          fetchProposalsFromBackend();
-        } else {
-          alert('Gagal menyimpan data ke database.');
+        if (!response.ok) {
+          response = await fetch(
+            `${API_BASE}/proposal-kegiatan/${editingProposalId}`,
+            {
+              method: 'POST',
+              headers: { Accept: 'application/json' },
+              body: formData,
+            }
+          );
+        }
+        if (response.ok) {
+          isSuccess = true;
+          alert('Proposal revisi berhasil dikirim ulang ke Pembina & Database MySQL!');
+        }
+      } else {
+        let response = await fetch(`${API_BASE}/proposals`, {
+          method: 'POST',
+          headers: { Accept: 'application/json' },
+          body: formData,
+        });
+        if (!response.ok) {
+          response = await fetch(`${API_BASE}/proposal-kegiatan`, {
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+            body: formData,
+          });
+        }
+        if (response.ok) {
+          isSuccess = true;
+          alert('Proposal baru berhasil diajukan ke Database MYSQL!');
         }
       }
-    } catch (err) {
-      console.error("Gagal mengirim proposal:", err);
-      alert("Terjadi kesalahan saat mengirim proposal.");
-    }
 
-    setEditingProposalId(null);
-    setJudulProposal('');
-    setAnggaranProposal('');
-    setFileProposal(null);
+      if (isSuccess) {
+        setEditingProposalId(null);
+        setJudulProposal('');
+        setAnggaranProposal('');
+        setFileProposal(null);
+        await fetchProposalsFromBackend();
+      } else {
+        alert('Gagal menyimpan data proposal ke database.');
+      }
+    } catch (err) {
+      console.error('Gagal mengirim proposal:', err);
+      alert('Terjadi kesalahan koneksi saat mengirim proposal.');
+    }
   };
 
   const handleHapusProposal = async (id) => {
     if (window.confirm('Hapus proposal ini?')) {
-      const updated = proposalList.filter((p) => p.id !== id);
+      const updated = proposalList.filter((p) => String(p.id) !== String(id));
       setProposalList(updated);
       localStorage.setItem('ositara_proposal', JSON.stringify(updated));
+
       try {
-        await fetch(`${API_BASE}/proposals/${id}`, {
+        let res = await fetch(`${API_BASE}/proposals/${id}`, {
           method: 'DELETE',
-          headers: { Accept: 'application/json' }
+          headers: { Accept: 'application/json' },
         });
+        if (!res.ok) {
+          await fetch(`${API_BASE}/proposal-kegiatan/${id}`, {
+            method: 'DELETE',
+            headers: { Accept: 'application/json' },
+          });
+        }
+        await fetchProposalsFromBackend();
       } catch (err) {
-        console.error("Gagal menghapus proposal dari MySQL", err);
+        console.error('Gagal menghapus proposal dari MySQL', err);
       }
     }
   };
@@ -299,7 +563,7 @@ export default function DashboardSekretaris({
   const handleSubmitKegiatan = async (e) => {
     e.preventDefault();
     if (!namaKegiatan.trim() || !tanggalKegiatan) {
-      alert("Nama dan Tanggal kegiatan wajib diisi!");
+      alert('Nama dan Tanggal kegiatan wajib diisi!');
       return;
     }
 
@@ -310,13 +574,13 @@ export default function DashboardSekretaris({
       target: tanggalKegiatan,
       deskripsi: deskripsiKegiatan || 'Tidak ada deskripsi',
       status: statusKegiatan,
-      is_event: 1
+      is_event: 1,
     };
 
     if (editingKegiatanId) {
       setKegiatanList((prev) =>
         prev.map((k) =>
-          k.id === editingKegiatanId
+          String(k.id) === String(editingKegiatanId)
             ? {
                 ...k,
                 nama_proker: namaKegiatan.trim(),
@@ -327,7 +591,7 @@ export default function DashboardSekretaris({
                 deskripsi: deskripsiKegiatan,
                 status: statusKegiatan,
                 sekbid: 'Sekretaris',
-                is_event: 1
+                is_event: 1,
               }
             : k
         )
@@ -336,11 +600,14 @@ export default function DashboardSekretaris({
       try {
         await fetch(`${API_BASE}/program-kerja/${editingKegiatanId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify(payload)
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify(payload),
         });
       } catch (err) {
-        console.error("Gagal memperbarui kegiatan ke MySQL", err);
+        console.error('Gagal memperbarui kegiatan ke MySQL', err);
       }
       setEditingKegiatanId(null);
       alert('Kegiatan berhasil diperbarui!');
@@ -348,8 +615,11 @@ export default function DashboardSekretaris({
       try {
         const response = await fetch(`${API_BASE}/program-kerja`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify(payload)
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify(payload),
         });
         const result = await response.json();
         const savedData = result.data || result;
@@ -363,13 +633,14 @@ export default function DashboardSekretaris({
           deskripsi: deskripsiKegiatan,
           status: statusKegiatan,
           sekbid: 'Sekretaris',
-          is_event: 1
+          is_event: 1,
         };
+
         setKegiatanList((prev) => [kBaru, ...prev]);
         if (typeof onTambahKegiatan === 'function') onTambahKegiatan(kBaru);
-        alert("Kegiatan baru berhasil ditambahkan!");
+        alert('Kegiatan baru berhasil ditambahkan!');
       } catch (err) {
-        console.error("Gagal menyimpan kegiatan ke MySQL", err);
+        console.error('Gagal menyimpan kegiatan ke MySQL', err);
         alert('Gagal menyimpan kegiatan ke database.');
       }
     }
@@ -382,15 +653,15 @@ export default function DashboardSekretaris({
   };
 
   const handleHapusKegiatan = async (id) => {
-    if (window.confirm("Hapus kegiatan ini?")) {
-      setKegiatanList((prev) => prev.filter((k) => k.id !== id));
+    if (window.confirm('Hapus kegiatan ini?')) {
+      setKegiatanList((prev) => prev.filter((k) => String(k.id) !== String(id)));
       try {
         await fetch(`${API_BASE}/program-kerja/${id}`, {
           method: 'DELETE',
-          headers: { Accept: 'application/json' }
+          headers: { Accept: 'application/json' },
         });
       } catch (err) {
-        console.error("Gagal menghapus kegiatan dari MySQL", err);
+        console.error('Gagal menghapus kegiatan dari MySQL', err);
       }
     }
   };
@@ -398,10 +669,27 @@ export default function DashboardSekretaris({
   const getPesertaByKegiatan = (keg) => {
     if (!keg) return [];
     const targetId = String(keg.id);
-    const targetName = (keg.nama_proker || keg.namaKegiatan || keg.nama || '').toLowerCase().trim();
+    const targetName = (
+      keg.nama_proker ||
+      keg.namaKegiatan ||
+      keg.nama ||
+      ''
+    )
+      .toLowerCase()
+      .trim();
+
     return pendaftaranList.filter((p) => {
       const pId = String(p.kegiatanId || p.kegiatan_id || '');
-      const pName = (p.namaKegiatan || p.nama_kegiatan || p.nama_event || p.nama || '').toLowerCase().trim();
+      const pName = (
+        p.namaKegiatan ||
+        p.nama_kegiatan ||
+        p.nama_event ||
+        p.nama_proker ||
+        p.nama ||
+        ''
+      )
+        .toLowerCase()
+        .trim();
       return (pId && pId === targetId) || (pName && pName === targetName);
     });
   };
@@ -418,7 +706,6 @@ export default function DashboardSekretaris({
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#F2F4F7] font-sans text-slate-800 w-full overflow-x-hidden">
-
       {/* HEADER NAVBAR MOBILE */}
       <div className="md:hidden bg-[#2158B8] text-white px-4 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-md w-full">
         <div className="flex items-center space-x-2.5">
@@ -430,7 +717,9 @@ export default function DashboardSekretaris({
           />
           <div>
             <h1 className="text-base font-black tracking-wider leading-none">OSITARA</h1>
-            <p className="text-[9px] text-blue-200 font-bold tracking-wide uppercase mt-0.5">SEKRETARIS OSIS</p>
+            <p className="text-[9px] text-blue-200 font-bold tracking-wide uppercase mt-0.5">
+              SEKRETARIS OSIS
+            </p>
           </div>
         </div>
         <button
@@ -438,7 +727,16 @@ export default function DashboardSekretaris({
           className="p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition-all cursor-pointer"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={isMobileMenuOpen ? 'M6 18L18 6M6 6l12 12' : 'M4 6h16M4 12h16M4 18h16'} />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d={
+                isMobileMenuOpen
+                  ? 'M6 18L18 6M6 6l12 12'
+                  : 'M4 6h16M4 12h16M4 18h16'
+              }
+            />
           </svg>
         </button>
       </div>
@@ -450,8 +748,12 @@ export default function DashboardSekretaris({
         />
       )}
 
-      {/* SIDEBAR NAVIGATION */}
-      <aside className={`fixed md:sticky top-0 inset-y-0 left-0 z-50 h-screen w-64 bg-[#2158B8] text-white flex justify-between p-6 shrink-0 shadow-2xl flex-col transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      {/* SIDEBAR NAVIGATION (MODIFIKASI KETINGGIAN RESPONSIF: MIN-H-SCREEN & MD:RELATIVE) */}
+      <aside
+        className={`fixed md:relative inset-y-0 left-0 z-50 min-h-screen w-64 bg-[#2158B8] text-white flex flex-col justify-between p-6 shrink-0 shadow-2xl transition-transform duration-300 ease-in-out ${
+          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
         <div>
           <div className="hidden md:flex items-center space-x-3 mb-8">
             <div className="relative group cursor-pointer">
@@ -464,7 +766,9 @@ export default function DashboardSekretaris({
             </div>
             <div>
               <h1 className="text-xl font-black tracking-wider leading-none">OSITARA</h1>
-              <p className="text-[10px] text-blue-200 font-bold tracking-wide mt-1 uppercase">SEKRETARIS OSIS</p>
+              <p className="text-[10px] text-blue-200 font-bold tracking-wide mt-1 uppercase">
+                SEKRETARIS OSIS
+              </p>
             </div>
           </div>
 
@@ -479,7 +783,7 @@ export default function DashboardSekretaris({
                     setActiveMenu(menu.id);
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`group w-full flex items-center space-x-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer ${
+                  className={`group w-full flex items-center space-x-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer text-left ${
                     isActive
                       ? 'bg-[#FFF3BF] text-[#2158B8] shadow-md hover:shadow-lg'
                       : 'hover:bg-white/10 text-white hover:shadow-sm'
@@ -502,11 +806,10 @@ export default function DashboardSekretaris({
         </button>
       </aside>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN CONTENT AREA */}
       <main className="flex-1 p-3.5 sm:p-6 lg:p-8 overflow-x-hidden min-w-0 w-full">
-
         {/* HEADER PROFIL SEKRETARIS */}
-        <div className="flex items-center justify-between mb-6 sm:mb-8 p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg border bg-white border-slate-200/80 transition-all duration-300">
+        <div className="flex items-center justify-between mb-6 sm:mb-8 p-4 sm:px-5 rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg border bg-white border-slate-200/80 transition-all duration-300">
           <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 w-full">
             <div
               onClick={() => setShowAvatarModal(true)}
@@ -543,11 +846,14 @@ export default function DashboardSekretaris({
         {activeMenu === 'beranda' && (
           <div className="space-y-6 sm:space-y-8 animate-[fadeIn_0.3s_ease-out]">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-
               <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-between">
                 <div>
-                  <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">Total Kegiatan</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-[#2158B8] mt-1">{kegiatanList.length}</h3>
+                  <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">
+                    Total Kegiatan
+                  </p>
+                  <h3 className="text-xl sm:text-2xl font-black text-[#2158B8] mt-1">
+                    {kegiatanList.length}
+                  </h3>
                 </div>
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 text-[#2158B8] rounded-2xl flex items-center justify-center shrink-0 ml-2 shadow-inner">
                   <SvgKegiatan />
@@ -556,8 +862,12 @@ export default function DashboardSekretaris({
 
               <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-between">
                 <div>
-                  <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">Total Anggota</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-[#2158B8] mt-1">{anggotaList.length}</h3>
+                  <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">
+                    Total Anggota
+                  </p>
+                  <h3 className="text-xl sm:text-2xl font-black text-[#2158B8] mt-1">
+                    {anggotaList.length}
+                  </h3>
                 </div>
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-50 rounded-2xl flex items-center justify-center shrink-0 text-amber-600 ml-2 shadow-inner">
                   <SvgAnggota />
@@ -566,8 +876,12 @@ export default function DashboardSekretaris({
 
               <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-between">
                 <div>
-                  <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">Proposal Diajukan</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-[#2158B8] mt-1">{proposalList.length}</h3>
+                  <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">
+                    Proposal Diajukan
+                  </p>
+                  <h3 className="text-xl sm:text-2xl font-black text-[#2158B8] mt-1">
+                    {proposalList.length}
+                  </h3>
                 </div>
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center shrink-0 ml-2 shadow-inner">
                   <SvgProposal />
@@ -576,22 +890,26 @@ export default function DashboardSekretaris({
 
               <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-between">
                 <div>
-                  <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">Pendaftar Siswa</p>
-                  <h3 className="text-xl sm:text-2xl font-black text-[#2158B8] mt-1">{pendaftaranList.length}</h3>
+                  <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">
+                    Pendaftar Siswa
+                  </p>
+                  <h3 className="text-xl sm:text-2xl font-black text-[#2158B8] mt-1">
+                    {pendaftaranList.length}
+                  </h3>
                 </div>
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0 ml-2 shadow-inner">
                   <SvgUsersGroup />
                 </div>
               </div>
-
             </div>
 
             {/* RINGKASAN AKTIVITAS TERBARU */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
               <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-base sm:text-lg font-bold text-[#2158B8]">Agenda Kegiatan Terbaru</h3>
+                  <h3 className="text-base sm:text-lg font-bold text-[#2158B8]">
+                    Agenda Kegiatan Terbaru
+                  </h3>
                   <button
                     onClick={() => setActiveMenu('kelola-kegiatan')}
                     className="text-xs font-bold text-[#2158B8] hover:text-amber-500 hover:underline transition-colors duration-200 cursor-pointer"
@@ -601,15 +919,30 @@ export default function DashboardSekretaris({
                 </div>
                 <div className="space-y-3">
                   {kegiatanList.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-8">Belum ada agenda kegiatan.</p>
+                    <p className="text-xs text-slate-400 text-center py-8">
+                      Belum ada agenda kegiatan.
+                    </p>
                   ) : (
                     kegiatanList.slice(0, 4).map((k) => (
-                      <div key={k.id} className="p-3 sm:p-3.5 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 flex items-center justify-between gap-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm">
+                      <div
+                        key={k.id}
+                        className="p-3 sm:p-3.5 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 flex items-center justify-between gap-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+                      >
                         <div className="min-w-0">
-                          <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">{k.nama_proker || k.namaKegiatan || k.nama}</p>
-                          <p className="text-[11px] text-slate-500 font-medium">{k.target || k.tanggal}</p>
+                          <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">
+                            {k.nama_proker || k.namaKegiatan || k.nama}
+                          </p>
+                          <p className="text-[11px] text-slate-500 font-medium">
+                            {k.target || k.tanggal}
+                          </p>
                         </div>
-                        <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full shrink-0 ${k.status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-[#2158B8]'}`}>
+                        <span
+                          className={`px-2.5 py-1 text-[10px] font-bold rounded-full shrink-0 ${
+                            k.status === 'Selesai'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-blue-100 text-[#2158B8]'
+                          }`}
+                        >
                           {k.status || 'Mendatang'}
                         </span>
                       </div>
@@ -620,7 +953,9 @@ export default function DashboardSekretaris({
 
               <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-base sm:text-lg font-bold text-[#2158B8]">Status Pengajuan Proposal</h3>
+                  <h3 className="text-base sm:text-lg font-bold text-[#2158B8]">
+                    Status Pengajuan Proposal
+                  </h3>
                   <button
                     onClick={() => setActiveMenu('pengajuan-proposal')}
                     className="text-xs font-bold text-[#2158B8] hover:text-amber-500 hover:underline transition-colors duration-200 cursor-pointer"
@@ -630,19 +965,32 @@ export default function DashboardSekretaris({
                 </div>
                 <div className="space-y-3">
                   {proposalList.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-6">Belum ada proposal diajukan.</p>
+                    <p className="text-xs text-slate-400 text-center py-6">
+                      Belum ada proposal diajukan.
+                    </p>
                   ) : (
                     proposalList.slice(0, 4).map((p) => (
-                      <div key={p.id} className="p-3 sm:p-3.5 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 flex items-center justify-between gap-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm">
+                      <div
+                        key={p.id}
+                        className="p-3 sm:p-3.5 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 flex items-center justify-between gap-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+                      >
                         <div className="min-w-0">
-                          <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">{p.judul_proposal || p.judul}</p>
-                          <p className="text-[11px] text-slate-500 font-medium">Rp {p.anggaran?.toLocaleString('id-ID')}</p>
+                          <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">
+                            {p.judul_proposal || p.judul}
+                          </p>
+                          <p className="text-[11px] text-slate-500 font-medium">
+                            Rp {p.anggaran?.toLocaleString('id-ID')}
+                          </p>
                         </div>
-                        <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full shrink-0 ${
-                          p.status === 'Disetujui' || p.status === 'Diterima' ? 'bg-emerald-100 text-emerald-700' :
-                          p.status === 'Ditolak' ? 'bg-rose-100 text-rose-700' :
-                          'bg-amber-100 text-amber-700'
-                        }`}>
+                        <span
+                          className={`px-2.5 py-1 text-[10px] font-bold rounded-full shrink-0 ${
+                            p.status === 'Disetujui' || p.status === 'Diterima'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : p.status === 'Ditolak'
+                              ? 'bg-rose-100 text-rose-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}
+                        >
                           {p.status}
                         </span>
                       </div>
@@ -650,17 +998,17 @@ export default function DashboardSekretaris({
                   )}
                 </div>
               </div>
-
             </div>
           </div>
         )}
 
-        {/* 2. PENGAJUAN PROPOSAL */}
+        {/* 2. PENGAJUAN PROPOSAL & REVISI */}
         {activeMenu === 'pengajuan-proposal' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-[fadeIn_0.3s_ease-out]">
-
             <div className="lg:col-span-8 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-blue-100 shadow-md hover:shadow-lg transition-all duration-300 overflow-x-auto w-full">
-              <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">Daftar Pengajuan Proposal</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">
+                Daftar Pengajuan Proposal
+              </h3>
               <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[650px]">
                 <thead>
                   <tr className="border-b text-[#2158B8] font-bold bg-slate-50">
@@ -675,14 +1023,25 @@ export default function DashboardSekretaris({
                 <tbody className="divide-y divide-slate-100">
                   {proposalList.map((p) => {
                     const isRevisi = p.status?.toLowerCase().includes('revisi');
-                    const fileDisplayName = p.file || p.fileName || p.file_proposal || 'Dokumen.pdf';
-                    const fileUrlTarget = p.fileData || p.file_url || p.fileUrl || '#';
+                    const fileDisplayName =
+                      p.file || p.fileName || p.file_proposal || 'Dokumen.pdf';
+                    const fileUrlTarget =
+                      p.fileData || p.file_url || p.fileUrl || '#';
+
                     return (
-                      <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="p-3 font-bold text-slate-700">{p.judul_proposal || p.judul || '-'}</td>
-                        <td className="p-3 text-slate-600 font-medium">Rp {p.anggaran?.toLocaleString('id-ID')}</td>
+                      <tr
+                        key={p.id}
+                        className="hover:bg-slate-50/80 transition-colors"
+                      >
+                        <td className="p-3 font-bold text-slate-700">
+                          {p.judul_proposal || p.judul || '-'}
+                        </td>
+                        <td className="p-3 text-slate-600 font-medium">
+                          Rp {p.anggaran?.toLocaleString('id-ID')}
+                        </td>
                         <td className="p-3">
-                          {fileDisplayName && fileDisplayName !== 'Tidak ada berkas' ? (
+                          {fileDisplayName &&
+                          fileDisplayName !== 'Tidak ada berkas' ? (
                             <a
                               href={fileUrlTarget}
                               download={fileDisplayName}
@@ -690,22 +1049,32 @@ export default function DashboardSekretaris({
                               title="Unduh Berkas PDF"
                             >
                               <SvgDownload />
-                              <span className="truncate max-w-[120px]">{fileDisplayName}</span>
+                              <span className="truncate max-w-[120px]">
+                                {fileDisplayName}
+                              </span>
                             </a>
                           ) : (
-                            <span className="text-slate-400 text-xs italic">Tidak ada berkas</span>
+                            <span className="text-slate-400 text-xs italic">
+                              Tidak ada berkas
+                            </span>
                           )}
                         </td>
                         <td className="p-3">
-                          <span className={`px-2.5 py-1 font-bold text-[10px] sm:text-xs rounded-full inline-block ${
-                            p.status === 'Diterima' || p.status === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' :
-                            p.status === 'Ditolak' ? 'bg-rose-100 text-rose-700' :
-                            'bg-amber-100 text-amber-700'
-                          }`}>
+                          <span
+                            className={`px-2.5 py-1 font-bold text-[10px] sm:text-xs rounded-full inline-block ${
+                              p.status === 'Diterima' || p.status === 'Disetujui'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : p.status === 'Ditolak'
+                                ? 'bg-rose-100 text-rose-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}
+                          >
                             {p.status}
                           </span>
                         </td>
-                        <td className="p-3 text-slate-500 text-xs">{p.catatan_revisi || p.catatan_pembina || '-'}</td>
+                        <td className="p-3 text-slate-500 text-xs">
+                          {p.catatan_revisi || p.catatan_pembina || '-'}
+                        </td>
                         <td className="p-3 text-center space-x-1 whitespace-nowrap">
                           {isRevisi && (
                             <button
@@ -713,8 +1082,8 @@ export default function DashboardSekretaris({
                               onClick={() => {
                                 setEditingProposalId(p.id);
                                 setJudulProposal(p.judul_proposal || p.judul);
-                                setKategoriProposal(p.kategori || 'Kegiatan');
                                 setAnggaranProposal(p.anggaran);
+                                setKategoriProposal(p.kategori || 'Kegiatan');
                               }}
                               className="p-1.5 sm:p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
                             >
@@ -748,34 +1117,57 @@ export default function DashboardSekretaris({
               </table>
             </div>
 
-            {/* FORM FORMULIR PROPOSAL */}
+            {/* FORM FORMULIR PROPOSAL & REVISI */}
             <div className="lg:col-span-4 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-blue-100 shadow-md hover:shadow-lg transition-all duration-300">
-              <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">
-                {editingProposalId ? 'Revisi/Edit Proposal' : 'Ajukan Proposal Baru'}
-              </h3>
+              <div className="flex justify-between items-center mb-4 sm:mb-6">
+                <h3 className="text-lg sm:text-xl font-bold text-[#2158B8]">
+                  {editingProposalId
+                    ? 'Revisi/Edit Proposal'
+                    : 'Ajukan Proposal Baru'}
+                </h3>
+                {editingProposalId && (
+                  <button
+                    onClick={() => {
+                      setEditingProposalId(null);
+                      setJudulProposal('');
+                      setAnggaranProposal('');
+                      setFileProposal(null);
+                    }}
+                    className="text-xs font-bold text-rose-500 hover:underline cursor-pointer"
+                  >
+                    Batal Edit
+                  </button>
+                )}
+              </div>
               <form onSubmit={handleSubmitProposal} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-[#2158B8] mb-1">Judul Proposal</label>
+                  <label className="block text-xs font-bold text-[#2158B8] mb-1">
+                    Judul Proposal
+                  </label>
                   <input
                     type="text"
                     required
                     value={judulProposal}
                     onChange={(e) => setJudulProposal(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent transition-all duration-200 hover:-translate-y-0.5 shadow-xs"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] shadow-xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#2158B8] mb-1">Estimasi Anggaran (Rp)</label>
+                  <label className="block text-xs font-bold text-[#2158B8] mb-1">
+                    Estimasi Anggaran (Rp)
+                  </label>
                   <input
                     type="number"
                     required
                     value={anggaranProposal}
                     onChange={(e) => setAnggaranProposal(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent transition-all duration-200 hover:-translate-y-0.5 shadow-xs"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] shadow-xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#2158B8] mb-1">Unggah Berkas PDF (Maks 2MB)</label>
+                  <label className="block text-xs font-bold text-[#2158B8] mb-1">
+                    Unggah Berkas PDF (Maks 2MB)
+                  </label>
                   <input
                     type="file"
                     accept="application/pdf"
@@ -785,21 +1177,24 @@ export default function DashboardSekretaris({
                 </div>
                 <button
                   type="submit"
-                  className="w-full py-3 bg-[#FFB800] hover:bg-[#e0a200] text-slate-900 font-bold text-xs sm:text-sm rounded-full shadow-md hover:shadow-lg hover:shadow-amber-400/30 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 flex items-center justify-center space-x-2 cursor-pointer mt-4"
+                  className="w-full py-3 bg-[#FFB800] hover:bg-[#e0a200] text-slate-900 font-bold text-xs sm:text-sm rounded-full shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 active:scale-95 flex items-center justify-center space-x-2 cursor-pointer mt-4"
                 >
                   <SvgSend />
-                  <span>{editingProposalId ? 'Kirim Ulang Revisi' : 'Kirim Proposal'}</span>
+                  <span>
+                    {editingProposalId ? 'Kirim Ulang Revisi' : 'Kirim Proposal'}
+                  </span>
                 </button>
               </form>
             </div>
-
           </div>
         )}
 
         {/* 3. PROGRAM KERJA (READ ONLY) */}
         {activeMenu === 'program-kerja' && (
           <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-blue-100 shadow-md hover:shadow-lg transition-all duration-300 overflow-x-auto w-full animate-[fadeIn_0.3s_ease-out]">
-            <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">Program Kerja OSIS (Rekap dari Ketua)</h3>
+            <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">
+              Program Kerja OSIS (Rekap dari Ketua)
+            </h3>
             <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[500px]">
               <thead>
                 <tr className="border-b text-[#2158B8] font-bold bg-slate-50">
@@ -811,14 +1206,25 @@ export default function DashboardSekretaris({
               <tbody className="divide-y divide-slate-100">
                 {prokerList.length === 0 ? (
                   <tr>
-                    <td colSpan="3" className="py-6 text-center text-slate-400">Belum ada data program kerja dari Ketua.</td>
+                    <td colSpan="3" className="py-6 text-center text-slate-400">
+                      Belum ada data program kerja dari Ketua.
+                    </td>
                   </tr>
                 ) : (
                   prokerList.map((pk) => (
-                    <tr key={pk.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3.5 font-bold text-slate-700">{pk.nama_proker || pk.nama}</td>
-                      <td className="p-3.5 text-[#2158B8]">{pk.divisi || pk.sekbid}</td>
-                      <td className="p-3.5 text-slate-500">{pk.target || pk.tanggal}</td>
+                    <tr
+                      key={pk.id}
+                      className="hover:bg-slate-50/80 transition-colors"
+                    >
+                      <td className="p-3.5 font-bold text-slate-700">
+                        {pk.nama_proker || pk.nama}
+                      </td>
+                      <td className="p-3.5 text-[#2158B8]">
+                        {pk.divisi || pk.sekbid}
+                      </td>
+                      <td className="p-3.5 text-slate-500">
+                        {pk.target || pk.tanggal}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -830,7 +1236,9 @@ export default function DashboardSekretaris({
         {/* 4. ANGGOTA OSIS */}
         {activeMenu === 'anggota-osis' && (
           <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-blue-100 shadow-md hover:shadow-lg transition-all duration-300 overflow-x-auto w-full animate-[fadeIn_0.3s_ease-out]">
-            <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">Daftar Anggota OSIS (Read Only)</h3>
+            <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">
+              Daftar Anggota OSIS (Read Only)
+            </h3>
             <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[500px]">
               <thead>
                 <tr className="border-b text-[#2158B8] font-bold bg-slate-50">
@@ -843,15 +1251,28 @@ export default function DashboardSekretaris({
               <tbody className="divide-y divide-slate-100">
                 {anggotaList.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="py-6 text-center text-slate-400">Belum ada data anggota.</td>
+                    <td colSpan="4" className="py-6 text-center text-slate-400">
+                      Belum ada data anggota.
+                    </td>
                   </tr>
                 ) : (
                   anggotaList.map((a) => (
-                    <tr key={a.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3.5 text-slate-500 font-medium">{a.nis || '-'}</td>
-                      <td className="p-3.5 font-bold text-slate-800">{a.nama}</td>
-                      <td className="p-3.5 text-slate-700 font-semibold">{a.jabatan || '-'}</td>
-                      <td className="p-3.5 text-slate-600 font-medium">{a.sekbid || a.divisi || '-'}</td>
+                    <tr
+                      key={a.id}
+                      className="hover:bg-slate-50/80 transition-colors"
+                    >
+                      <td className="p-3.5 text-slate-500 font-medium">
+                        {a.nis || '-'}
+                      </td>
+                      <td className="p-3.5 font-bold text-slate-800">
+                        {a.nama}
+                      </td>
+                      <td className="p-3.5 text-slate-700 font-semibold">
+                        {a.jabatan || '-'}
+                      </td>
+                      <td className="p-3.5 text-slate-600 font-medium">
+                        {a.sekbid || a.divisi || '-'}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -864,7 +1285,9 @@ export default function DashboardSekretaris({
         {activeMenu === 'kelola-kegiatan' && (
           <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h3 className="text-lg sm:text-xl font-bold text-[#2158B8]">Kelola Kegiatan</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-[#2158B8]">
+                Kelola Kegiatan
+              </h3>
               <button
                 onClick={() => {
                   setEditingKegiatanId(null);
@@ -874,57 +1297,68 @@ export default function DashboardSekretaris({
                   setDeskripsiKegiatan('');
                   setShowTambahKegiatanForm(true);
                 }}
-                className="px-4 py-2 bg-[#2158B8] hover:bg-blue-700 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-md hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer self-start sm:self-auto"
+                className="px-4 py-2 bg-[#2158B8] hover:bg-blue-700 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer self-start sm:self-auto"
               >
                 + Tambah Kegiatan
               </button>
             </div>
 
             {showTambahKegiatanForm && (
-              <form onSubmit={handleSubmitKegiatan} className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-blue-100 shadow-md space-y-4 transition-all duration-300 animate-[scaleIn_0.2s_ease-out]">
+              <form
+                onSubmit={handleSubmitKegiatan}
+                className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-blue-100 shadow-md space-y-4 transition-all duration-300"
+              >
                 <div>
-                  <label className="block text-xs font-bold text-[#2158B8] mb-1">Nama Kegiatan</label>
+                  <label className="block text-xs font-bold text-[#2158B8] mb-1">
+                    Nama Kegiatan
+                  </label>
                   <input
                     type="text"
                     required
                     value={namaKegiatan}
                     onChange={(e) => setNamaKegiatan(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] hover:-translate-y-0.5 transition-all"
+                    className="w-full p-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#2158B8] mb-1">Tanggal</label>
+                  <label className="block text-xs font-bold text-[#2158B8] mb-1">
+                    Tanggal
+                  </label>
                   <input
                     type="date"
                     required
                     value={tanggalKegiatan}
                     onChange={(e) => setTanggalKegiatan(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] hover:-translate-y-0.5 transition-all"
+                    className="w-full p-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#2158B8] mb-1">Status Kegiatan</label>
+                  <label className="block text-xs font-bold text-[#2158B8] mb-1">
+                    Status Kegiatan
+                  </label>
                   <select
                     value={statusKegiatan}
                     onChange={(e) => setStatusKegiatan(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#2158B8] hover:-translate-y-0.5 transition-all cursor-pointer"
+                    className="w-full p-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#2158B8]"
                   >
                     <option value="Mendatang">Mendatang</option>
                     <option value="Selesai">Selesai</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#2158B8] mb-1">Deskripsi</label>
+                  <label className="block text-xs font-bold text-[#2158B8] mb-1">
+                    Deskripsi
+                  </label>
                   <textarea
                     value={deskripsiKegiatan}
                     onChange={(e) => setDeskripsiKegiatan(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] hover:-translate-y-0.5 transition-all"
+                    className="w-full p-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8]"
                     rows="2"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#FFB800] hover:bg-[#e0af00] text-slate-900 font-bold rounded-xl text-xs shadow-md hover:shadow-lg hover:shadow-amber-400/30 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
+                  className="px-4 py-2 bg-[#FFB800] hover:bg-[#e0a200] text-slate-900 font-bold rounded-xl text-xs shadow-md transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer"
                 >
                   Simpan Kegiatan
                 </button>
@@ -944,15 +1378,30 @@ export default function DashboardSekretaris({
                 <tbody className="divide-y divide-slate-100">
                   {kegiatanList.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="text-center py-6 text-slate-400">Belum ada data kegiatan.</td>
+                      <td colSpan="4" className="text-center py-6 text-slate-400">
+                        Belum ada data kegiatan.
+                      </td>
                     </tr>
                   ) : (
                     kegiatanList.map((k) => (
-                      <tr key={k.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="p-3.5 font-bold text-slate-800">{k.nama_proker || k.namaKegiatan || k.nama}</td>
-                        <td className="p-3.5 text-slate-600">{k.target || k.tanggal || '-'}</td>
+                      <tr
+                        key={k.id}
+                        className="hover:bg-slate-50/80 transition-colors"
+                      >
+                        <td className="p-3.5 font-bold text-slate-800">
+                          {k.nama_proker || k.namaKegiatan || k.nama}
+                        </td>
+                        <td className="p-3.5 text-slate-600">
+                          {k.target || k.tanggal || '-'}
+                        </td>
                         <td className="p-3.5">
-                          <span className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-full inline-block ${k.status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-[#2158B8]'}`}>
+                          <span
+                            className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-full inline-block ${
+                              k.status === 'Selesai'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-blue-100 text-[#2158B8]'
+                            }`}
+                          >
                             {k.status || 'Mendatang'}
                           </span>
                         </td>
@@ -961,10 +1410,12 @@ export default function DashboardSekretaris({
                             title="Edit Kegiatan"
                             onClick={() => {
                               setEditingKegiatanId(k.id);
-                              setNamaKegiatan(k.nama_proker || k.namaKegiatan || k.nama);
+                              setNamaKegiatan(
+                                k.nama_proker || k.namaKegiatan || k.nama
+                              );
                               setTanggalKegiatan(k.target || k.tanggal);
                               setStatusKegiatan(k.status || 'Mendatang');
-                              setDeskripsiKegiatan(k.deskripsi || '');
+                              setDeskripsiKegiatan(k.deskripsi);
                               setShowTambahKegiatanForm(true);
                             }}
                             className="p-1.5 sm:p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
@@ -991,16 +1442,29 @@ export default function DashboardSekretaris({
         {/* 6. MENU KEGIATAN (KARTU PESERTA) */}
         {activeMenu === 'kegiatan' && (
           <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-blue-100 shadow-md hover:shadow-lg transition-all duration-300 animate-[fadeIn_0.3s_ease-out]">
-            <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">Daftar Agenda Kegiatan OSIS</h3>
+            <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">
+              Daftar Agenda Kegiatan OSIS
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {kegiatanList.map((k) => {
                 const pesertaKegiatan = getPesertaByKegiatan(k);
                 return (
-                  <div key={k.id} className="p-4 sm:p-5 border border-blue-100 rounded-2xl bg-slate-50/70 hover:bg-slate-100/80 space-y-3 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+                  <div
+                    key={k.id}
+                    className="p-4 sm:p-5 border border-blue-100 rounded-2xl bg-slate-50/70 hover:bg-slate-100/80 space-y-3 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
+                  >
                     <div>
                       <div className="flex justify-between items-center mb-1 gap-2">
-                        <h4 className="font-bold text-[#2158B8] text-base sm:text-lg truncate">{k.nama_proker || k.namaKegiatan || k.nama}</h4>
-                        <span className={`px-2.5 py-0.5 font-bold text-[10px] sm:text-xs rounded-full shrink-0 ${k.status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-[#2158B8]'}`}>
+                        <h4 className="font-bold text-[#2158B8] text-base sm:text-lg truncate">
+                          {k.nama_proker || k.namaKegiatan || k.nama}
+                        </h4>
+                        <span
+                          className={`px-2.5 py-0.5 font-bold text-[10px] sm:text-xs rounded-full shrink-0 ${
+                            k.status === 'Selesai'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-blue-100 text-[#2158B8]'
+                          }`}
+                        >
                           {k.status}
                         </span>
                       </div>
@@ -1008,10 +1472,14 @@ export default function DashboardSekretaris({
                         <SvgCalendarSmall />
                         <span>Tanggal: {k.target || k.tanggal}</span>
                       </p>
-                      <p className="text-xs sm:text-sm text-slate-600">{k.deskripsi || 'Tidak ada deskripsi.'}</p>
+                      <p className="text-xs sm:text-sm text-slate-600">
+                        {k.deskripsi || 'Tidak ada deskripsi.'}
+                      </p>
                     </div>
                     <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
-                      <span className="text-xs font-bold text-slate-500">{pesertaKegiatan.length} Peserta Terdaftar</span>
+                      <span className="text-xs font-bold text-slate-500">
+                        {pesertaKegiatan.length} Peserta Terdaftar
+                      </span>
                       <button
                         title="Lihat Peserta"
                         onClick={() => setSelectedKegiatanPeserta(k)}
@@ -1030,7 +1498,9 @@ export default function DashboardSekretaris({
         {/* 7. LAPORAN KEUANGAN */}
         {activeMenu === 'laporan-keuangan' && (
           <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-blue-100 shadow-md hover:shadow-lg transition-all duration-300 overflow-x-auto w-full animate-[fadeIn_0.3s_ease-out]">
-            <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">Laporan Keuangan OSIS (Read Only)</h3>
+            <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">
+              Laporan Keuangan OSIS (Read Only)
+            </h3>
             <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[500px]">
               <thead>
                 <tr className="border-b text-[#2158B8] font-bold bg-slate-50">
@@ -1041,49 +1511,75 @@ export default function DashboardSekretaris({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {keuanganList.map((kq) => (
-                  <tr key={kq.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="p-3.5 text-slate-700 font-medium">{kq.keterangan}</td>
+                  <tr
+                    key={kq.id}
+                    className="hover:bg-slate-50/80 transition-colors"
+                  >
+                    <td className="p-3.5 text-slate-700 font-medium">
+                      {kq.keterangan}
+                    </td>
                     <td className="p-3.5">
-                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${kq.jenis === 'Pemasukan' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-bold ${
+                          kq.jenis === 'Pemasukan'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-rose-100 text-rose-700'
+                        }`}
+                      >
                         {kq.jenis}
                       </span>
                     </td>
-                    <td className="p-3.5 font-bold text-slate-800">Rp {kq.jumlah?.toLocaleString('id-ID')}</td>
+                    <td className="p-3.5 font-bold text-slate-800">
+                      Rp {kq.jumlah?.toLocaleString('id-ID')}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-
       </main>
 
       {/* MODAL PESERTA KEGIATAN */}
       {selectedKegiatanPeserta && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 z-50 animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-white w-full max-w-lg rounded-3xl p-5 shadow-2xl space-y-4 border border-blue-100 transform transition-all duration-300 animate-[scaleIn_0.2s_ease-out]">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-5 shadow-2xl space-y-4 border border-blue-100 transform transition-all duration-300">
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="text-base sm:text-lg font-bold text-[#2158B8] truncate pr-2">
-                Peserta: {selectedKegiatanPeserta.nama_proker || selectedKegiatanPeserta.namaKegiatan || selectedKegiatanPeserta.nama}
+                Peserta:{' '}
+                {selectedKegiatanPeserta.nama_proker ||
+                  selectedKegiatanPeserta.namaKegiatan ||
+                  selectedKegiatanPeserta.nama}
               </h3>
               <button
                 onClick={() => setSelectedKegiatanPeserta(null)}
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer"
               >
-                ✕
+                X
               </button>
             </div>
             <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
               {getPesertaByKegiatan(selectedKegiatanPeserta).length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-4">Belum ada peserta terdaftar.</p>
+                <p className="text-xs text-slate-400 text-center py-4">
+                  Belum ada peserta terdaftar.
+                </p>
               ) : (
                 getPesertaByKegiatan(selectedKegiatanPeserta).map((p, idx) => (
-                  <div key={idx} className="p-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs border border-slate-100 flex justify-between items-center transition-colors">
+                  <div
+                    key={idx}
+                    className="p-3 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs border border-slate-100 flex justify-between items-center transition-colors"
+                  >
                     <div>
-                      <p className="font-bold text-slate-800">{p.namaSiswa || p.nama}</p>
-                      <p className="text-slate-500">{p.kelas} | {p.nis || p.nisn || '-'}</p>
+                      <p className="font-bold text-slate-800">
+                        {p.namaSiswa || p.nama}
+                      </p>
+                      <p className="text-slate-500">
+                        {p.kelas} | NIS: {p.nis || p.nisn || '-'}
+                      </p>
                     </div>
-                    <span className="text-slate-400 text-[10px]">{p.tanggalDaftar || ''}</span>
+                    <span className="text-slate-400 text-[10px]">
+                      {p.tanggalDaftar || ''}
+                    </span>
                   </div>
                 ))
               )}
@@ -1095,25 +1591,32 @@ export default function DashboardSekretaris({
       {/* MODAL FOTO PROFIL */}
       {showAvatarModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 border border-blue-100 transform transition-all duration-300 animate-[scaleIn_0.2s_ease-out]">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 border border-blue-100 transform transition-all duration-300">
             <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="text-base sm:text-lg font-bold text-[#2158B8]">Atur Foto Profil</h3>
+              <h3 className="text-base sm:text-lg font-bold text-[#2158B8]">
+                Atur Foto Profil
+              </h3>
               <button
                 onClick={() => setShowAvatarModal(false)}
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold flex items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer"
               >
-                ✕
+                X
               </button>
             </div>
             <div className="space-y-3 pt-2">
               <label
                 htmlFor="avatar-input"
-                className="w-full py-3 bg-[#2158B8] hover:bg-blue-700 text-white rounded-2xl font-bold text-xs flex items-center justify-center cursor-pointer shadow-md hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 hover:-translate-y-0.5 active:scale-95"
+                className="w-full py-3 bg-[#2158B8] hover:bg-blue-700 text-white rounded-2xl font-bold text-xs flex items-center justify-center cursor-pointer shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 active:scale-95"
               >
                 Ganti/Unggah Foto
               </label>
-              <input id="avatar-input" type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
-
+              <input
+                id="avatar-input"
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarChange}
+                className="hidden"
+              />
               {avatarUrl && (
                 <button
                   type="button"
@@ -1123,7 +1626,6 @@ export default function DashboardSekretaris({
                   Hapus Foto Profil
                 </button>
               )}
-
               <button
                 type="button"
                 onClick={() => setShowAvatarModal(false)}
@@ -1135,7 +1637,6 @@ export default function DashboardSekretaris({
           </div>
         </div>
       )}
-
     </div>
   );
 }

@@ -5,86 +5,213 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Exception;
 
 class AuthController extends Controller
 {
-    // Menampilkan halaman registrasi
-    public function showRegisterForm()
-    {
-        return view('auth.register');
-    }
-
-    // Proses Registrasi (Khusus Siswa yang mendaftar mandiri)
+    /**
+     * Pendaftaran Akun Siswa Baru
+     * Menyimpan data langsung ke tabel users MySQL tanpa membiarkan kolom bernilai NULL.
+     */
     public function register(Request $request)
     {
-        $request->validate([
+        // Validasi input dari frontend
+        $validator = Validator::make($request->all(), [
             'name'     => 'required|string|max:255',
-            'nisn'     => 'required|string|max:20|unique:users,nisn',
+            'nisn'     => 'required|string|max:20',
             'kelas'    => 'required|string|max:50',
             'email'    => 'required|string|email|max:255|unique:users,email',
-            'password' => 'required|string|min:8',
+            'password' => 'required|string|min:6',
+        ], [
+            'name.required'  => 'Nama lengkap wajib diisi!',
+            'nisn.required'  => 'NISN / NIPD wajib diisi!',
+            'kelas.required' => 'Kelas wajib diisi!',
+            'email.required' => 'Email wajib diisi!',
+            'email.email'    => 'Format email tidak valid!',
+            'email.unique'   => 'Email ini sudah terdaftar! Gunakan email lain.',
+            'password.min'   => 'Password minimal harus 6 karakter!',
         ]);
 
-        $user = User::create([
-            'name'     => $request->name,
-            'nisn'     => $request->nisn,
-            'kelas'    => $request->kelas,
-            'email'    => $request->email,
-            'password' => Hash::make($request->password),
-            'role'     => 'siswa', // Otomatis set role sebagai siswa jika daftar sendiri
-        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi pendaftaran gagal',
+                'errors'  => $validator->errors()
+            ], 422);
+        }
 
-        return response()->json([
-            'message' => 'Registrasi berhasil! Silakan login.',
-            'user'    => $user
-        ], 201);
+        try {
+            // Membuat data user baru di MySQL
+            $user = User::create([
+                'name'              => $request->name,
+                'nisn'              => $request->nisn,
+                'kelas'             => $request->kelas,
+                'email'             => strtolower(trim($request->email)),
+                'email_verified_at' => now(),             // Mengisi otomatis timestamp verifikasi
+                'password'          => Hash::make($request->password),
+                'role'              => $request->input('role', 'siswa'), // Default role: siswa
+                'remember_token'    => Str::random(10),   // Mengisi otomatis string acak 10 karakter
+            ]);
+
+            // Generate Bearer Token Sanctum
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pendaftaran Akun Siswa Berhasil!',
+                'token'   => $token,
+                'data'    => [
+                    'id'                => $user->id,
+                    'name'              => $user->name,
+                    'nisn'              => $user->nisn,
+                    'kelas'             => $user->kelas,
+                    'email'             => $user->email,
+                    'role'              => $user->role,
+                    'email_verified_at' => $user->email_verified_at,
+                    'remember_token'    => $user->remember_token,
+                ]
+            ], 201);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mendaftarkan akun: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    // Menampilkan halaman login
-    public function showLoginForm()
-    {
-        return view('auth.login');
-    }
-
-    // Proses Login (Murni API JSON dengan Redirect Berdasarkan Role)
+    /**
+     * Proses Login User (Siswa, Pengurus, Pembina)
+     */
     public function login(Request $request)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'email'    => 'required|email',
-            'password' => 'required',
+            'password' => 'required|string',
+        ], [
+            'email.required'    => 'Email wajib diisi!',
+            'email.email'       => 'Format email tidak sesuai!',
+            'password.required' => 'Password tidak boleh kosong!',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi masukan gagal',
+                'errors'  => $validator->errors()
+            ], 422);
+        }
 
-        // Cek kecocokan user dan password
-        if ($user && Hash::check($request->password, $user->password)) {
+        try {
+            $email    = strtolower(trim($request->email));
+            $password = $request->password;
 
-            // Tentukan arah redirect berdasarkan kolom role di database
-            $redirectUrl = '/dashboard-siswa'; // Default
+            $user = User::where('email', $email)->first();
 
-            if ($user->role === 'pembina') {
-                $redirectUrl = '/dashboard-pembina';
-            } elseif ($user->role === 'pengurus') {
-                $redirectUrl = '/dashboard-pengurus';
+            if (!$user || !Hash::check($password, $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Email atau password yang Anda masukkan salah!'
+                ], 401);
+            }
+
+            // Update email_verified_at & remember_token jika sebelumnya masih NULL
+            if (is_null($user->email_verified_at) || is_null($user->remember_token)) {
+                $user->update([
+                    'email_verified_at' => $user->email_verified_at ?? now(),
+                    'remember_token'    => $user->remember_token ?? Str::random(10),
+                ]);
+            }
+
+            $user->tokens()->delete();
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Login berhasil! Selamat datang kembali.',
+                'token'   => $token,
+                'user'    => [
+                    'id'                => $user->id,
+                    'name'              => $user->name,
+                    'nisn'              => $user->nisn,
+                    'kelas'             => $user->kelas,
+                    'email'             => $user->email,
+                    'role'              => $user->role,
+                    'email_verified_at' => $user->email_verified_at,
+                    'remember_token'    => $user->remember_token,
+                ]
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan pada server: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Mendapatkan Data User Aktif
+     */
+    public function me(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated / Sesi telah berakhir'
+                ], 401);
             }
 
             return response()->json([
-                'message'  => 'Login berhasil',
-                'user'     => $user,
-                'redirect' => $redirectUrl
+                'success' => true,
+                'message' => 'Data profil user berhasil diambil',
+                'user'    => [
+                    'id'                => $user->id,
+                    'name'              => $user->name,
+                    'nisn'              => $user->nisn,
+                    'kelas'             => $user->kelas,
+                    'email'             => $user->email,
+                    'role'              => $user->role,
+                    'email_verified_at' => $user->email_verified_at,
+                    'remember_token'    => $user->remember_token,
+                    'created_at'        => $user->created_at,
+                    'updated_at'        => $user->updated_at,
+                ]
             ], 200);
-        }
 
-        return response()->json([
-            'message' => 'Email atau password salah.'
-        ], 422);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data profil: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    // Proses Logout (Murni API JSON)
+    /**
+     * Logout User
+     */
     public function logout(Request $request)
     {
-        return response()->json([
-            'message' => 'Logout berhasil'
-        ], 200);
+        try {
+            if ($request->user()) {
+                $request->user()->currentAccessToken()->delete();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Logout berhasil dilakukan.'
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal melakukan logout: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

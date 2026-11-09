@@ -6,6 +6,7 @@ use App\Models\ProposalKegiatan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Exception;
 
 class ProposalKegiatanController extends Controller
 {
@@ -14,22 +15,35 @@ class ProposalKegiatanController extends Controller
         try {
             $data = ProposalKegiatan::orderBy('id', 'desc')->get();
             return response()->json($data, 200);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([], 200);
+        }
+    }
+
+    public function show($id)
+    {
+        try {
+            $proposal = ProposalKegiatan::find($id);
+            if (!$proposal) {
+                return response()->json(['success' => false, 'message' => 'Proposal tidak ditemukan'], 404);
+            }
+            return response()->json(['success' => true, 'data' => $proposal], 200);
+        } catch (Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 
     public function store(Request $request)
     {
         try {
-            $judul   = $request->input('judul_proposal', $request->input('judul', 'Proposal Baru'));
+            $judul = $request->input('judul_proposal', $request->input('judul', 'Proposal Baru'));
             $pengaju = $request->input('pengaju', $request->input('sekbid', 'Sekretaris OSIS'));
 
             // Tangani pengunggahan berkas file PDF jika dikirim melalui FormData
             $fileName = null;
             if ($request->hasFile('file_proposal')) {
                 $file = $request->file('file_proposal');
-                $fileName = $file->getClientOriginalName();
+                $fileName = time() . '_' . $file->getClientOriginalName();
                 $file->storeAs('public/proposals', $fileName);
             } else {
                 $fileName = $request->input('file_proposal', $request->input('file', $request->input('fileName')));
@@ -56,6 +70,9 @@ class ProposalKegiatanController extends Controller
             if (Schema::hasColumn('proposal_kegiatan', 'file_proposal')) {
                 $payload['file_proposal'] = $fileName;
             }
+            if (Schema::hasColumn('proposal_kegiatan', 'catatan_pembina')) {
+                $payload['catatan_pembina'] = '-';
+            }
 
             $proposal = ProposalKegiatan::create($payload);
 
@@ -64,7 +81,7 @@ class ProposalKegiatanController extends Controller
                 'message' => 'Proposal berhasil diajukan',
                 'data'    => $proposal
             ], 201);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menyimpan proposal: ' . $e->getMessage()
@@ -82,22 +99,47 @@ class ProposalKegiatanController extends Controller
 
             $payload = [];
 
+            // Update Judul
+            if ($request->has('judul_proposal') || $request->has('judul')) {
+                $judulVal = $request->input('judul_proposal', $request->input('judul'));
+                $payload['judul_proposal'] = $judulVal;
+            }
+
+            // Update Anggaran
+            if ($request->has('anggaran')) {
+                $payload['anggaran'] = $request->input('anggaran');
+            }
+
+            // Update Kategori
+            if ($request->has('kategori') && Schema::hasColumn('proposal_kegiatan', 'kategori')) {
+                $payload['kategori'] = $request->input('kategori');
+            }
+
+            // Update Status & Reset jika dikirim Sekretaris
             if ($request->has('status')) {
                 $payload['status'] = $request->input('status');
+            } else {
+                $payload['status'] = 'Menunggu Persetujuan';
             }
 
+            // Update Catatan Revisi / Pembina
             $catatanVal = $request->input('catatan_pembina', $request->input('catatan_revisi', $request->input('catatan')));
             if ($catatanVal !== null) {
-                if (Schema::hasColumn('proposal_kegiatan', 'catatan_pembina')) $payload['catatan_pembina'] = $catatanVal;
-                if (Schema::hasColumn('proposal_kegiatan', 'catatan_revisi')) $payload['catatan_revisi'] = $catatanVal;
+                if (Schema::hasColumn('proposal_kegiatan', 'catatan_pembina')) {
+                    $payload['catatan_pembina'] = $catatanVal;
+                }
+                if (Schema::hasColumn('proposal_kegiatan', 'catatan_revisi')) {
+                    $payload['catatan_revisi'] = $catatanVal;
+                }
             }
 
+            // Upload Ulang Berkas Revisi Baru
             if ($request->hasFile('file_proposal')) {
                 $file = $request->file('file_proposal');
-                $fileName = $file->getClientOriginalName();
+                $fileName = time() . '_' . $file->getClientOriginalName();
                 $file->storeAs('public/proposals', $fileName);
                 $payload['file_proposal'] = $fileName;
-            } else if ($request->has('file_proposal')) {
+            } else if ($request->has('file_proposal') && !empty($request->input('file_proposal'))) {
                 $payload['file_proposal'] = $request->input('file_proposal');
             }
 
@@ -107,9 +149,16 @@ class ProposalKegiatanController extends Controller
 
             $proposal->update($payload);
 
-            return response()->json(['success' => true, 'data' => $proposal], 200);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            return response()->json([
+                'success' => true,
+                'message' => 'Proposal revisi berhasil diperbarui!',
+                'data'    => $proposal
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 
@@ -126,7 +175,7 @@ class ProposalKegiatanController extends Controller
                 $proposal->delete();
             }
             return response()->json(['success' => true, 'message' => 'Proposal berhasil dihapus'], 200);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
