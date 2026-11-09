@@ -5,9 +5,6 @@ package = "wasmer/php-apache"
 [env]
 APP_ENV = "production"
 APP_DEBUG = "false"
-APP_CONFIG_CACHE = "bootstrap/cache/config.php"
-APP_ROUTES_CACHE = "bootstrap/cache/routes.php"
-APP_SERVICES_CACHE = "bootstrap/cache/services.php"
 
 [build]
 command = """
@@ -16,7 +13,6 @@ npm install
 npm run build
 php artisan config:cache
 php artisan route:cache
-php artisan migrate --force
 """
 
 [http]
