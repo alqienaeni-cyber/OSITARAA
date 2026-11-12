@@ -17,31 +17,57 @@ class ProposalKegiatan extends Model
     protected $table = 'proposal_kegiatan';
 
     /**
-     * Kolom yang dapat diisi secara masal (mass assignable).
+     * Kolom yang diizinkan untuk pengisian massal (Mass Assignment).
      *
-     * @var array<int, string>
+     * @var array
      */
     protected $fillable = [
         'judul_proposal',
-        'kategori',
-        'anggaran',
         'pengaju',
         'tanggal_pengajuan',
         'status',
-        'catatan_pembina',
-        'catatan_revisi',
+        'kategori',
+        'anggaran',
         'deskripsi',
         'file_proposal',
-        'file_url',
+        'catatan_pembina',
+        'catatan_revisi',
     ];
 
     /**
-     * Tipe data bawaan yang di-cast otomatis oleh Eloquent.
+     * Casting tipe data kolom.
      *
-     * @var array<string, string>
+     * @var array
      */
     protected $casts = [
-        'anggaran'          => 'decimal:2',
+        'anggaran' => 'integer',
         'tanggal_pengajuan' => 'date:Y-m-d',
     ];
+
+    /**
+     * Otomatis menyertakan atribut virtual 'file_url' ke dalam respon JSON.
+     *
+     * @var array
+     */
+    protected $appends = ['file_url'];
+
+    /**
+     * Accessor untuk menghasilkan URL publik file proposal secara otomatis.
+     *
+     * @return string|null
+     */
+    public function getFileUrlAttribute()
+    {
+        if (!$this->file_proposal) {
+            return null;
+        }
+
+        // Jika string sudah berupa URL lengkap (misal link eksternal)
+        if (str_starts_with($this->file_proposal, 'http://') || str_starts_with($this->file_proposal, 'https://')) {
+            return $this->file_proposal;
+        }
+
+        // Mengembalikan URL publik dari storage
+        return asset('storage/proposals/' . $this->file_proposal);
+    }
 }

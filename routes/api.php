@@ -20,6 +20,9 @@ use App\Http\Controllers\PendaftaranEventController;
 // Health Check API
 Route::get('/health', [HealthController::class, 'check']);
 
+// Endpoint khusus pengunduhan file proposal (Bebas 403 Forbidden)
+Route::get('/download-proposal/{filename}', [ProposalKegiatanController::class, 'downloadFile']);
+
 // 1. PUBLIC ROUTES (Autentikasi & Bebas Akses)
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);

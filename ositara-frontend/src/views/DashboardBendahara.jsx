@@ -1,7 +1,52 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import logoOsitara from '../assets/LOGO OSITARA.png';
 
-// HELPER COMPONENT: ICON
+// --- KONFIGURASI API BACKEND
+const API_BASE = 'http://127.0.0.1:8000/api';
+
+// --- HELPER UTILS & FORMATTER
+const formatRupiah = (number) => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(number || 0);
+};
+
+const formatTanggal = (tgl) => {
+  if (!tgl) return '-';
+  const cleanDate = String(tgl).split('T')[0].split(' ')[0];
+  const parts = cleanDate.split('-');
+  if (parts.length === 3 && parts[0].length === 4) {
+    const [tahun, bulan, tanggal] = parts;
+    return `${tanggal}-${bulan}-${tahun}`;
+  }
+  return tgl;
+};
+
+const getInitialData = (key, fallback) => {
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+    return fallback;
+  } catch (e) {
+    return fallback;
+  }
+};
+
+const filterOnlyKegiatanSekre = (list) => {
+  if (!Array.isArray(list)) return [];
+  return list.filter(
+    (item) =>
+      String(item.is_event) === '1' ||
+      String(item.sekbid || item.divisi || '').toLowerCase().trim() === 'sekretaris'
+  );
+};
+
+// --- HELPER COMPONENT: ICON
 function Icon({ type }) {
   const icons = {
     beranda: (
@@ -10,6 +55,22 @@ function Icon({ type }) {
         strokeLinejoin="round"
         strokeWidth="2"
         d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+      />
+    ),
+    keuangan: (
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
+    ),
+    proposal: (
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
       />
     ),
     proker: (
@@ -28,22 +89,6 @@ function Icon({ type }) {
         d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
       />
     ),
-    proposal: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-      />
-    ),
-    keuangan: (
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
-    ),
     kegiatan: (
       <path
         strokeLinecap="round"
@@ -60,6 +105,14 @@ function Icon({ type }) {
         d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
       />
     ),
+    users: (
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+      />
+    ),
     trash: (
       <path
         strokeLinecap="round"
@@ -68,19 +121,34 @@ function Icon({ type }) {
         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
       />
     ),
-    edit: (
+    send: (
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
-        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+      />
+    ),
+    income: (
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M7 11l5-5m0 0l5 5m-5-5v12"
+      />
+    ),
+    expense: (
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        d="M17 13l-5 5m0 0l-5-5m5 5V6"
       />
     ),
   };
-
   return (
     <svg
-      className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110"
+      className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -90,169 +158,285 @@ function Icon({ type }) {
   );
 }
 
-const API_BASE = 'http://127.0.0.1:8000/api';
-
-const formatRupiah = (number) => {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(number || 0);
-};
-
 export default function DashboardBendahara({ user, onLogout }) {
   const [activeMenu, setActiveMenu] = useState('beranda');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const readInitialData = useCallback((key, fallback = []) => {
-    try {
-      const saved = localStorage.getItem(key);
-      return saved ? JSON.parse(saved) : fallback;
-    } catch {
-      return fallback;
-    }
-  }, []);
-
-  const [keuanganList, setKeuanganList] = useState(() =>
-    readInitialData('ositara_keuangan', [])
-  );
-  const [proposalList, setProposalList] = useState(() =>
-    readInitialData('ositara_proposal', [])
-  );
-  const [prokerList, setProkerList] = useState(() =>
-    readInitialData('ositara_proker', [])
-  );
-  const [anggotaList, setAnggotaList] = useState(() =>
-    readInitialData('ositara_anggota', [])
-  );
-  const [kegiatanList, setKegiatanList] = useState(() =>
-    readInitialData('ositara_kegiatan', [])
-  );
-
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(
     () => localStorage.getItem('ositara_bendahara_avatar') || null
   );
 
-  const [editId, setEditId] = useState(null);
-  const [sumberKeuangan, setSumberKeuangan] = useState('Kas OSIS');
-  const [jenisKeuangan, setJenisKeuangan] = useState('Pemasukan');
-  const [keteranganKeuangan, setKeteranganKeuangan] = useState('');
-  const [jumlahKeuangan, setJumlahKeuangan] = useState('');
+  // --- REF PENCEGAH TABRAKAN SYNC
+  const isFetchingRef = useRef(false);
 
-  const namaDisplay =
-    user?.namaLengkap || user?.nama || user?.name || user?.username || 'Shopia Widarti Noviani';
-  const inisialNama = namaDisplay.charAt(0).toUpperCase();
+  // --- STATE NOTIFIKASI TOAST & MODAL KONFIRMASI CUSTOM
+  const [toastNotif, setToastNotif] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    type: null, // 'kas' | 'avatar'
+    id: null,
+    title: '',
+    message: '',
+  });
 
-  // SINKRONISASI DATABASE MYSQL
-  const handleSync = useCallback(async () => {
+  const showToast = useCallback((message, type = 'success') => {
+    setToastNotif({ message, type });
+    setTimeout(() => {
+      setToastNotif((prev) => (prev?.message === message ? null : prev));
+    }, 3200);
+  }, []);
+
+  // --- STATE DATA MANAGEMENT
+  const [keuanganList, setKeuanganList] = useState(() =>
+    getInitialData('ositara_keuangan', [])
+  );
+  const [proposalList, setProposalList] = useState(() =>
+    getInitialData('ositara_proposal', [])
+  );
+  const [prokerList, setProkerList] = useState(() =>
+    getInitialData('ositara_proker', [])
+  );
+  const [anggotaList, setAnggotaList] = useState(() =>
+    getInitialData('ositara_anggota', [])
+  );
+  const [kegiatanList, setKegiatanList] = useState(() => {
+    const raw = getInitialData('ositara_kegiatan', []);
+    return filterOnlyKegiatanSekre(raw);
+  });
+  const [pendaftaranList, setPendaftaranList] = useState(() => {
+    const primary = getInitialData('ositara_pendaftaran', null);
+    const secondary = getInitialData('pendaftaranList', []);
+    return primary || secondary || [];
+  });
+  const [selectedKegiatanPeserta, setSelectedKegiatanPeserta] = useState(null);
+
+  // --- FORM CATAT KAS
+  const [keterangan, setKeterangan] = useState('');
+  const [sumber, setSumber] = useState('Kas OSIS');
+  const [jenisTransaksi, setJenisTransaksi] = useState('Pemasukan');
+  const [nominal, setNominal] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // --- SINKRONISASI AKURAT DARI MYSQL & LOCALSTORAGE
+  const handleSyncData = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
     try {
-      let resKeuangan = await fetch(`${API_BASE}/laporan-keuangan`, {
-        headers: { Accept: 'application/json' },
-      });
-      if (!resKeuangan.ok) {
-        resKeuangan = await fetch(`${API_BASE}/keuangan`, {
+      // 1. Fetch Program Kerja & Kegiatan
+      try {
+        const resProker = await fetch(`${API_BASE}/program-kerja`, {
           headers: { Accept: 'application/json' },
         });
-      }
-      if (resKeuangan.ok) {
-        const data = await resKeuangan.json();
-        const arr = Array.isArray(data) ? data : data.data || [];
-        if (arr.length > 0) {
-          const formatted = arr.map((item) => ({
-            id: item.id,
-            sumber: item.sumber || 'Kas OSIS',
-            jenis: item.jenis || item.kategori || 'Pemasukan',
-            kategori: item.jenis || item.kategori || 'Pemasukan',
-            keterangan: item.keterangan || item.uraian || 'Tanpa Keterangan',
-            jumlah: Number(item.nominal || item.jumlah || 0),
-            nominal: Number(item.nominal || item.jumlah || 0),
-            tanggal: item.tanggal || '-',
-          }));
-          setKeuanganList(formatted);
-          localStorage.setItem('ositara_keuangan', JSON.stringify(formatted));
+        if (resProker.ok) {
+          const resultPK = await resProker.json();
+          const dataPK = Array.isArray(resultPK) ? resultPK : resultPK.data || [];
+          if (dataPK.length > 0) {
+            const mappedPK = dataPK.map((pk) => ({
+              ...pk,
+              id: pk.id,
+              nama_proker:
+                pk.nama_proker || pk.nama_kegiatan || pk.nama || 'Tanpa Nama Kegiatan',
+              namaKegiatan:
+                pk.nama_proker || pk.nama_kegiatan || pk.nama || 'Tanpa Nama Kegiatan',
+              target: pk.target || pk.tanggal || pk.tanggal_pelaksanaan || '-',
+              tanggal: pk.target || pk.tanggal || pk.tanggal_pelaksanaan || '-',
+              sekbid: pk.sekbid || pk.divisi || 'Sekretaris',
+              status: pk.status || 'Mendatang',
+              is_event: pk.is_event ?? 1,
+            }));
+            setKegiatanList(filterOnlyKegiatanSekre(mappedPK));
+            setProkerList(mappedPK);
+            localStorage.setItem('ositara_proker', JSON.stringify(mappedPK));
+          }
         }
+      } catch (e) {
+        console.warn('Sync proker terlewati:', e);
       }
-    } catch (e) {
-      console.log('Sinkronisasi MySQL terputus, menggunakan data lokal.');
+
+      // 2. Fetch Proposal (Disamakan struktur datanya dengan Ketua OSIS)
+      try {
+        let resProposal = await fetch(`${API_BASE}/proposals`, {
+          headers: { Accept: 'application/json' },
+        });
+        if (!resProposal.ok) {
+          resProposal = await fetch(`${API_BASE}/proposal-kegiatan`, {
+            headers: { Accept: 'application/json' },
+          });
+        }
+        if (resProposal.ok) {
+          const resultP = await resProposal.json();
+          const dataP = Array.isArray(resultP) ? resultP : resultP.data || [];
+          if (dataP.length >= 0) {
+            const formattedP = dataP.map((p) => ({
+              id: p.id,
+              judul_proposal: p.judul_proposal || p.judul || 'Tanpa Judul',
+              judul: p.judul_proposal || p.judul || 'Tanpa Judul',
+              pengaju: p.pengaju || p.sekbid || p.divisi || 'Sekretaris OSIS',
+              tanggal: p.tanggal_pengajuan || p.tanggal || p.created_at || '-',
+              status: p.status || 'Menunggu Persetujuan',
+            }));
+            setProposalList(formattedP);
+            localStorage.setItem('ositara_proposal', JSON.stringify(formattedP));
+          }
+        }
+      } catch (e) {
+        console.warn('Sync proposal terlewati:', e);
+      }
+
+      // 3. Fetch Keuangan
+      try {
+        let resKeuangan = await fetch(`${API_BASE}/keuangan`, {
+          headers: { Accept: 'application/json' },
+        });
+        if (!resKeuangan.ok) {
+          resKeuangan = await fetch(`${API_BASE}/laporan-keuangan`, {
+            headers: { Accept: 'application/json' },
+          });
+        }
+        if (resKeuangan.ok) {
+          const resultK = await resKeuangan.json();
+          const dataK = Array.isArray(resultK) ? resultK : resultK.data || [];
+          if (dataK.length > 0) {
+            setKeuanganList(dataK);
+            localStorage.setItem('ositara_keuangan', JSON.stringify(dataK));
+          }
+        }
+      } catch (e) {
+        console.warn('Sync keuangan terlewati:', e);
+      }
+
+      // 4. Fetch Anggota OSIS
+      try {
+        let resAnggota = await fetch(`${API_BASE}/pengurus-osis`, {
+          headers: { Accept: 'application/json' },
+        });
+        if (!resAnggota.ok) {
+          resAnggota = await fetch(`${API_BASE}/anggota`, {
+            headers: { Accept: 'application/json' },
+          });
+        }
+        if (resAnggota.ok) {
+          const resultA = await resAnggota.json();
+          const dataA = Array.isArray(resultA) ? resultA : resultA.data || [];
+          if (dataA.length > 0) {
+            const formattedA = dataA.map((a) => ({
+              id: a.id,
+              nis: a.nis || a.nisn || a.id_anggota || '-',
+              nama: a.nama || a.nama_lengkap || a.nama_anggota || '-',
+              jabatan: a.jabatan || 'Anggota',
+              sekbid: a.sekbid || a.divisi || a.seksi_bidang || '-',
+            }));
+            setAnggotaList(formattedA);
+            localStorage.setItem('ositara_anggota', JSON.stringify(formattedA));
+          }
+        }
+      } catch (e) {
+        console.warn('Sync anggota terlewati:', e);
+      }
+
+      // 5. Fetch Pendaftaran Event
+      try {
+        let resPendaftaran = await fetch(`${API_BASE}/pendaftaran-event`, {
+          headers: { Accept: 'application/json' },
+        });
+        if (!resPendaftaran.ok) {
+          resPendaftaran = await fetch(`${API_BASE}/pendaftaran`, {
+            headers: { Accept: 'application/json' },
+          });
+        }
+        if (resPendaftaran.ok) {
+          const resultD = await resPendaftaran.json();
+          const dataD = Array.isArray(resultD) ? resultD : resultD.data || [];
+          if (dataD.length > 0) {
+            const formattedD = dataD.map((p) => ({
+              id: p.id,
+              kegiatanId: p.kegiatan_id || p.kegiatanId || p.event_id,
+              namaKegiatan:
+                p.nama_kegiatan ||
+                p.namaKegiatan ||
+                p.nama_event ||
+                p.nama_proker ||
+                p.nama ||
+                'Kegiatan OSIS',
+              namaSiswa: p.nama_siswa || p.namaSiswa || p.nama || '-',
+              nis: p.nis || p.nisn || '-',
+              kelas: p.kelas || '-',
+              tanggalDaftar: p.tanggal_daftar || p.tanggalDaftar || '-',
+            }));
+            setPendaftaranList(formattedD);
+            localStorage.setItem('ositara_pendaftaran', JSON.stringify(formattedD));
+          }
+        }
+      } catch (e) {
+        console.warn('Sync pendaftaran terlewati:', e);
+      }
+    } finally {
+      isFetchingRef.current = false;
     }
   }, []);
 
   useEffect(() => {
-    handleSync();
-  }, [handleSync]);
+    handleSyncData();
+    const interval = setInterval(handleSyncData, 15000);
+    window.addEventListener('storage', handleSyncData);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleSyncData);
+    };
+  }, [handleSyncData]);
 
-  const totalPemasukan = keuanganList
-    .filter((item) => (item.jenis || item.kategori) === 'Pemasukan')
-    .reduce((acc, curr) => acc + (Number(curr.jumlah || curr.nominal) || 0), 0);
-
-  const totalPengeluaran = keuanganList
-    .filter((item) => (item.jenis || item.kategori) === 'Pengeluaran')
-    .reduce((acc, curr) => acc + (Number(curr.jumlah || curr.nominal) || 0), 0);
-
-  const sisaSaldo = totalPemasukan - totalPengeluaran;
-
-  // HANDLER SIMPAN & UPDATE KE DATABASE MYSQL
-  const handleSimpanKeuangan = async (e) => {
+  // --- HANDLER KAS (OPTIMISTIC UI: 0 DETIK LANGSUNG TAMPIL + ANTI DOUBLE CLICK)
+  const handleTambahKas = async (e) => {
     e.preventDefault();
-    if (!keteranganKeuangan.trim() || !jumlahKeuangan) {
-      alert('Mohon isi keterangan dan nominal transaksi!');
+    if (isSubmitting) return;
+
+    if (!keterangan.trim() || !nominal) {
+      showToast('Silakan lengkapi keterangan dan nominal!', 'warning');
       return;
     }
-    const nominalValue =
-      Number(String(jumlahKeuangan).replace(/[^0-9]/g, '')) || 0;
-    const tanggalHariIni = new Date().toISOString().split('T')[0];
+
+    setIsSubmitting(true);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const nominalNum = Number(nominal);
 
     const payload = {
-      sumber: sumberKeuangan || 'Kas OSIS',
-      jenis: jenisKeuangan || 'Pemasukan',
-      kategori: jenisKeuangan || 'Pemasukan',
-      keterangan: keteranganKeuangan.trim(),
-      nominal: nominalValue,
-      jumlah: nominalValue,
-      tanggal: tanggalHariIni,
+      sumber: sumber || 'Kas OSIS',
+      tanggal: todayStr,
+      keterangan: keterangan.trim(),
+      kategori: jenisTransaksi,
+      jenis: jenisTransaksi,
+      jumlah: nominalNum,
+      nominal: nominalNum,
     };
 
-    if (editId) {
-      // MODE UPDATE (EDIT)
-      const updatedList = keuanganList.map((item) =>
-        String(item.id) === String(editId) ? { ...item, ...payload } : item
-      );
-      setKeuanganList(updatedList);
-      localStorage.setItem('ositara_keuangan', JSON.stringify(updatedList));
-      const currentEditId = editId;
-      setEditId(null);
-      setKeteranganKeuangan('');
-      setJumlahKeuangan('');
+    // 1. LANGSUNG TAMPILKAN DI UI & KOSONGKAN FORM SEKETIKA (0 DETIK)
+    const transaksiBaru = {
+      id: String(Date.now()),
+      ...payload,
+    };
+    const updatedList = [transaksiBaru, ...keuanganList];
+    setKeuanganList(updatedList);
+    localStorage.setItem('ositara_keuangan', JSON.stringify(updatedList));
 
-      try {
-        let res = await fetch(`${API_BASE}/laporan-keuangan/${currentEditId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
-          await fetch(`${API_BASE}/keuangan/${currentEditId}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'application/json',
-            },
-            body: JSON.stringify(payload),
-          });
-        }
-        alert('Data transaksi berhasil diperbarui di Database MySQL!');
-        handleSync();
-      } catch (error) {
-        console.error('Gagal memperbarui ke database:', error);
-      }
-    } else {
-      // MODE TAMBAH BARU
-      try {
-        let res = await fetch(`${API_BASE}/laporan-keuangan`, {
+    setKeterangan('');
+    setNominal('');
+    setSumber('Kas OSIS');
+    showToast('Transaksi berhasil dicatat!');
+
+    // 2. SIMPAN KE MYSQL DI LATAR BELAKANG TANPA MEMBLOKIR LAYAR
+    try {
+      let res = await fetch(`${API_BASE}/keuangan`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        res = await fetch(`${API_BASE}/laporan-keuangan`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -260,180 +444,248 @@ export default function DashboardBendahara({ user, onLogout }) {
           },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) {
-          res = await fetch(`${API_BASE}/keuangan`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'application/json',
-            },
-            body: JSON.stringify(payload),
-          });
-        }
-        if (res.ok) {
-          const resData = await res.json();
-          const savedItem = resData.data || resData;
-          const newItem = {
-            id: savedItem.id || String(Date.now()),
-            ...payload,
-          };
-          const updatedList = [newItem, ...keuanganList];
-          setKeuanganList(updatedList);
-          localStorage.setItem('ositara_keuangan', JSON.stringify(updatedList));
-          alert('Data transaksi berhasil ditambahkan ke Database MySQL!');
-        } else {
-          const tempId = String(Date.now());
-          const dataBaru = { id: tempId, ...payload };
-          const updatedList = [dataBaru, ...keuanganList];
-          setKeuanganList(updatedList);
-          localStorage.setItem('ositara_keuangan', JSON.stringify(updatedList));
-        }
-      } catch (error) {
-        console.error('Gagal terhubung ke database:', error);
-        const tempId = String(Date.now());
-        const dataBaru = { id: tempId, ...payload };
-        const updatedList = [dataBaru, ...keuanganList];
-        setKeuanganList(updatedList);
-        localStorage.setItem('ositara_keuangan', JSON.stringify(updatedList));
       }
-      setKeteranganKeuangan('');
-      setJumlahKeuangan('');
-      handleSync();
-    }
-  };
 
-  const handleEditKeuangan = (item) => {
-    setEditId(item.id);
-    setSumberKeuangan(item.sumber || 'Kas OSIS');
-    setJenisKeuangan(item.jenis || item.kategori || 'Pemasukan');
-    setKeteranganKeuangan(item.keterangan || '');
-    setJumlahKeuangan(item.jumlah || item.nominal || '');
-  };
-
-  const handleHapusKeuangan = async (id) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus catatan transaksi ini?'))
-      return;
-    const updatedList = keuanganList.filter((item) => String(item.id) !== String(id));
-    setKeuanganList(updatedList);
-    localStorage.setItem('ositara_keuangan', JSON.stringify(updatedList));
-
-    try {
-      let res = await fetch(`${API_BASE}/laporan-keuangan/${id}`, {
-        method: 'DELETE',
-        headers: { Accept: 'application/json' },
-      });
-      if (!res.ok) {
-        await fetch(`${API_BASE}/keuangan/${id}`, {
-          method: 'DELETE',
+      if (res.ok) {
+        const resGet = await fetch(`${API_BASE}/keuangan`, {
           headers: { Accept: 'application/json' },
         });
+        if (resGet.ok) {
+          const resultK = await resGet.json();
+          const dataK = Array.isArray(resultK) ? resultK : resultK.data || [];
+          if (dataK.length > 0) {
+            setKeuanganList(dataK);
+            localStorage.setItem('ositara_keuangan', JSON.stringify(dataK));
+          }
+        }
+      } else {
+        const errJson = await res.json();
+        showToast(
+          `Gagal sinkron ke server: ${errJson.message || 'Periksa validasi data.'}`,
+          'warning'
+        );
       }
-      alert('Data transaksi berhasil dihapus dari Database MySQL!');
-      handleSync();
-    } catch (error) {
-      console.error('Gagal menghapus dari database:', error);
+    } catch (err) {
+      console.error('Gagal menyimpan kas:', err);
+      showToast('Tersimpan lokal, namun koneksi ke server terputus.', 'warning');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  // --- HANDLER HAPUS KAS (BUKA MODAL KONFIRMASI CUSTOM)
+  const handleHapusKas = (item) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'kas',
+      id: item.id,
+      title: 'Hapus Catatan Transaksi?',
+      message: `Apakah kamu yakin ingin menghapus transaksi "${
+        item.keterangan || 'ini'
+      }"? Saldo kas akan otomatis disesuaikan kembali.`,
+    });
+  };
+
+  // --- HANDLER FOTO PROFIL
   const handleUploadAvatar = (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        showToast('Ukuran foto terlalu besar! Maksimal 2MB.', 'warning');
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
-        const result = reader.result;
-        setAvatarUrl(result);
-        localStorage.setItem('ositara_bendahara_avatar', result);
+        setAvatarUrl(reader.result);
+        localStorage.setItem('ositara_bendahara_avatar', reader.result);
         setShowAvatarModal(false);
+        showToast('Foto profil berhasil diperbarui!');
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleHapusAvatar = () => {
-    setAvatarUrl(null);
-    localStorage.removeItem('ositara_bendahara_avatar');
-    setShowAvatarModal(false);
+    setConfirmModal({
+      isOpen: true,
+      type: 'avatar',
+      id: null,
+      title: 'Hapus Foto Profil?',
+      message: 'Foto profil kamu akan dikembalikan ke inisial nama default.',
+    });
   };
 
-  const menuList = [
+  // --- EKSEKUSI KONFIRMASI MODAL CUSTOM (OPTIMISTIC DELETE)
+  const handleExecuteConfirm = async () => {
+    const { type, id } = confirmModal;
+    setConfirmModal({ isOpen: false, type: null, id: null, title: '', message: '' });
+
+    if (type === 'kas' && id) {
+      const updated = keuanganList.filter((item) => String(item.id) !== String(id));
+      setKeuanganList(updated);
+      localStorage.setItem('ositara_keuangan', JSON.stringify(updated));
+      showToast('Catatan transaksi berhasil dihapus.');
+
+      try {
+        let res = await fetch(`${API_BASE}/keuangan/${id}`, {
+          method: 'DELETE',
+          headers: { Accept: 'application/json' },
+        });
+        if (!res.ok) {
+          await fetch(`${API_BASE}/laporan-keuangan/${id}`, {
+            method: 'DELETE',
+            headers: { Accept: 'application/json' },
+          });
+        }
+      } catch (err) {
+        console.error('Gagal menghapus transaksi di server:', err);
+      }
+    } else if (type === 'avatar') {
+      setAvatarUrl(null);
+      localStorage.removeItem('ositara_bendahara_avatar');
+      setShowAvatarModal(false);
+      showToast('Foto profil berhasil dihapus.');
+    }
+  };
+
+  // --- PESERTA TERDAFTAR
+  const getPesertaByKegiatan = (keg) => {
+    if (!keg) return [];
+    const targetId = String(keg.id);
+    const targetName = (keg.nama_proker || keg.namaKegiatan || keg.nama || '')
+      .toLowerCase()
+      .trim();
+    return pendaftaranList.filter((p) => {
+      const pId = String(p.kegiatanId || p.kegiatan_id || '');
+      const pName = (
+        p.namaKegiatan ||
+        p.nama_kegiatan ||
+        p.nama_event ||
+        p.nama_proker ||
+        p.nama ||
+        ''
+      )
+        .toLowerCase()
+        .trim();
+      return (pId && pId === targetId) || (pName && pName === targetName);
+    });
+  };
+
+  // --- HITUNG RINGKASAN SALDO
+  const totalPemasukan = keuanganList
+    .filter((k) => k.kategori === 'Pemasukan' || k.jenis === 'Pemasukan')
+    .reduce((acc, curr) => acc + (Number(curr.jumlah || curr.nominal) || 0), 0);
+
+  const totalPengeluaran = keuanganList
+    .filter((k) => k.kategori === 'Pengeluaran' || k.jenis === 'Pengeluaran')
+    .reduce((acc, curr) => acc + (Number(curr.jumlah || curr.nominal) || 0), 0);
+
+  const saldoSaatIni = totalPemasukan - totalPengeluaran;
+
+  const namaBendahara =
+    user?.namaLengkap || user?.nama || user?.name || 'Shopia Widarti Noviani';
+  const inisialNama = namaBendahara.charAt(0).toUpperCase();
+
+  const menuItems = [
     { id: 'beranda', label: 'Beranda', icon: 'beranda' },
-    { id: 'laporan-keuangan', label: 'Catat Kas & Laporan', icon: 'keuangan' },
-    { id: 'pengajuan-proposal', label: 'Proposal Masuk', icon: 'proposal' },
+    { id: 'catat-kas', label: 'Catat Kas & Laporan', icon: 'keuangan' },
+    { id: 'proposal-masuk', label: 'Proposal Masuk', icon: 'proposal' },
     { id: 'program-kerja', label: 'Program Kerja', icon: 'proker' },
     { id: 'anggota-osis', label: 'Anggota OSIS', icon: 'anggota' },
     { id: 'kelola-kegiatan', label: 'Kelola Kegiatan', icon: 'kegiatan' },
   ];
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-[#F2F4F7] font-sans text-slate-800 relative overflow-x-hidden">
-      {/* HEADER MOBILE */}
-      <div className="md:hidden bg-[#2158B8] text-white px-5 py-4 flex items-center justify-between sticky top-0 z-30 shadow-md">
+    <div className="flex flex-col md:flex-row h-screen w-full bg-slate-100/90 font-sans text-slate-800 overflow-hidden selection:bg-[#2158B8] selection:text-white">
+      {/* NOTIFIKASI TOAST MELAYANG */}
+      {toastNotif && (
+        <div className="fixed top-4 right-4 left-4 sm:left-auto z-[60] flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-white shadow-2xl border border-slate-200/80 animate-[fadeIn_0.2s_ease-out] sm:max-w-sm">
+          <div
+            className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-white font-black text-sm ${
+              toastNotif.type === 'warning'
+                ? 'bg-gradient-to-br from-[#c7852e] to-[#ffd27d]'
+                : 'bg-gradient-to-br from-[#2158B8] to-[#3A86EF]'
+            }`}
+          >
+            {toastNotif.type === 'warning' ? '!' : '✓'}
+          </div>
+          <p className="text-xs sm:text-sm font-bold text-slate-700 leading-snug">
+            {toastNotif.message}
+          </p>
+        </div>
+      )}
+
+      {/* HEADER NAVBAR MOBILE - MENYATU MULUS DENGAN STATUS BAR ATAS */}
+      <div className="md:hidden bg-gradient-to-b from-[#1B4694] to-[#2158B8] text-white px-4 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-md w-full shrink-0 border-b border-blue-800/30">
         <div className="flex items-center space-x-3">
-          <img
-            src={logoOsitara}
-            alt="Logo"
-            className="w-8 h-8 object-contain animate-bounce cursor-pointer hover:scale-105 transition-transform duration-300 drop-shadow-md"
-            onError={(e) => (e.target.style.display = 'none')}
-          />
+          <div className="p-1">
+            <img
+              src={logoOsitara}
+              alt="Logo OSITARA"
+              className="w-7 h-7 object-contain cursor-pointer hover:scale-110 transition-transform duration-300 drop-shadow"
+              onError={(e) => (e.target.style.display = 'none')}
+            />
+          </div>
           <div>
-            <h1 className="text-base font-black tracking-wider leading-none">OSITARA</h1>
-            <p className="text-[9px] text-[#FFF3BF] font-bold tracking-wide uppercase mt-0.5">
+            <h1 className="text-base font-black tracking-widest leading-none drop-shadow-sm">
+              OSITARA
+            </h1>
+            <p className="text-[9px] text-[#FFD43B] font-extrabold tracking-wider uppercase mt-0.5">
               BENDAHARA OSIS
             </p>
           </div>
         </div>
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 transition-all focus:outline-none cursor-pointer"
+          className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 transition-all border border-white/15 focus:outline-none cursor-pointer"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth="2"
-              d={
-                isMobileMenuOpen
-                  ? 'M6 18L18 6M6 6l12 12'
-                  : 'M4 6h16M4 12h16M4 18h16'
-              }
+              strokeWidth="2.5"
+              d={isMobileMenuOpen ? 'M6 18L18 6M6 6l12 12' : 'M4 6h16M4 12h16M4 18h16'}
             />
           </svg>
         </button>
       </div>
 
+      {/* OVERLAY MOBILE BACKDROP */}
       {isMobileMenuOpen && (
         <div
           onClick={() => setIsMobileMenuOpen(false)}
-          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-xs transition-opacity animate-[fadeIn_0.2s_ease-out]"
+          className="fixed inset-0 bg-slate-950/60 z-40 md:hidden backdrop-blur-sm transition-all animate-[fadeIn_0.2s_ease-out]"
         />
       )}
 
-      {/* SIDEBAR DENGAN TINGGI FLEKSIBEL (MIN-H-SCREEN & MD:RELATIVE) */}
+      {/* SIDEBAR NAVIGATION */}
       <aside
-        className={`fixed md:relative inset-y-0 left-0 z-50 min-h-screen w-64 bg-[#2158B8] text-white flex flex-col justify-between p-6 shrink-0 shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`fixed md:relative inset-y-0 left-0 z-50 h-screen w-64 bg-gradient-to-b from-[#1B4694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col justify-between p-5 shrink-0 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ease-in-out overflow-y-auto ${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
         <div>
-          <div className="hidden md:flex items-center space-x-3 mb-10">
-            <div className="relative group cursor-pointer">
+          <div className="hidden md:flex items-center space-x-3.5 mb-8 p-1">
+            <div className="relative group cursor-pointer transition-transform duration-300 hover:rotate-6">
               <img
                 src={logoOsitara}
-                alt="Logo"
-                className="w-10 h-10 object-contain shrink-0 animate-bounce hover:scale-110 transition-transform duration-300 drop-shadow-md"
+                alt="Logo OSITARA"
+                className="w-10 h-10 object-contain shrink-0 transition-transform duration-300 animate-bounce drop-shadow-md"
                 onError={(e) => (e.target.style.display = 'none')}
               />
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-wider leading-none">OSITARA</h1>
-              <p className="text-[10px] text-[#FFF3BF] font-bold tracking-wide mt-1 uppercase">
+              <h1 className="text-xl font-black tracking-widest leading-none drop-shadow-md">
+                OSITARA
+              </h1>
+              <p className="text-[10px] text-[#FFD43B] font-extrabold tracking-wider mt-1 uppercase drop-shadow-xs">
                 BENDAHARA OSIS
               </p>
             </div>
           </div>
 
-          <nav className="space-y-1.5 mt-4 md:mt-0">
-            {menuList.map((menu) => {
+          <nav className="space-y-2 mt-4 md:mt-0">
+            {menuItems.map((menu) => {
               const isActive = activeMenu === menu.id;
               return (
                 <button
@@ -442,282 +694,434 @@ export default function DashboardBendahara({ user, onLogout }) {
                     setActiveMenu(menu.id);
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`group w-full flex items-center space-x-3 px-4 py-3 rounded-2xl font-bold text-sm transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer text-left ${
+                  className={`group w-full flex items-center space-x-3.5 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 active:scale-95 cursor-pointer text-left ${
                     isActive
-                      ? 'bg-[#FFF3BF] text-[#2158B8] shadow-md hover:shadow-lg'
-                      : 'hover:bg-white/10 text-white hover:shadow-sm'
+                      ? 'bg-gradient-to-r from-[#f4d875] to-[#f4d875] text-[#1B4694] shadow-lg shadow-amber-400/40 font-black translate-x-1'
+                      : 'hover:bg-white/15 text-blue-50 hover:text-white hover:translate-x-1'
                   }`}
                 >
                   <Icon type={menu.icon} />
-                  <span className="leading-snug">{menu.label}</span>
+                  <span className="leading-snug tracking-wide">{menu.label}</span>
                 </button>
               );
             })}
           </nav>
         </div>
 
+        {/* TOMBOL LOGOUT WARNA SOLID MERAH */}
         <button
           onClick={onLogout}
-          className="group flex items-center space-x-3 px-4 py-3 text-white hover:bg-rose-600/80 rounded-2xl font-bold text-sm transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer text-left shadow-sm hover:shadow-md mt-8 md:mt-0"
+          className="group flex items-center space-x-3 px-4 py-3.5 text-white bg-[#E63946] hover:bg-[#D62828] border border-rose-500 rounded-2xl font-black text-sm transition-all duration-300 hover:-translate-y-0.5 active:scale-95 cursor-pointer text-left shadow-lg shadow-rose-600/40 mt-8 md:mt-0"
         >
           <Icon type="logout" />
-          <span>Logout</span>
+          <span className="tracking-wide">Logout</span>
         </button>
       </aside>
 
-      {/* MAIN CONTENT */}
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto w-full">
-        {/* HEADER USER */}
-        <div className="flex items-center justify-between mb-6 sm:mb-8 bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md hover:shadow-lg border border-slate-200/80 transition-all duration-300">
-          <div className="flex items-center space-x-3 sm:space-x-4">
-            <div
-              onClick={() => setShowAvatarModal(true)}
-              className="relative group cursor-pointer shrink-0"
-              title="Atur Foto Profil"
-            >
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt="Avatar"
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-white shadow-md group-hover:scale-105 group-hover:shadow-lg transition-all duration-300"
-                />
-              ) : (
-                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center text-[#2158B8] border-2 border-white shadow-md font-black text-lg sm:text-xl group-hover:scale-105 transition-transform duration-300">
-                  {inisialNama}
+      {/* MAIN CONTENT AREA */}
+      <main className="flex-1 h-screen overflow-y-auto p-3.5 sm:p-6 lg:p-8 min-w-0 w-full space-y-4 sm:space-y-6">
+        {/* HEADER USER CARD */}
+        <div className="relative overflow-hidden bg-white p-4 sm:p-6 rounded-3xl shadow-sm border border-slate-200/90 transition-all duration-300 hover:shadow-md">
+          <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-[#2158B8]/15 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center justify-between min-w-0 w-full relative z-10">
+            <div className="flex items-center space-x-3.5 sm:space-x-4 min-w-0 flex-1">
+              <div
+                onClick={() => setShowAvatarModal(true)}
+                className="relative group cursor-pointer shrink-0"
+                title="Klik untuk ubah foto profil"
+              >
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt="Avatar"
+                    className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-white shadow-md ring-2 ring-blue-500/40 group-hover:scale-105 transition-all duration-300"
+                  />
+                ) : (
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-tr from-[#1B4694] to-[#3A86EF] flex items-center justify-center text-white border-2 border-white shadow-md ring-2 ring-blue-500/30 rounded-2xl font-black text-lg sm:text-2xl group-hover:scale-105 transition-all duration-300">
+                    {inisialNama}
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[11px] font-bold transition-all duration-300 shadow-inner">
+                  Ubah
                 </div>
-              )}
-              <div className="absolute inset-0 bg-black/20 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition-opacity">
-                Ubah
               </div>
-            </div>
-            <div>
-              <h2 className="text-xl sm:text-2xl font-black text-[#2158B8]">
-                Halo, {namaDisplay}!
-              </h2>
-              <p className="text-xs font-semibold text-slate-500 mt-0.5">
-                Jabatan: <span className="font-bold text-[#2158B8]">Bendahara OSIS</span>
-              </p>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base sm:text-2xl font-black text-slate-800 leading-snug break-words">
+                  Selamat Datang, <span className="text-[#2158B8]">{namaBendahara}</span>!
+                </h2>
+                <p className="text-xs font-semibold text-slate-500 mt-1 flex flex-wrap items-center gap-2">
+                  <span>Jabatan:</span>
+                  <span className="bg-blue-100/80 text-[#2158B8] font-black px-3 py-0.5 rounded-full text-[10px] uppercase tracking-wider border border-blue-300">
+                    Bendahara OSIS
+                  </span>
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* BERANDA LENGKAP BERSAMA WIDGET RINGKASAN DATA */}
+        {/* 1. BERANDA */}
         {activeMenu === 'beranda' && (
-          <div className="space-y-6 sm:space-y-8 animate-[fadeIn_0.3s_ease-out]">
-            {/* CARD METRIK UTAMA KEUANGAN */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-              <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">
-                    Sisa Saldo Kas
-                  </p>
-                  <h3 className="text-lg sm:text-xl font-black text-[#2158B8] mt-1">
-                    {formatRupiah(sisaSaldo)}
-                  </h3>
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 text-[#2158B8] rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
-                  <Icon type="keuangan" />
-                </div>
-              </div>
-
-              <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">
+          <div className="space-y-4 sm:space-y-8 animate-[fadeIn_0.3s_ease-out]">
+            {/* STATS CARDS */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
+              {/* Card Pemasukan */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#2b7a69] via-[#38a88e] to-[#6ee0c5] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#2b7a69]/30 hover:shadow-2xl hover:shadow-[#2b7a69]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
+                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
                     Total Pemasukan
                   </p>
-                  <h3 className="text-lg sm:text-xl font-black text-emerald-600 mt-1">
+                  <h3 className="text-lg sm:text-2xl font-black tracking-tight break-words drop-shadow mt-1">
                     {formatRupiah(totalPemasukan)}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
-                  <Icon type="keuangan" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
+                  <Icon type="income" />
                 </div>
               </div>
 
-              <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">
+              {/* Card Pengeluaran */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#c96268] via-[#eb8288] to-[#ffafb4] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#c96268]/30 hover:shadow-2xl hover:shadow-[#c96268]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
+                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
                     Total Pengeluaran
                   </p>
-                  <h3 className="text-lg sm:text-xl font-black text-rose-500 mt-1">
+                  <h3 className="text-lg sm:text-2xl font-black tracking-tight break-words drop-shadow mt-1">
                     {formatRupiah(totalPengeluaran)}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
-                  <Icon type="keuangan" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
+                  <Icon type="expense" />
                 </div>
               </div>
 
-              <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] sm:text-xs font-bold text-slate-400 uppercase tracking-wide">
-                    Total Transaksi
+              {/* Card Saldo Kas Saat Ini */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
+                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                    Saldo Kas Saat Ini
                   </p>
-                  <h3 className="text-xl sm:text-2xl font-black text-[#2158B8] mt-1">
-                    {keuanganList.length}
+                  <h3 className="text-lg sm:text-2xl font-black tracking-tight break-words drop-shadow mt-1">
+                    {formatRupiah(saldoSaatIni)}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
                   <Icon type="keuangan" />
                 </div>
               </div>
             </div>
 
-            {/* WIDGET RINGKASAN INFORMASI AKTIVITAS TERBARU */}
+            {/* TWO COLUMN GRID */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* TRANSAKSI KAS OSIS TERAKHIR */}
-              <div className="bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-base font-bold text-[#2158B8] flex items-center gap-2">
-                    <Icon type="keuangan" /> Transaksi Kas Terakhir
+              {/* Recent Kas */}
+              <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-300">
+                <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
+                  <h3 className="text-base sm:text-lg font-black text-slate-800 flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#2158B8]" />
+                    Catatan Kas Terakhir
                   </h3>
                   <button
-                    onClick={() => setActiveMenu('laporan-keuangan')}
-                    className="text-xs font-bold text-[#2158B8] hover:underline"
+                    onClick={() => setActiveMenu('catat-kas')}
+                    className="text-xs font-bold text-[#2158B8] hover:text-amber-500 transition-colors duration-200 cursor-pointer hover:underline"
                   >
                     Lihat Semua &rarr;
                   </button>
                 </div>
-                {keuanganList.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-4 text-center">
-                    Belum ada transaksi kas tercatat.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {keuanganList.slice(0, 4).map((item, idx) => (
+                <div className="space-y-3">
+                  {keuanganList.length === 0 ? (
+                    <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      <p className="text-xs text-slate-400 font-medium">
+                        Belum ada catatan transaksi kas.
+                      </p>
+                    </div>
+                  ) : (
+                    keuanganList.slice(0, 4).map((item) => (
                       <div
-                        key={idx}
-                        className="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs border border-slate-100"
+                        key={item.id}
+                        className="p-3.5 bg-slate-50/90 hover:bg-slate-100 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-3 transition-all duration-200 hover:translate-x-1"
                       >
-                        <div>
-                          <p className="font-bold text-slate-800">{item.keterangan}</p>
-                          <p className="text-slate-500 text-[11px]">
-                            {item.sumber || 'Kas OSIS'} &bull; {item.tanggal}
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">
+                            {item.keterangan}
+                          </p>
+                          <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                            {formatTanggal(item.tanggal)}
                           </p>
                         </div>
                         <span
-                          className={`px-2 py-1 text-[11px] font-bold rounded-lg ${
-                            (item.jenis || item.kategori) === 'Pemasukan'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-rose-100 text-rose-700'
+                          className={`font-black text-xs sm:text-sm shrink-0 px-3 py-1 rounded-xl border ${
+                            item.kategori === 'Pemasukan' || item.jenis === 'Pemasukan'
+                              ? 'text-emerald-700 bg-emerald-100/80 border-emerald-200'
+                              : 'text-rose-600 bg-rose-100/80 border-rose-200'
                           }`}
                         >
+                          {item.kategori === 'Pemasukan' || item.jenis === 'Pemasukan'
+                            ? '+'
+                            : '-'}
                           {formatRupiah(item.jumlah || item.nominal)}
                         </span>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    ))
+                  )}
+                </div>
               </div>
 
-              {/* PROPOSAL MASUK TERAKHIR */}
-              <div className="bg-white p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-base font-bold text-[#2158B8] flex items-center gap-2">
-                    <Icon type="proposal" /> Proposal Masuk Terakhir
+              {/* Agenda Kegiatan */}
+              <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-300">
+                <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
+                  <h3 className="text-base sm:text-lg font-black text-slate-800 flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                    Agenda Kegiatan OSIS
                   </h3>
                   <button
-                    onClick={() => setActiveMenu('pengajuan-proposal')}
-                    className="text-xs font-bold text-[#2158B8] hover:underline"
+                    onClick={() => setActiveMenu('kelola-kegiatan')}
+                    className="text-xs font-bold text-[#2158B8] hover:text-amber-500 transition-colors duration-200 cursor-pointer hover:underline"
                   >
                     Lihat Semua &rarr;
                   </button>
                 </div>
-                {proposalList.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-4 text-center">
-                    Belum ada proposal masuk.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {proposalList.slice(0, 4).map((item, idx) => (
+                <div className="space-y-3">
+                  {kegiatanList.length === 0 ? (
+                    <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      <p className="text-xs text-slate-400 font-medium">
+                        Belum ada agenda kegiatan.
+                      </p>
+                    </div>
+                  ) : (
+                    kegiatanList.slice(0, 4).map((k) => (
                       <div
-                        key={idx}
-                        className="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs border border-slate-100"
+                        key={k.id}
+                        className="p-3.5 bg-slate-50/90 hover:bg-slate-100 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-3 transition-all duration-200 hover:translate-x-1"
                       >
-                        <div>
-                          <p className="font-bold text-slate-800">
-                            {item.judul || item.judul_proposal}
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">
+                            {k.nama_proker || k.namaKegiatan || k.nama}
                           </p>
-                          <p className="text-slate-500 text-[11px]">
-                            Anggaran: {formatRupiah(item.anggaran)}
+                          <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                            {formatTanggal(k.target || k.tanggal)}
                           </p>
                         </div>
                         <span
-                          className={`px-2 py-1 text-[10px] font-bold rounded-lg ${
-                            item.status === 'Disetujui' || item.status === 'Diterima'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-amber-100 text-amber-700'
+                          className={`px-3 py-1 text-[10px] font-extrabold rounded-xl shrink-0 uppercase tracking-wider ${
+                            k.status === 'Selesai'
+                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                              : 'bg-blue-100 text-[#2158B8] border border-blue-200'
                           }`}
                         >
-                          {item.status || 'Menunggu'}
+                          {k.status || 'Mendatang'}
                         </span>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* LAPORAN KEUANGAN & CATAT KAS */}
-        {activeMenu === 'laporan-keuangan' && (
+        {/* 2. CATAT KAS & LAPORAN */}
+        {activeMenu === 'catat-kas' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-[fadeIn_0.3s_ease-out]">
-            <div className="lg:col-span-8 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300 overflow-x-auto">
-              <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">
-                Catatan Arus Kas Keuangan
+            {/* TABEL LAPORAN KAS */}
+            <div className="lg:col-span-8 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full">
+              <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
+                Laporan Kas Keuangan OSIS
               </h3>
-              <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[550px]">
-                <thead>
-                  <tr className="border-b border-slate-200 text-slate-700 font-bold bg-[#F2F4F7]">
-                    <th className="p-3 rounded-l-xl">Keterangan Transaksi</th>
-                    <th className="p-3">Jenis</th>
-                    <th className="p-3">Nominal</th>
-                    <th className="p-3 text-center rounded-r-xl">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {keuanganList.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="text-center py-6 text-slate-400">
-                        Belum ada transaksi kas tercatat.
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[550px]">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
+                      <th className="py-3 px-4 rounded-l-xl">Tanggal</th>
+                      <th className="py-3 px-4">Keterangan</th>
+                      <th className="py-3 px-4">Kategori</th>
+                      <th className="py-3 px-4 text-right">Nominal</th>
+                      <th className="py-3 px-4 text-center rounded-r-xl">Aksi</th>
                     </tr>
-                  ) : (
-                    keuanganList.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="p-3 font-bold text-slate-800">{item.keterangan}</td>
-                        <td className="p-3">
-                          <span
-                            className={`px-2.5 py-1 text-[11px] font-bold rounded-full inline-block ${
-                              (item.jenis || item.kategori) === 'Pemasukan'
-                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
-                                : 'bg-rose-100 text-rose-700 border border-rose-300'
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {keuanganList.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="py-12 text-center text-slate-400 font-medium">
+                          Belum ada catatan transaksi kas.
+                        </td>
+                      </tr>
+                    ) : (
+                      keuanganList.map((item) => (
+                        <tr key={item.id} className="hover:bg-blue-50/40 transition-colors">
+                          <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap">
+                            {formatTanggal(item.tanggal)}
+                          </td>
+                          <td className="py-3.5 px-4 font-bold text-slate-800">
+                            {item.keterangan}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`px-2.5 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block ${
+                                item.kategori === 'Pemasukan' || item.jenis === 'Pemasukan'
+                                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                  : 'bg-rose-100 text-rose-700 border border-rose-200'
+                              }`}
+                            >
+                              {item.kategori || item.jenis}
+                            </span>
+                          </td>
+                          <td
+                            className={`py-3.5 px-4 text-right font-black whitespace-nowrap ${
+                              item.kategori === 'Pemasukan' || item.jenis === 'Pemasukan'
+                                ? 'text-emerald-600'
+                                : 'text-rose-500'
                             }`}
                           >
-                            {item.jenis || item.kategori}
-                          </span>
-                        </td>
-                        <td className="p-3 font-black text-slate-700">
-                          {formatRupiah(item.jumlah || item.nominal)}
-                        </td>
-                        <td className="p-3 text-center">
-                          <div className="flex items-center justify-center space-x-2">
+                            {item.kategori === 'Pemasukan' || item.jenis === 'Pemasukan'
+                              ? '+'
+                              : '-'}
+                            {formatRupiah(item.jumlah || item.nominal)}
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
                             <button
-                              onClick={() => handleEditKeuangan(item)}
-                              title="Edit Transaksi"
-                              className="p-1.5 bg-amber-100 text-amber-700 hover:bg-amber-200 rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer shadow-xs"
-                            >
-                              <Icon type="edit" />
-                            </button>
-                            <button
-                              onClick={() => handleHapusKeuangan(item.id)}
+                              onClick={() => handleHapusKas(item)}
+                              className="p-2 bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl transition-all duration-200 active:scale-95 cursor-pointer shadow-xs border border-rose-200"
                               title="Hapus Transaksi"
-                              className="p-1.5 bg-rose-100 text-rose-600 hover:bg-rose-200 rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer shadow-xs"
                             >
                               <Icon type="trash" />
                             </button>
-                          </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* KARTU FORM INPUT KAS */}
+            <div className="order-first lg:order-none lg:col-span-4 bg-white rounded-3xl border border-blue-200/80 shadow-md p-6 sm:p-7 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+              <h3 className="text-lg font-black text-slate-800 mb-5 pb-3 border-b border-slate-100">
+                Input Catatan Kas
+              </h3>
+              <form onSubmit={handleTambahKas} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    Keterangan Transaksi
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Pembelian spanduk..."
+                    value={keterangan}
+                    onChange={(e) => setKeterangan(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/80 focus:bg-white transition-all shadow-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    Sumber Dana
+                  </label>
+                  <select
+                    value={sumber}
+                    onChange={(e) => setSumber(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-xs sm:text-sm bg-slate-50/80 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent cursor-pointer transition-all shadow-xs"
+                  >
+                    <option value="Kas OSIS">Kas OSIS</option>
+                    <option value="Dana Sekolah">Dana Sekolah</option>
+                    <option value="Sponsor">Sponsor</option>
+                    <option value="Lainnya">Lainnya</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    Jenis Transaksi
+                  </label>
+                  <select
+                    value={jenisTransaksi}
+                    onChange={(e) => setJenisTransaksi(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-xs sm:text-sm bg-slate-50/80 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent cursor-pointer transition-all shadow-xs"
+                  >
+                    <option value="Pemasukan">Pemasukan (+)</option>
+                    <option value="Pengeluaran">Pengeluaran (-)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    Nominal Transaksi (Rp)
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="50000"
+                    value={nominal}
+                    onChange={(e) => setNominal(e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/80 focus:bg-white transition-all shadow-xs"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className={`w-full py-3.5 text-white font-black text-xs sm:text-sm rounded-2xl shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 mt-6 ${
+                    isSubmitting
+                      ? 'bg-slate-400 cursor-not-allowed shadow-none'
+                      : 'bg-[#2158B8] hover:bg-[#1B4694] shadow-blue-600/30 active:scale-95 cursor-pointer'
+                  }`}
+                >
+                  <Icon type="send" />
+                  <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Transaksi Kas'}</span>
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* 3. PROPOSAL MASUK (TAMPILAN & KOLOM SAMA PERSIS DENGAN KETUA OSIS) */}
+        {activeMenu === 'proposal-masuk' && (
+          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
+            <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
+              Daftar Pengajuan Proposal
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[600px]">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
+                    <th className="py-3 px-4 rounded-l-xl">Judul Proposal</th>
+                    <th className="py-3 px-4">Pengaju</th>
+                    <th className="py-3 px-4">Tanggal</th>
+                    <th className="py-3 px-4 text-center rounded-r-xl">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {proposalList.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="py-12 text-center text-slate-400 font-medium">
+                        Belum ada pengajuan proposal.
+                      </td>
+                    </tr>
+                  ) : (
+                    proposalList.map((item, idx) => (
+                      <tr key={item.id || idx} className="hover:bg-blue-50/40 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-slate-800">
+                          {item.judul_proposal || item.judul || item.nama}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600">
+                          {item.pengaju || item.sekbid || item.divisi || 'Sekretaris OSIS'}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap">
+                          {formatTanggal(item.tanggal || item.created_at)}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span
+                            className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block ${
+                              item.status === 'Disetujui' || item.status === 'Diterima'
+                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                : item.status === 'Ditolak'
+                                ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                                : 'bg-amber-100 text-amber-700 border border-amber-200'
+                            }`}
+                          >
+                            {item.status || 'Menunggu Persetujuan'}
+                          </span>
                         </td>
                       </tr>
                     ))
@@ -725,290 +1129,320 @@ export default function DashboardBendahara({ user, onLogout }) {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
 
-            <div className="lg:col-span-4 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg sm:text-xl font-bold text-[#2158B8]">
-                  {editId ? 'Edit Transaksi Kas' : 'Catat Transaksi Kas'}
-                </h3>
-                {editId && (
-                  <button
-                    onClick={() => {
-                      setEditId(null);
-                      setKeteranganKeuangan('');
-                      setJumlahKeuangan('');
-                    }}
-                    className="text-xs font-bold text-rose-500 hover:underline cursor-pointer"
-                  >
-                    Batal Edit
-                  </button>
-                )}
-              </div>
-              <form onSubmit={handleSimpanKeuangan} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">
-                    Keterangan Transaksi
-                  </label>
-                  <input
-                    type="text"
-                    value={keteranganKeuangan}
-                    onChange={(e) => setKeteranganKeuangan(e.target.value)}
-                    placeholder="Contoh: Dana Kas Sekolah"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] hover:-translate-y-0.5 transition-all duration-200 shadow-xs"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">
-                    Jenis Arus Kas
-                  </label>
-                  <select
-                    value={jenisKeuangan}
-                    onChange={(e) => setJenisKeuangan(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] bg-white hover:-translate-y-0.5 transition-all duration-200 cursor-pointer shadow-xs"
-                  >
-                    <option value="Pemasukan">Pemasukan (+ Kas)</option>
-                    <option value="Pengeluaran">Pengeluaran (- Kas)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">
-                    Nominal (Rp)
-                  </label>
-                  <input
-                    value={jumlahKeuangan}
-                    type="number"
-                    onChange={(e) => setJumlahKeuangan(e.target.value)}
-                    placeholder="Contoh: 50000"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] hover:-translate-y-0.5 transition-all duration-200 shadow-xs"
-                    required
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className={`w-full py-3 text-slate-900 font-black text-xs sm:text-sm rounded-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer shadow-md mt-2 ${
-                    editId
-                      ? 'bg-amber-400 hover:bg-amber-500 hover:shadow-amber-400/30'
-                      : 'bg-[#FFC42B] hover:bg-[#ffb700] hover:shadow-amber-400/30'
-                  }`}
-                >
-                  {editId ? 'Perbarui Transaksi Kas' : 'Simpan Transaksi Kas'}
-                </button>
-              </form>
+        {/* 4. PROGRAM KERJA */}
+        {activeMenu === 'program-kerja' && (
+          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
+            <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
+              Program Kerja OSIS
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[500px]">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
+                    <th className="py-3 px-4 rounded-l-xl">Nama Program Kerja</th>
+                    <th className="py-3 px-4">Divisi Pelaksana</th>
+                    <th className="py-3 px-4 rounded-r-xl">Target Waktu</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {prokerList.length === 0 ? (
+                    <tr>
+                      <td colSpan="3" className="py-12 text-center text-slate-400 font-medium">
+                        Belum ada program kerja terdaftar.
+                      </td>
+                    </tr>
+                  ) : (
+                    prokerList.map((pk) => (
+                      <tr key={pk.id} className="hover:bg-blue-50/40 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-slate-800">
+                          {pk.nama_proker || pk.namaKegiatan || pk.nama}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600">
+                          {pk.divisi || pk.sekbid || '-'}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap">
+                          {formatTanggal(pk.target || pk.tanggal)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
-        {/* PROPOSAL MASUK */}
-        {activeMenu === 'pengajuan-proposal' && (
-          <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300 overflow-x-auto animate-[fadeIn_0.3s_ease-out]">
-            <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">
-              Daftar Proposal Masuk
-            </h3>
-            <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[600px]">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-700 font-bold bg-[#F2F4F7]">
-                  <th className="p-3 rounded-l-xl">Judul Proposal</th>
-                  <th className="p-3">Anggaran</th>
-                  <th className="p-3 text-center rounded-r-xl">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {proposalList.length === 0 ? (
-                  <tr>
-                    <td colSpan="3" className="text-center py-6 text-slate-400">
-                      Belum ada proposal masuk.
-                    </td>
-                  </tr>
-                ) : (
-                  proposalList.map((item, idx) => (
-                    <tr key={item.id || idx} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3 font-bold text-slate-800">
-                        {item.judul || item.judul_proposal}
-                      </td>
-                      <td className="p-3 font-semibold text-slate-700">
-                        {formatRupiah(item.anggaran)}
-                      </td>
-                      <td className="p-3 text-center">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-xs font-bold inline-block ${
-                            item.status === 'Disetujui' || item.status === 'Diterima'
-                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
-                              : 'bg-amber-100 text-amber-700 border border-amber-300'
-                          }`}
-                        >
-                          {item.status || 'Menunggu'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* PROGRAM KERJA */}
-        {activeMenu === 'program-kerja' && (
-          <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300 overflow-x-auto animate-[fadeIn_0.3s_ease-out]">
-            <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">
-              Program Kerja OSIS (Sinkron Ketua OSIS)
-            </h3>
-            <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[500px]">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-700 font-bold bg-[#F2F4F7]">
-                  <th className="p-3 rounded-l-xl">Nama Program Kerja</th>
-                  <th className="p-3">Divisi/Sekbid</th>
-                  <th className="p-3 rounded-r-xl">Target</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {prokerList.length === 0 ? (
-                  <tr>
-                    <td colSpan="3" className="text-center py-6 text-slate-400">
-                      Belum ada program kerja.
-                    </td>
-                  </tr>
-                ) : (
-                  prokerList.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3 font-bold text-slate-800">
-                        {item.nama || item.nama_proker}
-                      </td>
-                      <td className="p-3 text-slate-600">
-                        {item.divisi || item.sekbid || '-'}
-                      </td>
-                      <td className="p-3 text-slate-600">{item.target}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* ANGGOTA OSIS */}
+        {/* 5. ANGGOTA OSIS */}
         {activeMenu === 'anggota-osis' && (
-          <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300 overflow-x-auto animate-[fadeIn_0.3s_ease-out]">
-            <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">
+          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
+            <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
               Daftar Anggota OSIS
             </h3>
-            <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[500px]">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-700 font-bold bg-[#F2F4F7]">
-                  <th className="p-3 rounded-l-xl">Nama Lengkap</th>
-                  <th className="p-3">Jabatan</th>
-                  <th className="p-3 rounded-r-xl">Sekbid/Divisi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {anggotaList.length === 0 ? (
-                  <tr>
-                    <td colSpan="3" className="text-center py-6 text-slate-400">
-                      Belum ada data anggota.
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[500px]">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
+                    <th className="py-3 px-4 rounded-l-xl">NISN/NIS</th>
+                    <th className="py-3 px-4">Nama Anggota</th>
+                    <th className="py-3 px-4">Jabatan</th>
+                    <th className="py-3 px-4 rounded-r-xl">Divisi / Sekbid</th>
                   </tr>
-                ) : (
-                  anggotaList.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3 font-bold text-slate-800">
-                        {item.nama || item.namaLengkap}
-                      </td>
-                      <td className="p-3 text-slate-600">{item.jabatan}</td>
-                      <td className="p-3 text-slate-600">
-                        {item.divisi || item.sekbid || '-'}
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {anggotaList.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="py-12 text-center text-slate-400 font-medium">
+                        Belum ada data anggota.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    anggotaList.map((item) => (
+                      <tr key={item.id} className="hover:bg-blue-50/40 transition-colors">
+                        <td className="py-3.5 px-4 text-slate-500 font-mono">
+                          {item.nis || item.nisn || '-'}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-800">
+                          {item.nama || item.nama_lengkap || item.nama_anggota || '-'}
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-slate-700">
+                          {item.jabatan || 'Anggota'}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600">
+                          {item.sekbid || item.divisi || item.seksi_bidang || '-'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
-        {/* KELOLA KEGIATAN */}
+        {/* 6. KELOLA KEGIATAN */}
         {activeMenu === 'kelola-kegiatan' && (
-          <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-md hover:shadow-lg transition-all duration-300 overflow-x-auto animate-[fadeIn_0.3s_ease-out]">
-            <h3 className="text-lg sm:text-xl font-bold text-[#2158B8] mb-4 sm:mb-6">
-              Daftar Kegiatan Sekolah
+          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
+            <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
+              Daftar Kegiatan OSIS
             </h3>
-            <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[500px]">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-700 font-bold bg-[#F2F4F7]">
-                  <th className="p-3 rounded-l-xl">Nama Kegiatan</th>
-                  <th className="p-3">Tanggal</th>
-                  <th className="p-3 rounded-r-xl">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {kegiatanList.length === 0 ? (
-                  <tr>
-                    <td colSpan="3" className="text-center py-6 text-slate-400">
-                      Belum ada data kegiatan.
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[550px]">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
+                    <th className="py-3 px-4 rounded-l-xl">Nama Kegiatan</th>
+                    <th className="py-3 px-4">Tanggal Pelaksanaan</th>
+                    <th className="py-3 px-4">Penanggung Jawab</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-center rounded-r-xl">Aksi</th>
                   </tr>
-                ) : (
-                  kegiatanList.map((item, idx) => (
-                    <tr key={item.id || idx} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3 font-bold text-slate-800">
-                        {item.nama || item.namaKegiatan}
-                      </td>
-                      <td className="p-3 text-slate-600">
-                        {item.tanggal || item.waktu || '-'}
-                      </td>
-                      <td className="p-3 text-blue-600 font-bold">
-                        {item.status || 'Mendatang'}
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {kegiatanList.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="py-12 text-center text-slate-400 font-medium">
+                        Belum ada kegiatan terdaftar dari Sekretaris.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    kegiatanList.map((k) => {
+                      const pesertaKegiatan = getPesertaByKegiatan(k);
+                      return (
+                        <tr key={k.id} className="hover:bg-blue-50/40 transition-colors">
+                          <td className="py-3.5 px-4 font-bold text-slate-800">
+                            {k.nama_proker || k.namaKegiatan || k.nama}
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
+                            {formatTanggal(k.target || k.tanggal)}
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-600 font-medium">
+                            {k.sekbid || k.divisi || 'Sekretaris'}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block ${
+                                k.status === 'Selesai'
+                                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                  : 'bg-blue-100 text-[#2158B8] border border-blue-200'
+                              }`}
+                            >
+                              {k.status || 'Mendatang'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <button
+                              onClick={() => setSelectedKegiatanPeserta(k)}
+                              className="px-3.5 py-1.5 bg-[#2158B8] hover:bg-[#1B4694] text-white rounded-xl text-xs font-bold inline-flex items-center space-x-2 shadow-md shadow-blue-600/20 active:scale-95 transition-all cursor-pointer"
+                            >
+                              <Icon type="users" />
+                              <span>Peserta ({pesertaKegiatan.length})</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>
 
-      {/* MODAL AVATAR PROFIL */}
+      {/* MODAL KONFIRMASI HAPUS CUSTOM */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-100 text-center animate-[scaleIn_0.2s_ease-out]">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#c96268] to-[#ffafb4] text-white flex items-center justify-center shadow-lg shadow-[#c96268]/30">
+              <svg
+                className="w-8 h-8"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+            </div>
+            <h3 className="text-base sm:text-lg font-black text-slate-800">
+              {confirmModal.title}
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed">
+              {confirmModal.message}
+            </p>
+            <div className="flex items-center gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() =>
+                  setConfirmModal({ isOpen: false, type: null, id: null, title: '', message: '' })
+                }
+                className="flex-1 py-2.5 px-4 rounded-2xl font-bold text-xs sm:text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all active:scale-95 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteConfirm}
+                className="flex-1 py-2.5 px-4 rounded-2xl font-bold text-xs sm:text-sm text-white bg-gradient-to-r from-[#c96268] to-[#eb8288] hover:opacity-95 shadow-lg shadow-[#c96268]/30 transition-all active:scale-95 cursor-pointer"
+              >
+                Ya, Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PESERTA KEGIATAN */}
+      {selectedKegiatanPeserta && (
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 z-50 animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl space-y-4 border border-blue-100 animate-[scaleIn_0.2s_ease-out]">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-base sm:text-lg font-black text-slate-800 truncate pr-2">
+                Daftar Peserta:{' '}
+                <span className="text-[#2158B8]">
+                  {selectedKegiatanPeserta.nama_proker ||
+                    selectedKegiatanPeserta.namaKegiatan ||
+                    selectedKegiatanPeserta.nama}
+                </span>
+              </h3>
+              <button
+                onClick={() => setSelectedKegiatanPeserta(null)}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-black flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="max-h-64 overflow-y-auto space-y-2.5 pr-1">
+              {getPesertaByKegiatan(selectedKegiatanPeserta).length === 0 ? (
+                <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <p className="text-xs text-slate-400 font-medium">
+                    Belum ada peserta terdaftar.
+                  </p>
+                </div>
+              ) : (
+                getPesertaByKegiatan(selectedKegiatanPeserta).map((p, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3.5 bg-slate-50/80 hover:bg-slate-100/80 rounded-2xl text-xs border border-slate-100 flex justify-between items-center transition-all"
+                  >
+                    <div>
+                      <p className="font-bold text-slate-800">{p.namaSiswa || p.nama}</p>
+                      <p className="text-slate-400 text-[11px] mt-0.5">
+                        {p.kelas} | NIS: {p.nis || p.nisn || '-'}
+                      </p>
+                    </div>
+                    <span className="text-slate-400 text-[10px] bg-white px-2.5 py-1 rounded-lg font-medium border border-slate-200/60">
+                      {formatTanggal(p.tanggalDaftar)}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL FOTO PROFIL */}
       {showAvatarModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-5 text-center transform transition-all duration-300 animate-[scaleIn_0.2s_ease-out]">
-            <h3 className="text-lg font-bold text-[#2158B8]">Kelola Foto Profil</h3>
-            <div className="flex justify-center">
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-4 border border-blue-100 animate-[scaleIn_0.2s_ease-out]">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-base sm:text-lg font-black text-slate-800">
+                Kelola Foto Profil
+              </h3>
+              <button
+                onClick={() => setShowAvatarModal(false)}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-black flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex justify-center py-2">
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
-                  alt="Preview"
-                  className="w-20 h-20 rounded-full object-cover border-4 border-slate-100 shadow-md"
+                  alt="Preview Avatar"
+                  className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md ring-2 ring-blue-500/30"
                 />
               ) : (
-                <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center text-[#2158B8] border-4 border-slate-50 shadow-inner font-black text-2xl">
+                <div className="w-20 h-20 bg-gradient-to-tr from-[#1B4694] to-[#3A86EF] rounded-2xl flex items-center justify-center text-white border-2 border-white shadow-md font-black text-2xl">
                   {inisialNama}
                 </div>
               )}
             </div>
-            <div className="space-y-2.5 pt-2">
-              <label className="block w-full py-3 bg-[#2158B8] hover:bg-blue-700 text-white font-bold text-sm rounded-2xl shadow-md hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer">
-                Pilih Foto Baru
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleUploadAvatar}
-                  className="hidden"
-                />
+            <div className="space-y-3 pt-2">
+              <label
+                htmlFor="avatar-file-input-bendahara"
+                className="w-full py-3 bg-[#2158B8] hover:bg-[#1B4694] text-white rounded-2xl font-bold text-xs flex items-center justify-center space-x-2 cursor-pointer shadow-lg shadow-blue-600/30 active:scale-95 transition-all"
+              >
+                <span>Ganti / Unggah Foto Baru</span>
               </label>
+              <input
+                id="avatar-file-input-bendahara"
+                type="file"
+                accept="image/*"
+                onChange={handleUploadAvatar}
+                className="hidden"
+              />
               {avatarUrl && (
                 <button
                   type="button"
                   onClick={handleHapusAvatar}
-                  className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-sm rounded-2xl transition-all duration-200 hover:-translate-y-0.5 active:scale-95 shadow-xs cursor-pointer"
+                  className="w-full py-3 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl font-bold text-xs flex items-center justify-center space-x-2 cursor-pointer border border-rose-200 active:scale-95 transition-all"
                 >
-                  Hapus Foto Profil
+                  <span>Hapus Foto Profil</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => setShowAvatarModal(false)}
-                className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-sm rounded-2xl transition-all duration-200 active:scale-95 cursor-pointer"
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-bold text-xs active:scale-95 transition-all cursor-pointer"
               >
                 Batal
               </button>
