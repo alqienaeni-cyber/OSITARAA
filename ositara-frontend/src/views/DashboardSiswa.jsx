@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import logoOsitara from '../assets/LOGO OSITARA.png';
 
 // --- KONFIGURASI API BACKEND
-const API_BASE = 'http://127.0.0.1:8000/api';
+const API_BASE = '/api';
 
 // --- HELPER UTILS & FORMATTER
 const formatTanggal = (tgl) => {
