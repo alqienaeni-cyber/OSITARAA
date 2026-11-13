@@ -18,7 +18,7 @@ class FinancialReportController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data'    => $laporan
+                'data' => $laporan
             ], 200);
         } catch (Exception $e) {
             return response()->json([
@@ -35,10 +35,11 @@ class FinancialReportController extends Controller
     {
         try {
             $request->validate([
-                'sumber'     => 'required|string|in:Kas OSIS,Anggaran Sekolah,Kas OSIS,Anggaran Sekolah',
+                'sumber'     => 'required|string|max:255',
                 'jenis'      => 'required|string|in:Pemasukan,Pengeluaran',
                 'keterangan' => 'required|string',
                 'nominal'    => 'required|numeric',
+                'tanggal'    => 'nullable|date',
             ]);
 
             $laporan = LaporanKeuangan::create([
@@ -78,7 +79,7 @@ class FinancialReportController extends Controller
             }
 
             $request->validate([
-                'sumber'     => 'sometimes|required|string',
+                'sumber'     => 'sometimes|required|string|max:255',
                 'jenis'      => 'sometimes|required|string|in:Pemasukan,Pengeluaran',
                 'keterangan' => 'sometimes|required|string',
                 'nominal'    => 'sometimes|required|numeric',
