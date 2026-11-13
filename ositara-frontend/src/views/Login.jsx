@@ -45,7 +45,7 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
 
     try {
       // 1. Login via API Backend Laravel
-      const response = await fetch('http://localhost:8000/api/login', {
+      const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
