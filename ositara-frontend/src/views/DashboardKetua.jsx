@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import logoOsitara from '../assets/LOGO OSITARA.png';
 
-// --- KONFIGURASI API BACKEND
-const API_BASE = 'http://127.0.0.1:8000/api';
+// --- KONFIGURASI API BACKEND ---
+const API_BASE = '/api';
 
-// --- HELPER UTILS & FORMATTER
+// --- HELPER UTILS & FORMATTER ---
 const formatRupiah = (number) => {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -24,7 +24,7 @@ const formatTanggal = (tgl) => {
   return tgl;
 };
 
-// --- DEKLARASI IKON SVG
+// --- DEKLARASI IKON SVG ---
 const SvgHome = () => (
   <svg
     className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
@@ -207,11 +207,12 @@ const getInitialData = (key, fallback) => {
       if (Array.isArray(parsed)) return parsed;
     }
     return fallback;
-  } catch  {
+  } catch {
     return fallback;
   }
 };
 
+// Filter khusus Program Kerja Ketua/Wakil OSIS (mengecualikan agenda kegiatan Sekretaris)
 const filterOnlyProkerKetua = (list) => {
   if (!Array.isArray(list)) return [];
   return list.filter(
@@ -221,6 +222,7 @@ const filterOnlyProkerKetua = (list) => {
   );
 };
 
+// Filter khusus Kegiatan OSIS yang diinput Sekretaris
 const filterOnlyKegiatanSekre = (list) => {
   if (!Array.isArray(list)) return [];
   return list.filter(
@@ -242,10 +244,9 @@ export default function DashboardKetua({
 }) {
   const [activeMenu, setActiveMenu] = useState('beranda');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
   const isFetchingRef = useRef(false);
 
-  // --- STATE NOTIFIKASI TOAST & MODAL KONFIRMASI CUSTOM
+  // --- STATE NOTIFIKASI TOAST & MODAL KONFIRMASI CUSTOM ---
   const [toastNotif, setToastNotif] = useState(null);
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -262,7 +263,7 @@ export default function DashboardKetua({
     }, 3200);
   }, []);
 
-  // --- STATES DATA UTAMA
+  // --- STATES DATA UTAMA ---
   const [prokerList, setProkerList] = useState(() => {
     const raw = getInitialData('ositara_proker', initialProker);
     return filterOnlyProkerKetua(raw);
@@ -294,20 +295,20 @@ export default function DashboardKetua({
   const [avatarUrl, setAvatarUrl] = useState(
     () => localStorage.getItem('ositara_user_avatar') || null
   );
+
   const [selectedKegiatanPeserta, setSelectedKegiatanPeserta] = useState(null);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [isSubmittingProker, setIsSubmittingProker] = useState(false);
   const [isSubmittingAnggota, setIsSubmittingAnggota] = useState(false);
 
   const namaDisplay =
-    user?.namaLengkap || user?.nama || user?.name || user?.username || 'Ketua OSIS';
+    user?.namaLengkap || user?.nama || user?.name || user?.username || 'Ketua/Wakil OSIS';
   const inisialNama = namaDisplay.charAt(0).toUpperCase();
 
-  // --- SINKRONISASI SEMUA DATA DARI BACKEND MYSQL & LOCAL STORAGE
+  // --- SINKRONISASI SEMUA DATA DARI BACKEND MYSQL & LOCAL STORAGE ---
   const syncAllDataFromBackend = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
-
     try {
       // 1. Sync Program Kerja & Kegiatan
       try {
@@ -326,6 +327,7 @@ export default function DashboardKetua({
           setKegiatanList((prev) =>
             JSON.stringify(prev) !== JSON.stringify(onlyKegiatan) ? onlyKegiatan : prev
           );
+
           localStorage.setItem('ositara_proker', JSON.stringify(onlyProker));
           localStorage.setItem('ositara_kegiatan', JSON.stringify(onlyKegiatan));
         }
@@ -362,7 +364,7 @@ export default function DashboardKetua({
         console.warn('Sync anggota terlewati:', e);
       }
 
-      // 3. Sync Proposal (Read-Only untuk Ketua)
+      // 3. Sync Proposal (Read-Only untuk Ketua/Wakil OSIS)
       try {
         let resProposal = await fetch(`${API_BASE}/proposals`, {
           headers: { Accept: 'application/json' },
@@ -402,7 +404,7 @@ export default function DashboardKetua({
         console.warn('Sync proposal terlewati:', e);
       }
 
-      // 4. Sync Keuangan (Read-Only untuk Ketua)
+      // 4. Sync Keuangan (Read-Only untuk Ketua/Wakil OSIS)
       try {
         let resKeuangan = await fetch(`${API_BASE}/keuangan`, {
           headers: { Accept: 'application/json' },
@@ -424,7 +426,7 @@ export default function DashboardKetua({
         console.warn('Sync keuangan terlewati:', e);
       }
 
-      // 5. Sync Pendaftaran Peserta Kegiatan (Read-Only untuk Ketua)
+      // 5. Sync Pendaftaran Peserta Kegiatan (Read-Only untuk Ketua/Wakil OSIS)
       try {
         let resPendaftaran = await fetch(`${API_BASE}/pendaftaran-event`, {
           headers: { Accept: 'application/json' },
@@ -450,8 +452,8 @@ export default function DashboardKetua({
                 p.nama_proker ||
                 p.nama ||
                 'Kegiatan OSIS',
-              namaSiswa: p.nama_siswa || p.namaSiswa || p.nama,
-              nama: p.nama_siswa || p.namaSiswa || p.nama,
+              namaSiswa: p.nama_siswa || p.namaSiswa || p.nama || '-',
+              nama: p.nama_siswa || p.namaSiswa || p.nama || '-',
               nis: p.nis || p.nisn || '-',
               kelas: p.kelas || '-',
               catatan: catatanFix,
@@ -484,7 +486,7 @@ export default function DashboardKetua({
     };
   }, [syncAllDataFromBackend]);
 
-  // --- HANDLER FOTO PROFIL
+  // --- HANDLER FOTO PROFIL ---
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -513,7 +515,7 @@ export default function DashboardKetua({
     });
   };
 
-  // --- HANDLER KELOLA PROGRAM KERJA (CRUD KHUSUS KETUA OSIS)
+  // --- HANDLER KELOLA PROGRAM KERJA (CRUD KHUSUS KETUA/WAKIL OSIS) ---
   const [editingProkerId, setEditingProkerId] = useState(null);
   const [namaProker, setNamaProker] = useState('');
   const [divisiProker, setDivisiProker] = useState('');
@@ -533,7 +535,7 @@ export default function DashboardKetua({
       nama: namaProker.trim(),
       divisi: divisiProker.trim(),
       sekbid: divisiProker.trim(),
-      penanggung_jawab: divisiProker.trim(),
+      penanggungjawab: divisiProker.trim(),
       target: targetProker,
       tanggal: targetProker,
       status: 'Berjalan',
@@ -560,6 +562,7 @@ export default function DashboardKetua({
     setNamaProker('');
     setDivisiProker('');
     setTargetProker('');
+
     showToast(
       currentEditId
         ? 'Program kerja berhasil diperbarui!'
@@ -611,7 +614,7 @@ export default function DashboardKetua({
     });
   };
 
-  // --- HANDLER KELOLA ANGGOTA OSIS (CRUD KHUSUS KETUA OSIS)
+  // --- HANDLER KELOLA ANGGOTA OSIS (CRUD KHUSUS KETUA/WAKIL OSIS) ---
   const [editingAnggotaId, setEditingAnggotaId] = useState(null);
   const [nisAnggota, setNisAnggota] = useState('');
   const [namaAnggota, setNamaAnggota] = useState('');
@@ -658,6 +661,7 @@ export default function DashboardKetua({
     setNamaAnggota('');
     setJabatanAnggota('');
     setSekbidAnggota('');
+
     showToast(
       currentEditId
         ? 'Data anggota OSIS berhasil diperbarui!'
@@ -729,7 +733,7 @@ export default function DashboardKetua({
     });
   };
 
-  // --- EKSEKUSI KONFIRMASI HAPUS (MODAL CUSTOM)
+  // --- EKSEKUSI KONFIRMASI HAPUS (MODAL CUSTOM) ---
   const handleExecuteConfirm = async () => {
     const { type, targetId } = confirmModal;
     setConfirmModal({ isOpen: false, type: null, targetId: null, title: '', message: '' });
@@ -747,7 +751,6 @@ export default function DashboardKetua({
       setProkerList(updated);
       localStorage.setItem('ositara_proker', JSON.stringify(updated));
       showToast('Program kerja berhasil dihapus.');
-
       try {
         await fetch(`${API_BASE}/program-kerja/${targetId}`, {
           method: 'DELETE',
@@ -765,7 +768,6 @@ export default function DashboardKetua({
       setAnggotaList(updated);
       localStorage.setItem('ositara_anggota', JSON.stringify(updated));
       showToast('Anggota OSIS berhasil dihapus.');
-
       try {
         let res = await fetch(`${API_BASE}/pengurus-osis/${targetId}`, {
           method: 'DELETE',
@@ -803,12 +805,11 @@ export default function DashboardKetua({
       )
         .toLowerCase()
         .trim();
-
       return (pId && pId === targetId) || (pName && pName === targetName);
     });
   };
 
-  // --- KALKULASI KEUANGAN
+  // --- KALKULASI KEUANGAN ---
   const totalPemasukan = keuanganList
     .filter((k) => (k.jenis || k.kategori) === 'Pemasukan')
     .reduce((acc, cur) => acc + Number(cur.jumlah || cur.nominal || 0), 0);
@@ -819,7 +820,7 @@ export default function DashboardKetua({
 
   const saldoKas = totalPemasukan - totalPengeluaran;
 
-  // --- MENU SIDEBAR KETUA OSIS (2 MENU CRUD + 3 MENU READ-ONLY)
+  // --- MENU SIDEBAR KETUA/WAKIL OSIS (2 MENU CRUD + 3 MENU READ-ONLY) ---
   const menuList = [
     { id: 'beranda', label: 'Beranda Utama', IconComponent: SvgHome },
     { id: 'program-kerja', label: 'Program Kerja', IconComponent: SvgProker },
@@ -865,10 +866,11 @@ export default function DashboardKetua({
               OSITARA
             </h1>
             <p className="text-[9px] text-[#FFD43B] font-extrabold tracking-wider uppercase mt-0.5">
-              KETUA OSIS
+              KETUA/WAKIL OSIS
             </p>
           </div>
         </div>
+
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 transition-all border border-white/15 focus:outline-none cursor-pointer"
@@ -913,7 +915,7 @@ export default function DashboardKetua({
                 OSITARA
               </h1>
               <p className="text-[10px] text-[#FFD43B] font-extrabold tracking-wider mt-1 uppercase drop-shadow-xs">
-                KETUA OSIS
+                KETUA/WAKIL OSIS
               </p>
             </div>
           </div>
@@ -955,7 +957,7 @@ export default function DashboardKetua({
 
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 h-screen overflow-y-auto p-3.5 sm:p-6 lg:p-8 min-w-0 w-full space-y-4 sm:space-y-6">
-        {/* HEADER PROFIL KETUA OSIS */}
+        {/* HEADER PROFIL KETUA/WAKIL OSIS */}
         <div className="relative overflow-hidden bg-white p-4 sm:p-6 rounded-3xl shadow-sm border border-slate-200/90 transition-all duration-300 hover:shadow-md">
           <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-[#2158B8]/15 rounded-full blur-2xl pointer-events-none" />
           <div className="flex items-center justify-between min-w-0 w-full relative z-10">
@@ -980,6 +982,7 @@ export default function DashboardKetua({
                   Ubah
                 </div>
               </div>
+
               <div className="min-w-0 flex-1">
                 <h2 className="text-base sm:text-2xl font-black text-slate-800 leading-snug break-words">
                   Selamat Datang, <span className="text-[#2158B8]">{namaDisplay}</span>!
@@ -987,7 +990,7 @@ export default function DashboardKetua({
                 <p className="text-xs font-semibold text-slate-500 mt-1 flex flex-wrap items-center gap-2">
                   <span>Jabatan:</span>
                   <span className="bg-blue-100/80 text-[#2158B8] font-black px-3 py-0.5 rounded-full text-[10px] uppercase tracking-wider border border-blue-300">
-                    KETUA OSIS
+                    KETUA/WAKIL OSIS
                   </span>
                 </p>
               </div>
@@ -1080,6 +1083,7 @@ export default function DashboardKetua({
                     Kelola &rarr;
                   </button>
                 </div>
+
                 <div className="space-y-3">
                   {prokerList.length === 0 ? (
                     <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
@@ -1123,6 +1127,7 @@ export default function DashboardKetua({
                     Kelola &rarr;
                   </button>
                 </div>
+
                 <div className="space-y-3">
                   {anggotaList.length === 0 ? (
                     <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
@@ -1141,7 +1146,7 @@ export default function DashboardKetua({
                             {a.nama}
                           </p>
                           <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                            NIS: {a.nis || '-'} • {a.sekbid || a.divisi || '-'}
+                            NIS: {a.nis || '-'} • {a.sekbid || a.divisi || a.kelas || '-'}
                           </p>
                         </div>
                         <span className="px-3 py-1 text-[10px] font-extrabold rounded-xl shrink-0 uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
@@ -1156,7 +1161,7 @@ export default function DashboardKetua({
           </div>
         )}
 
-        {/* 2. KELOLA PROGRAM KERJA (CRUD KHUSUS KETUA OSIS) */}
+        {/* 2. KELOLA PROGRAM KERJA (CRUD KHUSUS KETUA/WAKIL OSIS) */}
         {activeMenu === 'program-kerja' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-[fadeIn_0.3s_ease-out]">
             <div className="order-2 lg:order-1 lg:col-span-8 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full">
@@ -1242,6 +1247,7 @@ export default function DashboardKetua({
                   </button>
                 )}
               </div>
+
               <form onSubmit={handleSubmitProker} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
@@ -1256,6 +1262,7 @@ export default function DashboardKetua({
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Divisi / Sekbid Penanggung Jawab
@@ -1269,6 +1276,7 @@ export default function DashboardKetua({
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Target Pelaksanaan
@@ -1281,6 +1289,7 @@ export default function DashboardKetua({
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
+
                 <button
                   type="submit"
                   disabled={isSubmittingProker}
@@ -1296,7 +1305,7 @@ export default function DashboardKetua({
           </div>
         )}
 
-        {/* 3. KELOLA ANGGOTA OSIS (CRUD KHUSUS KETUA OSIS) */}
+        {/* 3. KELOLA ANGGOTA OSIS (CRUD KHUSUS KETUA/WAKIL OSIS) */}
         {activeMenu === 'anggota-osis' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-[fadeIn_0.3s_ease-out]">
             <div className="order-2 lg:order-1 lg:col-span-8 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full">
@@ -1332,7 +1341,7 @@ export default function DashboardKetua({
                             {a.jabatan || '-'}
                           </td>
                           <td className="py-3.5 px-4 text-[#2158B8] font-medium">
-                            {a.sekbid || a.divisi || '-'}
+                            {a.sekbid || a.divisi || a.kelas || '-'}
                           </td>
                           <td className="py-3.5 px-4 text-center space-x-1.5 whitespace-nowrap">
                             <button
@@ -1342,7 +1351,7 @@ export default function DashboardKetua({
                                 setNisAnggota(a.nis || '');
                                 setNamaAnggota(a.nama || '');
                                 setJabatanAnggota(a.jabatan || '');
-                                setSekbidAnggota(a.sekbid || a.divisi || '');
+                                setSekbidAnggota(a.sekbid || a.divisi || a.kelas || '');
                               }}
                               className="p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all duration-200 active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
                             >
@@ -1385,6 +1394,7 @@ export default function DashboardKetua({
                   </button>
                 )}
               </div>
+
               <form onSubmit={handleSubmitAnggota} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
@@ -1399,6 +1409,7 @@ export default function DashboardKetua({
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Nama Lengkap
@@ -1412,6 +1423,7 @@ export default function DashboardKetua({
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Jabatan
@@ -1425,6 +1437,7 @@ export default function DashboardKetua({
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Divisi / Sekbid
@@ -1438,6 +1451,7 @@ export default function DashboardKetua({
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
+
                 <button
                   type="submit"
                   disabled={isSubmittingAnggota}
@@ -1453,7 +1467,7 @@ export default function DashboardKetua({
           </div>
         )}
 
-        {/* 4. DATA PROPOSAL (READ-ONLY UNTUK KETUA OSIS) */}
+        {/* 4. DATA PROPOSAL (READ-ONLY UNTUK KETUA/WAKIL OSIS) */}
         {activeMenu === 'pengajuan-proposal' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
             <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
@@ -1480,11 +1494,10 @@ export default function DashboardKetua({
                   ) : (
                     proposalList.map((p) => {
                       const fileDisplayName =
-                        p.file || p.fileName || p.file_proposal || 'Dokumen.pdf';
+                        p.file || p.fileName || p.fileProposal || p.file_proposal || 'Dokumen.pdf';
                       const downloadUrl = `${API_BASE}/download-proposal/${encodeURIComponent(
                         fileDisplayName
                       )}`;
-
                       return (
                         <tr key={p.id} className="hover:bg-blue-50/40 transition-colors">
                           <td className="py-3.5 px-4 font-bold text-slate-800">
@@ -1525,7 +1538,7 @@ export default function DashboardKetua({
                             </span>
                           </td>
                           <td className="py-3.5 px-4 text-slate-600 text-xs italic">
-                            {p.catatan_revisi || p.catatan_pembina || '-'}
+                            {p.catatan_revisi || p.catatan_pembina || p.catatanRevisi || '-'}
                           </td>
                         </tr>
                       );
@@ -1537,7 +1550,7 @@ export default function DashboardKetua({
           </div>
         )}
 
-        {/* 5. KEGIATAN OSIS (READ-ONLY + LIHAT PESERTA UNTUK KETUA OSIS) */}
+        {/* 5. KEGIATAN OSIS (READ-ONLY + LIHAT PESERTA UNTUK KETUA/WAKIL OSIS) */}
         {activeMenu === 'kegiatan' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm w-full animate-[fadeIn_0.3s_ease-out]">
             <div className="flex items-center space-x-2.5 mb-5 pb-3 border-b border-slate-100">
@@ -1546,6 +1559,7 @@ export default function DashboardKetua({
                 Daftar Kegiatan Sekolah Tersedia
               </h3>
             </div>
+
             {kegiatanList.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                 <p className="text-xs sm:text-sm text-slate-400 font-medium">
@@ -1580,6 +1594,7 @@ export default function DashboardKetua({
                           {k.deskripsi || 'Tidak ada deskripsi kegiatan.'}
                         </p>
                       </div>
+
                       <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
                         <span className="text-xs font-semibold text-slate-600">
                           Jadwal: {formatTanggal(k.target || k.tanggal)}
@@ -1785,6 +1800,7 @@ export default function DashboardKetua({
                 ✕
               </button>
             </div>
+
             <div className="max-h-72 overflow-y-auto space-y-2.5 pr-1">
               {getPesertaByKegiatan(selectedKegiatanPeserta).length === 0 ? (
                 <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
@@ -1834,6 +1850,7 @@ export default function DashboardKetua({
                 ✕
               </button>
             </div>
+
             <div className="flex justify-center py-2">
               {avatarUrl ? (
                 <img
@@ -1847,6 +1864,7 @@ export default function DashboardKetua({
                 </div>
               )}
             </div>
+
             <div className="space-y-3 pt-2">
               <label
                 htmlFor="avatar-input-ketua"
@@ -1861,6 +1879,7 @@ export default function DashboardKetua({
                 onChange={handleAvatarChange}
                 className="hidden"
               />
+
               {avatarUrl && (
                 <button
                   type="button"
@@ -1870,6 +1889,7 @@ export default function DashboardKetua({
                   Hapus Foto Profil
                 </button>
               )}
+
               <button
                 type="button"
                 onClick={() => setShowAvatarModal(false)}
