@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import logoOsitara from '../assets/LOGO OSITARA.png';
 
 // --- KONFIGURASI API BACKEND
@@ -32,7 +32,7 @@ const getInitialData = (key, fallback) => {
       if (Array.isArray(parsed)) return parsed;
     }
     return fallback;
-  } catch (e) {
+  } catch {
     return fallback;
   }
 };
@@ -78,7 +78,7 @@ function Icon({ type }) {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2H9z"
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
       />
     ),
     anggota: (
@@ -146,6 +146,7 @@ function Icon({ type }) {
       />
     ),
   };
+
   return (
     <svg
       className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
@@ -415,6 +416,7 @@ export default function DashboardBendahara({ user, onLogout }) {
       id: String(Date.now()),
       ...payload,
     };
+
     const updatedList = [transaksiBaru, ...keuanganList];
     setKeuanganList(updatedList);
     localStorage.setItem('ositara_keuangan', JSON.stringify(updatedList));
@@ -490,7 +492,7 @@ export default function DashboardBendahara({ user, onLogout }) {
   const handleUploadAvatar = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
+      if (file.size >= 2 * 1024 * 1024) {
         showToast('Ukuran foto terlalu besar! Maksimal 2MB.', 'warning');
         return;
       }
@@ -555,6 +557,7 @@ export default function DashboardBendahara({ user, onLogout }) {
     const targetName = (keg.nama_proker || keg.namaKegiatan || keg.nama || '')
       .toLowerCase()
       .trim();
+
     return pendaftaranList.filter((p) => {
       const pId = String(p.kegiatanId || p.kegiatan_id || '');
       const pName = (
@@ -567,6 +570,7 @@ export default function DashboardBendahara({ user, onLogout }) {
       )
         .toLowerCase()
         .trim();
+
       return (pId && pId === targetId) || (pName && pName === targetName);
     });
   };
@@ -763,52 +767,52 @@ export default function DashboardBendahara({ user, onLogout }) {
         {/* 1. BERANDA */}
         {activeMenu === 'beranda' && (
           <div className="space-y-4 sm:space-y-8 animate-[fadeIn_0.3s_ease-out]">
-            {/* STATS CARDS */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
+            {/* STATS CARDS - TETAP 3 SEBARIS DI SEMUA UKURAN LAYAR */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-5">
               {/* Card Pemasukan */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#2b7a69] via-[#38a88e] to-[#6ee0c5] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#2b7a69]/30 hover:shadow-2xl hover:shadow-[#2b7a69]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#2b7a69] via-[#38a88e] to-[#6ee0c5] p-2.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#2b7a69]/30 hover:shadow-2xl hover:shadow-[#2b7a69]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1.5 sm:gap-2">
                 <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform" />
                 <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
                     Total Pemasukan
                   </p>
-                  <h3 className="text-lg sm:text-2xl font-black tracking-tight break-words drop-shadow mt-1">
+                  <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
                     {formatRupiah(totalPemasukan)}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
                   <Icon type="income" />
                 </div>
               </div>
 
               {/* Card Pengeluaran */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#c96268] via-[#eb8288] to-[#ffafb4] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#c96268]/30 hover:shadow-2xl hover:shadow-[#c96268]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#c96268] via-[#eb8288] to-[#ffafb4] p-2.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#c96268]/30 hover:shadow-2xl hover:shadow-[#c96268]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1.5 sm:gap-2">
                 <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform" />
                 <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
                     Total Pengeluaran
                   </p>
-                  <h3 className="text-lg sm:text-2xl font-black tracking-tight break-words drop-shadow mt-1">
+                  <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
                     {formatRupiah(totalPengeluaran)}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
                   <Icon type="expense" />
                 </div>
               </div>
 
               {/* Card Saldo Kas Saat Ini */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-2.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1.5 sm:gap-2">
                 <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
                 <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
                     Saldo Kas Saat Ini
                   </p>
-                  <h3 className="text-lg sm:text-2xl font-black tracking-tight break-words drop-shadow mt-1">
+                  <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
                     {formatRupiah(saldoSaatIni)}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
                   <Icon type="keuangan" />
                 </div>
               </div>
@@ -1188,7 +1192,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                     <th className="py-3 px-4 rounded-l-xl">NISN/NIS</th>
                     <th className="py-3 px-4">Nama Anggota</th>
                     <th className="py-3 px-4">Jabatan</th>
-                    <th className="py-3 px-4 rounded-r-xl">Divisi / Sekbid</th>
+                    <th className="py-3 px-4 rounded-r-xl">Divisi/Sekbid</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">

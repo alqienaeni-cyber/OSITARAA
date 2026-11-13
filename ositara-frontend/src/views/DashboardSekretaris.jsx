@@ -26,74 +26,181 @@ const formatTanggal = (tgl) => {
 
 // --- DEKLARASI IKON SVG
 const SvgHome = () => (
-  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+  <svg
+    className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+    />
   </svg>
 );
 
 const SvgProposal = () => (
-  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+  <svg
+    className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+    />
   </svg>
 );
 
 const SvgKegiatan = () => (
-  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+  <svg
+    className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+    />
   </svg>
 );
 
 const SvgProker = () => (
-  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2H9z" />
+  <svg
+    className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+    />
   </svg>
 );
 
 const SvgAnggota = () => (
-  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+  <svg
+    className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+    />
   </svg>
 );
 
 const SvgKeuangan = () => (
-  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  <svg
+    className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
+
+const SvgArrowUp = () => (
+  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+  </svg>
+);
+
+const SvgArrowDown = () => (
+  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
   </svg>
 );
 
 const SvgLogout = () => (
-  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+  <svg
+    className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+    />
   </svg>
 );
 
 const SvgEdit = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+    />
   </svg>
 );
 
 const SvgTrash = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+    />
   </svg>
 );
 
 const SvgSend = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+    />
   </svg>
 );
 
 const SvgUsersGroup = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+    />
   </svg>
 );
 
 const SvgDownload = () => (
   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+    />
   </svg>
 );
 
@@ -172,28 +279,33 @@ export default function DashboardSekretaris({
     const raw = getInitialData('ositara_kegiatan', initialKegiatan);
     return filterOnlyKegiatanSekre(raw);
   });
+
   const [proposalList, setProposalList] = useState(() =>
     getInitialData('ositara_proposal', initialProposal)
   );
+
   const [keuanganList, setKeuanganList] = useState(() =>
     getInitialData('ositara_keuangan', initialKeuangan)
   );
+
   const [pendaftaranList, setPendaftaranList] = useState(() => {
     const primary = getInitialData('ositara_pendaftaran', null);
     const secondary = getInitialData('pendaftaranList', initialPendaftaran);
     return primary || secondary || [];
   });
+
   const [prokerList, setProkerList] = useState(() => {
     const raw = getInitialData('ositara_proker', initialProker);
     return filterOnlyProkerKetua(raw);
   });
+
   const [anggotaList, setAnggotaList] = useState(() =>
     getInitialData('ositara_anggota', initialAnggota)
   );
+
   const [avatarUrl, setAvatarUrl] = useState(
     () => localStorage.getItem('ositara_user_avatar') || null
   );
-
   const [selectedKegiatanPeserta, setSelectedKegiatanPeserta] = useState(null);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [isSubmittingProposal, setIsSubmittingProposal] = useState(false);
@@ -357,7 +469,7 @@ export default function DashboardSekretaris({
               catatan: catatanFix,
               alasan: catatanFix,
               alasan_mengikuti: catatanFix,
-              tanggalDaftar: p.tanggal_daftar || p.tanggalDaftar || '',
+              tanggalDaftar: p.tanggal_daftar || p.tanggalDaftar || '-',
               status: p.status || 'Terdaftar',
             };
           });
@@ -443,6 +555,7 @@ export default function DashboardSekretaris({
     formData.append('catatan_pembina', '-');
     formData.append('catatan_revisi', '-');
     formData.append('deskripsi', 'Proposal diajukan oleh Sekretaris OSIS');
+
     if (fileProposal) {
       formData.append('file_proposal', fileProposal);
       formData.append('file', fileProposal.name);
@@ -720,6 +833,7 @@ export default function DashboardSekretaris({
     const targetName = (keg.nama_proker || keg.namaKegiatan || keg.nama || '')
       .toLowerCase()
       .trim();
+
     return pendaftaranList.filter((p) => {
       const pId = String(p.kegiatanId || p.kegiatan_id || '');
       const pName = (
@@ -732,9 +846,21 @@ export default function DashboardSekretaris({
       )
         .toLowerCase()
         .trim();
+
       return (pId && pId === targetId) || (pName && pName === targetName);
     });
   };
+
+  // --- KALKULASI KEUANGAN (UNTUK KARTU RINGKASAN LAPORAN KEUANGAN)
+  const totalPemasukan = keuanganList
+    .filter((k) => (k.jenis || k.kategori) === 'Pemasukan')
+    .reduce((acc, cur) => acc + Number(cur.jumlah || cur.nominal || 0), 0);
+
+  const totalPengeluaran = keuanganList
+    .filter((k) => (k.jenis || k.kategori) === 'Pengeluaran')
+    .reduce((acc, cur) => acc + Number(cur.jumlah || cur.nominal || 0), 0);
+
+  const saldoKas = totalPemasukan - totalPengeluaran;
 
   const menuList = [
     { id: 'beranda', label: 'Beranda Utama', IconComponent: SvgHome },
@@ -767,7 +893,7 @@ export default function DashboardSekretaris({
       )}
 
       {/* HEADER NAVBAR MOBILE - MATCH DENGAN KETUA, BENDAHARA & PEMBINA */}
-      <div className="md:hidden bg-gradient-to-b from-[#1B4694] to-[#2158B8] text-white px-4 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-md w-full shrink-0 border-b border-blue-800/30">
+      <div className="md:hidden bg-gradient-to-b from-[#184694] to-[#2158B8] text-white px-4 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-md w-full shrink-0 border-b border-blue-800/30">
         <div className="flex items-center space-x-3">
           <div className="p-1">
             <img
@@ -811,7 +937,7 @@ export default function DashboardSekretaris({
 
       {/* SIDEBAR NAVIGATION - MATCH DENGAN KETUA, BENDAHARA & PEMBINA */}
       <aside
-        className={`fixed md:relative inset-y-0 left-0 z-50 h-screen w-64 bg-gradient-to-b from-[#1B4694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col justify-between p-5 shrink-0 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ease-in-out overflow-y-auto ${
+        className={`fixed md:relative inset-y-0 left-0 z-50 h-screen w-64 bg-gradient-to-b from-[#184694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col justify-between p-5 shrink-0 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ease-in-out overflow-y-auto ${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
@@ -848,7 +974,7 @@ export default function DashboardSekretaris({
                   }}
                   className={`group w-full flex items-center space-x-3.5 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 active:scale-95 cursor-pointer text-left ${
                     isActive
-                      ? 'bg-gradient-to-r from-[#f4d875] to-[#f4d875] text-[#1B4694] shadow-lg shadow-amber-400/40 font-black translate-x-1'
+                      ? 'bg-gradient-to-r from-[#f4d875] to-[#f4d875] text-[#184694] shadow-lg shadow-amber-400/40 font-black translate-x-1'
                       : 'hover:bg-white/15 text-blue-50 hover:text-white hover:translate-x-1'
                   }`}
                 >
@@ -889,7 +1015,7 @@ export default function DashboardSekretaris({
                     className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-white shadow-md ring-2 ring-blue-500/40 group-hover:scale-105 transition-all duration-300"
                   />
                 ) : (
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-tr from-[#1B4694] to-[#3A86EF] flex items-center justify-center text-white border-2 border-white shadow-md ring-2 ring-blue-500/30 rounded-2xl font-black text-lg sm:text-2xl group-hover:scale-105 transition-all duration-300">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-tr from-[#184694] to-[#3A86EF] flex items-center justify-center text-white border-2 border-white shadow-md ring-2 ring-blue-500/30 rounded-2xl font-black text-lg sm:text-2xl group-hover:scale-105 transition-all duration-300">
                     {inisialNama}
                   </div>
                 )}
@@ -915,68 +1041,68 @@ export default function DashboardSekretaris({
         {/* 1. BERANDA UTAMA */}
         {activeMenu === 'beranda' && (
           <div className="space-y-4 sm:space-y-6 animate-[fadeIn_0.3s_ease-out]">
-            {/* STATS CARDS - WARNA DISAMAKAN PERSIS DENGAN DASHBOARD KETUA OSIS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+            {/* STATS CARDS - SEJAJAR 4 KOLOM DI MOBILE & DESKTOP */}
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-5">
               {/* Kartu 1: Total Kegiatan (Biru Pastel) */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-2 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
                 <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
                 <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
                     Total Kegiatan
                   </p>
-                  <h3 className="text-lg sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
+                  <h3 className="text-sm sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
                     {kegiatanList.length}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
                   <SvgKegiatan />
                 </div>
               </div>
 
               {/* Kartu 2: Total Anggota (Coral / Merah Muda Pastel) */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#e05263] via-[#f27482] to-[#fca5b0] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#e05263]/30 hover:shadow-2xl hover:shadow-[#e05263]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#e05263] via-[#f27482] to-[#fca5b0] p-2 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#e05263]/30 hover:shadow-2xl hover:shadow-[#e05263]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
                 <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
                 <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
                     Total Anggota
                   </p>
-                  <h3 className="text-lg sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
+                  <h3 className="text-sm sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
                     {anggotaList.length}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
                   <SvgAnggota />
                 </div>
               </div>
 
               {/* Kartu 3: Proposal Diajukan (Emas / Amber Pastel) */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#c7852e] via-[#ebaa46] to-[#ffd27d] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#c7852e]/30 hover:shadow-2xl hover:shadow-[#c7852e]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#c7852e] via-[#ebaa46] to-[#ffd27d] p-2 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#c7852e]/30 hover:shadow-2xl hover:shadow-[#c7852e]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
                 <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
                 <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
                     Proposal Diajukan
                   </p>
-                  <h3 className="text-lg sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
+                  <h3 className="text-sm sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
                     {proposalList.length}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
                   <SvgProposal />
                 </div>
               </div>
 
               {/* Kartu 4: Pendaftar Siswa (Hijau Toska / Cyan Pastel) */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#249ea0]/30 hover:shadow-2xl hover:shadow-[#249ea0]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-2 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#249ea0]/30 hover:shadow-2xl hover:shadow-[#249ea0]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
                 <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
                 <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
                     Pendaftar Siswa
                   </p>
-                  <h3 className="text-lg sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
+                  <h3 className="text-sm sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
                     {pendaftaranList.length}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
                   <SvgUsersGroup />
                 </div>
               </div>
@@ -1122,6 +1248,7 @@ export default function DashboardSekretaris({
                         const downloadUrl = `${API_BASE}/download-proposal/${encodeURIComponent(
                           fileDisplayName
                         )}`;
+
                         return (
                           <tr key={p.id} className="hover:bg-blue-50/40 transition-colors">
                             <td className="py-3.5 px-4 font-bold text-slate-800">
@@ -1175,7 +1302,7 @@ export default function DashboardSekretaris({
                                     setAnggaranProposal(p.anggaran);
                                     setKategoriProposal(p.kategori || 'Kegiatan');
                                   }}
-                                  className="p-2 bg-[#2158B8] hover:bg-[#1B4694] text-white rounded-xl transition-all duration-200 active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
+                                  className="p-2 bg-[#2158B8] hover:bg-[#184694] text-white rounded-xl transition-all duration-200 active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
                                 >
                                   <SvgSend />
                                 </button>
@@ -1325,7 +1452,7 @@ export default function DashboardSekretaris({
           </div>
         )}
 
-        {/* 4. ANGGOTA OSIS (SINKRON DARI DATABASE MYSQL / KETUA) */}
+        {/* 4. ANGGOTA OSIS (SINKRON DARI DATABASE MYSQL/KETUA) */}
         {activeMenu === 'anggota-osis' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
             <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
@@ -1453,7 +1580,7 @@ export default function DashboardSekretaris({
               </div>
             </div>
 
-            {/* PANEL FORM TAMBAH / EDIT KEGIATAN (MOBILE: ORDER-1 DI ATAS, DESKTOP: KANAN 4 KOLOM) */}
+            {/* PANEL FORM TAMBAH/EDIT KEGIATAN (MOBILE: ORDER-1 DI ATAS, DESKTOP: KANAN 4 KOLOM) */}
             <div className="order-1 lg:order-2 lg:col-span-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm">
               <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
                 <h3 className="text-base sm:text-lg font-black text-slate-800">
@@ -1475,7 +1602,6 @@ export default function DashboardSekretaris({
                   </button>
                 )}
               </div>
-
               <form onSubmit={handleSubmitKegiatan} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
@@ -1490,7 +1616,6 @@ export default function DashboardSekretaris({
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Tanggal Pelaksanaan
@@ -1503,7 +1628,6 @@ export default function DashboardSekretaris({
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Status Kegiatan
@@ -1517,7 +1641,6 @@ export default function DashboardSekretaris({
                     <option value="Selesai">Selesai</option>
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Deskripsi Kegiatan
@@ -1530,7 +1653,6 @@ export default function DashboardSekretaris({
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
-
                 <button
                   type="submit"
                   disabled={isSubmittingKegiatan}
@@ -1555,7 +1677,6 @@ export default function DashboardSekretaris({
                 Daftar Kegiatan Sekolah Tersedia
               </h3>
             </div>
-
             {kegiatanList.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                 <p className="text-xs sm:text-sm text-slate-400 font-medium">
@@ -1590,7 +1711,6 @@ export default function DashboardSekretaris({
                           {k.deskripsi || 'Tidak ada deskripsi kegiatan.'}
                         </p>
                       </div>
-
                       <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
                         <span className="text-xs font-semibold text-slate-600">
                           Jadwal: {formatTanggal(k.target || k.tanggal)}
@@ -1598,7 +1718,7 @@ export default function DashboardSekretaris({
                         <button
                           title="Lihat Daftar Peserta"
                           onClick={() => setSelectedKegiatanPeserta(k)}
-                          className="px-4 py-2 bg-[#2158B8] hover:bg-[#1B4694] text-white rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 shadow-sm shadow-blue-600/20 inline-flex items-center space-x-1.5 cursor-pointer shrink-0"
+                          className="px-4 py-2 bg-[#2158B8] hover:bg-[#184694] text-white rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 shadow-sm shadow-blue-600/20 inline-flex items-center space-x-1.5 cursor-pointer shrink-0"
                         >
                           <SvgUsersGroup />
                           <span>Peserta ({pesertaKegiatan.length})</span>
@@ -1612,60 +1732,112 @@ export default function DashboardSekretaris({
           </div>
         )}
 
-        {/* 7. LAPORAN KEUANGAN */}
+        {/* 7. LAPORAN KEUANGAN (WARNA KARTU GRADASI SEPERTI BENDAHARA) */}
         {activeMenu === 'laporan-keuangan' && (
-          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
-            <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
-              Laporan Keuangan OSIS
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[500px]">
-                <thead>
-                  <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
-                    <th className="py-3 px-4 rounded-l-xl">Keterangan</th>
-                    <th className="py-3 px-4">Jenis</th>
-                    <th className="py-3 px-4 text-right rounded-r-xl">Jumlah</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {keuanganList.length === 0 ? (
-                    <tr>
-                      <td colSpan="3" className="py-12 text-center text-slate-400 font-medium">
-                        Belum ada data keuangan.
-                      </td>
+          <div className="space-y-5 animate-[fadeIn_0.3s_ease-out]">
+            <div className="grid grid-cols-3 gap-2 sm:gap-5">
+              {/* Kartu 1: Total Pemasukan (Hijau Toska) */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-2.5 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#249ea0]/30 hover:shadow-2xl hover:shadow-[#249ea0]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
+                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+                <div className="min-w-0">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
+                    Total Pemasukan
+                  </p>
+                  <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
+                    {formatRupiah(totalPemasukan)}
+                  </h3>
+                </div>
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                  <SvgArrowUp />
+                </div>
+              </div>
+
+              {/* Kartu 2: Total Pengeluaran (Merah Muda / Coral) */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#e05263] via-[#f27482] to-[#fca5b0] p-2.5 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#e05263]/30 hover:shadow-2xl hover:shadow-[#e05263]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
+                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+                <div className="min-w-0">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
+                    Total Pengeluaran
+                  </p>
+                  <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
+                    {formatRupiah(totalPengeluaran)}
+                  </h3>
+                </div>
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                  <SvgArrowDown />
+                </div>
+              </div>
+
+              {/* Kartu 3: Saldo Kas Saat Ini (Biru Langit) */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-2.5 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
+                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+                <div className="min-w-0">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
+                    Saldo Kas Saat Ini
+                  </p>
+                  <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
+                    {formatRupiah(saldoKas)}
+                  </h3>
+                </div>
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                  <SvgKeuangan />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full">
+              <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
+                Laporan Keuangan OSIS
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[500px]">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
+                      <th className="py-3 px-4 rounded-l-xl">Keterangan</th>
+                      <th className="py-3 px-4">Jenis</th>
+                      <th className="py-3 px-4 text-right rounded-r-xl">Jumlah</th>
                     </tr>
-                  ) : (
-                    keuanganList.map((kq) => (
-                      <tr key={kq.id} className="hover:bg-blue-50/40 transition-colors">
-                        <td className="py-3.5 px-4 text-slate-700 font-bold">
-                          {kq.keterangan}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span
-                            className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block uppercase tracking-wider ${
-                              kq.jenis === 'Pemasukan' || kq.kategori === 'Pemasukan'
-                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                                : 'bg-rose-100 text-rose-700 border border-rose-200'
-                            }`}
-                          >
-                            {kq.jenis || kq.kategori}
-                          </span>
-                        </td>
-                        <td
-                          className={`py-3.5 px-4 text-right font-black whitespace-nowrap ${
-                            kq.jenis === 'Pemasukan' || kq.kategori === 'Pemasukan'
-                              ? 'text-emerald-600'
-                              : 'text-rose-500'
-                          }`}
-                        >
-                          {kq.jenis === 'Pemasukan' || kq.kategori === 'Pemasukan' ? '+' : '-'}
-                          {formatRupiah(kq.jumlah || kq.nominal)}
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {keuanganList.length === 0 ? (
+                      <tr>
+                        <td colSpan="3" className="py-12 text-center text-slate-400 font-medium">
+                          Belum ada data keuangan.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      keuanganList.map((kq) => (
+                        <tr key={kq.id} className="hover:bg-blue-50/40 transition-colors">
+                          <td className="py-3.5 px-4 text-slate-700 font-bold">
+                            {kq.keterangan}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block uppercase tracking-wider ${
+                                kq.jenis === 'Pemasukan' || kq.kategori === 'Pemasukan'
+                                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                  : 'bg-rose-100 text-rose-700 border border-rose-200'
+                              }`}
+                            >
+                              {kq.jenis || kq.kategori}
+                            </span>
+                          </td>
+                          <td
+                            className={`py-3.5 px-4 text-right font-black whitespace-nowrap ${
+                              kq.jenis === 'Pemasukan' || kq.kategori === 'Pemasukan'
+                                ? 'text-emerald-600'
+                                : 'text-rose-500'
+                            }`}
+                          >
+                            {kq.jenis === 'Pemasukan' || kq.kategori === 'Pemasukan' ? '+' : '-'}
+                            {formatRupiah(kq.jumlah || kq.nominal)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -1801,7 +1973,7 @@ export default function DashboardSekretaris({
                   className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md ring-2 ring-blue-500/30"
                 />
               ) : (
-                <div className="w-20 h-20 bg-gradient-to-tr from-[#1B4694] to-[#3A86EF] rounded-2xl flex items-center justify-center text-white border-2 border-white shadow-md font-black text-2xl">
+                <div className="w-20 h-20 bg-gradient-to-tr from-[#184694] to-[#3A86EF] rounded-2xl flex items-center justify-center text-white border-2 border-white shadow-md font-black text-2xl">
                   {inisialNama}
                 </div>
               )}

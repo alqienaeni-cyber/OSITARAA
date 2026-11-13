@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import logoOsitara from '../assets/LOGO OSITARA.png';
 
 // --- KONFIGURASI API BACKEND
@@ -24,52 +24,139 @@ const formatTanggal = (tgl) => {
   return tgl;
 };
 
-// --- DEKLARASI IKON SVG (SERAGAM DENGAN KETUA & SEKRETARIS)
+// --- DEKLARASI IKON SVG (SERAGAM DENGAN KETUA, SEKRETARIS & BENDAHARA)
 const SvgHome = () => (
-  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+  <svg
+    className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+    />
   </svg>
 );
 
 const SvgProposal = () => (
-  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+  <svg
+    className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+    />
   </svg>
 );
 
 const SvgProker = () => (
-  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2H9z" />
+  <svg
+    className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+    />
   </svg>
 );
 
 const SvgAnggota = () => (
-  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+  <svg
+    className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+    />
   </svg>
 );
 
 const SvgKegiatan = () => (
-  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+  <svg
+    className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+    />
   </svg>
 );
 
 const SvgKeuangan = () => (
-  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  <svg
+    className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
+
+const SvgArrowUp = () => (
+  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+  </svg>
+);
+
+const SvgArrowDown = () => (
+  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
   </svg>
 );
 
 const SvgLogout = () => (
-  <svg className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+  <svg
+    className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+    />
   </svg>
 );
 
 const SvgDownload = () => (
   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+    />
   </svg>
 );
 
@@ -81,7 +168,12 @@ const SvgCheck = () => (
 
 const SvgEdit = () => (
   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+    />
   </svg>
 );
 
@@ -93,7 +185,12 @@ const SvgClose = () => (
 
 const SvgUsersGroup = () => (
   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+    />
   </svg>
 );
 
@@ -105,7 +202,7 @@ const getInitialData = (key, fallback) => {
       if (Array.isArray(parsed)) return parsed;
     }
     return fallback;
-  } catch (e) {
+  } catch {
     return fallback;
   }
 };
@@ -162,20 +259,25 @@ export default function DashboardPembina({
   const [proposalList, setProposalList] = useState(() =>
     getInitialData('ositara_proposal', initialProposal)
   );
+
   const [prokerList, setProkerList] = useState(() => {
     const raw = getInitialData('ositara_proker', initialProker);
     return filterOnlyProkerKetua(raw);
   });
+
   const [kegiatanList, setKegiatanList] = useState(() => {
     const raw = getInitialData('ositara_kegiatan', initialKegiatan);
     return filterOnlyKegiatanSekre(raw);
   });
+
   const [keuanganList, setKeuanganList] = useState(() =>
     getInitialData('ositara_keuangan', initialKeuangan)
   );
+
   const [anggotaList, setAnggotaList] = useState(() =>
     getInitialData('ositara_anggota', initialAnggota)
   );
+
   const [pendaftaranList, setPendaftaranList] = useState(() => {
     const primary = getInitialData('ositara_pendaftaran', null);
     const secondary = getInitialData('pendaftaranList', []);
@@ -351,7 +453,7 @@ export default function DashboardPembina({
               catatan: catatanFix,
               alasan: catatanFix,
               alasan_mengikuti: catatanFix,
-              tanggalDaftar: p.tanggal_daftar || p.tanggalDaftar || '',
+              tanggalDaftar: p.tanggal_daftar || p.tanggalDaftar || '-',
               status: p.status || 'Terdaftar',
             };
           });
@@ -507,6 +609,7 @@ export default function DashboardPembina({
     const targetName = (keg.nama_proker || keg.namaKegiatan || keg.nama || '')
       .toLowerCase()
       .trim();
+
     return pendaftaranList.filter((p) => {
       const pId = String(p.kegiatanId || p.kegiatan_id || '');
       const pName = (
@@ -519,6 +622,7 @@ export default function DashboardPembina({
       )
         .toLowerCase()
         .trim();
+
       return (pId && pId === targetId) || (pName && pName === targetName);
     });
   };
@@ -742,68 +846,68 @@ export default function DashboardPembina({
         {/* 1. BERANDA UTAMA */}
         {activeMenu === 'beranda' && (
           <div className="space-y-5 sm:space-y-6 animate-[fadeIn_0.3s_ease-out]">
-            {/* STATS CARDS - PALET WARNA GRADASI SERAGAM OSITARA */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+            {/* STATS CARDS - TETAP 4 SEBARIS DI SEMUA UKURAN LAYAR */}
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-5">
               {/* Kartu 1: Menunggu Persetujuan */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#c7852e] via-[#ebaa46] to-[#ffd27d] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#c7852e]/30 hover:shadow-2xl hover:shadow-[#c7852e]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#c7852e] via-[#ebaa46] to-[#ffd27d] p-2 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#c7852e]/30 hover:shadow-2xl hover:shadow-[#c7852e]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2">
                 <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
                 <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
                     Perlu Persetujuan
                   </p>
-                  <h3 className="text-lg sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
+                  <h3 className="text-sm sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
                     {proposalMenungguCount}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
                   <SvgProposal />
                 </div>
               </div>
 
               {/* Kartu 2: Proposal Disetujui */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-2 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2">
                 <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
                 <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
                     Proposal Disetujui
                   </p>
-                  <h3 className="text-lg sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
+                  <h3 className="text-sm sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
                     {proposalDisetujuiCount}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
                   <SvgCheck />
                 </div>
               </div>
 
               {/* Kartu 3: Total Program Kerja */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#e05263] via-[#f27482] to-[#fca5b0] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#e05263]/30 hover:shadow-2xl hover:shadow-[#e05263]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#e05263] via-[#f27482] to-[#fca5b0] p-2 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#e05263]/30 hover:shadow-2xl hover:shadow-[#e05263]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2">
                 <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
                 <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
                     Program Kerja
                   </p>
-                  <h3 className="text-lg sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
+                  <h3 className="text-sm sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
                     {prokerList.length}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
                   <SvgProker />
                 </div>
               </div>
 
               {/* Kartu 4: Saldo Kas OSIS */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#249ea0]/30 hover:shadow-2xl hover:shadow-[#249ea0]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-2 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#249ea0]/30 hover:shadow-2xl hover:shadow-[#249ea0]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2">
                 <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
                 <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
                     Saldo Kas OSIS
                   </p>
-                  <h3 className="text-base sm:text-xl font-black tracking-tight drop-shadow mt-1 truncate">
+                  <h3 className="text-[11px] sm:text-xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
                     {formatRupiah(saldoKas)}
                   </h3>
                 </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
                   <SvgKeuangan />
                 </div>
               </div>
@@ -957,6 +1061,7 @@ export default function DashboardPembina({
                       const downloadUrl = `${API_BASE}/download-proposal/${encodeURIComponent(
                         fileDisplayName
                       )}`;
+
                       return (
                         <tr key={p.id} className="hover:bg-blue-50/40 transition-colors">
                           <td className="py-3.5 px-4 font-bold text-slate-800">
@@ -1146,7 +1251,6 @@ export default function DashboardPembina({
                 Daftar Kegiatan OSIS & Pendaftar Siswa
               </h3>
             </div>
-
             {kegiatanList.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                 <p className="text-xs sm:text-sm text-slate-400 font-medium">
@@ -1181,7 +1285,6 @@ export default function DashboardPembina({
                           {k.deskripsi || 'Tidak ada deskripsi kegiatan.'}
                         </p>
                       </div>
-
                       <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
                         <span className="text-xs font-semibold text-slate-600">
                           Jadwal: {formatTanggal(k.target || k.tanggal)}
@@ -1203,33 +1306,56 @@ export default function DashboardPembina({
           </div>
         )}
 
-        {/* 6. LAPORAN KEUANGAN (READ-ONLY + RINGKASAN KAS) */}
+        {/* 6. LAPORAN KEUANGAN (WARNA KARTU GRADASI SEPERTI BENDAHARA) */}
         {activeMenu === 'laporan-keuangan' && (
           <div className="space-y-5 animate-[fadeIn_0.3s_ease-out]">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-sm">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Total Pemasukan
-                </p>
-                <p className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">
-                  +{formatRupiah(totalPemasukan)}
-                </p>
+            <div className="grid grid-cols-3 gap-2 sm:gap-5">
+              {/* Kartu 1: Total Pemasukan (Hijau Toska) */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-2.5 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#249ea0]/30 hover:shadow-2xl hover:shadow-[#249ea0]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
+                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+                <div className="min-w-0">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
+                    Total Pemasukan
+                  </p>
+                  <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
+                    {formatRupiah(totalPemasukan)}
+                  </h3>
+                </div>
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                  <SvgArrowUp />
+                </div>
               </div>
-              <div className="bg-white p-5 rounded-3xl border border-slate-200/90 shadow-sm">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Total Pengeluaran
-                </p>
-                <p className="text-xl sm:text-2xl font-black text-rose-600 mt-1">
-                  -{formatRupiah(totalPengeluaran)}
-                </p>
+
+              {/* Kartu 2: Total Pengeluaran (Merah Muda / Coral) */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#e05263] via-[#f27482] to-[#fca5b0] p-2.5 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#e05263]/30 hover:shadow-2xl hover:shadow-[#e05263]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
+                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+                <div className="min-w-0">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
+                    Total Pengeluaran
+                  </p>
+                  <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
+                    {formatRupiah(totalPengeluaran)}
+                  </h3>
+                </div>
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                  <SvgArrowDown />
+                </div>
               </div>
-              <div className="bg-gradient-to-br from-[#1B4694] to-[#2158B8] p-5 rounded-3xl shadow-md text-white">
-                <p className="text-xs font-bold text-blue-100 uppercase tracking-wider">
-                  Sisa Saldo Kas OSIS
-                </p>
-                <p className="text-xl sm:text-2xl font-black text-[#FFD43B] mt-1">
-                  {formatRupiah(saldoKas)}
-                </p>
+
+              {/* Kartu 3: Sisa Saldo Kas OSIS (Biru Langit) */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-2.5 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
+                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+                <div className="min-w-0">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
+                    Saldo Kas Saat Ini
+                  </p>
+                  <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
+                    {formatRupiah(saldoKas)}
+                  </h3>
+                </div>
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                  <SvgKeuangan />
+                </div>
               </div>
             </div>
 

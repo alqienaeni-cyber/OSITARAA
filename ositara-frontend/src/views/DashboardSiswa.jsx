@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import logoOsitara from '../assets/LOGO OSITARA.png';
 
 // --- KONFIGURASI API BACKEND
@@ -20,7 +20,7 @@ const getInitialData = (key, fallback) => {
   try {
     const saved = localStorage.getItem(key);
     return saved ? JSON.parse(saved) : fallback;
-  } catch (e) {
+  } catch {
     return fallback;
   }
 };
@@ -337,17 +337,6 @@ export default function DashboardSiswa({ user, onLogout }) {
     };
   }, [handleSync]);
 
-  // AUTO-FILL NIS & KELAS SAAT MODAL DIBUKA
-  useEffect(() => {
-    if (selectedKegiatan) {
-      const defaultNis = user?.nis || user?.nisn || user?.noinduk || '';
-      const defaultKelas = user?.kelas || user?.class || '';
-      const lastPendaftaran = pendaftaranSaya[0];
-      setNisInput(defaultNis || lastPendaftaran?.nis || '');
-      setKelasInput(defaultKelas || lastPendaftaran?.kelas || '');
-    }
-  }, [selectedKegiatan, user, pendaftaranSaya]);
-
   // --- HANDLER UPLOAD & HAPUS AVATAR
   const handleUploadAvatar = (e) => {
     const file = e.target.files?.[0];
@@ -377,7 +366,7 @@ export default function DashboardSiswa({ user, onLogout }) {
     });
   };
 
-  // --- BUKA FORM PENDAFTARAN KEGIATAN
+  // --- BUKA FORM PENDAFTARAN KEGIATAN (SEKALIGUS AUTO-FILL NIS & KELAS)
   const handleOpenDaftar = (kegiatan) => {
     const namaKegiatanTarget =
       kegiatan.namaKegiatan || kegiatan.nama_proker || kegiatan.nama || '';
@@ -396,6 +385,13 @@ export default function DashboardSiswa({ user, onLogout }) {
       showToast('Kamu sudah terdaftar dalam kegiatan ini!', 'warning');
       return;
     }
+
+    const defaultNis = user?.nis || user?.nisn || user?.noinduk || '';
+    const defaultKelas = user?.kelas || user?.class || '';
+    const lastPendaftaran = pendaftaranSaya[0];
+    setNisInput(defaultNis || lastPendaftaran?.nis || '');
+    setKelasInput(defaultKelas || lastPendaftaran?.kelas || '');
+
     setSelectedKegiatan(kegiatan);
   };
 
@@ -721,58 +717,7 @@ export default function DashboardSiswa({ user, onLogout }) {
         {/* 1. BERANDA */}
         {activeMenu === 'beranda' && (
           <div className="space-y-4 sm:space-y-6 animate-[fadeIn_0.3s_ease-out]">
-            {/* STATS CARDS - PALET GRADASI PASTEL MATCH DENGAN KETUA & BENDAHARA */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
-              {/* Total Proker OSIS (Biru Pastel) */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
-                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
-                <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
-                    Total Proker OSIS
-                  </p>
-                  <h3 className="text-lg sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
-                    {prokerList.length}
-                  </h3>
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
-                  <Icon type="calendar" />
-                </div>
-              </div>
-
-              {/* Kegiatan Diikuti (Hijau Toska Pastel) */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#2b7a69] via-[#38a88e] to-[#6ee0c5] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#2b7a69]/30 hover:shadow-2xl hover:shadow-[#2b7a69]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
-                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform" />
-                <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
-                    Kegiatan Diikuti
-                  </p>
-                  <h3 className="text-lg sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
-                    {pendaftaranSaya.length}
-                  </h3>
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
-                  <Icon type="check" />
-                </div>
-              </div>
-
-              {/* Status Pendaftaran (Emas/Amber Pastel) */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#c7852e] via-[#ebaa46] to-[#ffd27d] p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#c7852e]/30 hover:shadow-2xl hover:shadow-[#c7852e]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-2">
-                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
-                <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
-                    Status Pendaftaran
-                  </p>
-                  <h3 className="text-lg sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
-                    {pendaftaranSaya.length > 0 ? 'Aktif' : 'Belum Ada'}
-                  </h3>
-                </div>
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-inner border border-white/30">
-                  <Icon type="bell" />
-                </div>
-              </div>
-            </div>
-
-            {/* PENGUMUMAN RESMI */}
+            {/* PENGUMUMAN RESMI (DI ATAS 3 CARD) */}
             <div className="bg-gradient-to-r from-[#1B4694] via-[#2158B8] to-[#3A86EF] p-5 sm:p-6 rounded-3xl text-white shadow-md hover:shadow-lg transition-all duration-300 relative overflow-hidden">
               <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none" />
               <div className="relative z-10">
@@ -785,6 +730,57 @@ export default function DashboardSiswa({ user, onLogout }) {
                 <p className="text-xs sm:text-sm text-blue-100 max-w-2xl leading-relaxed font-medium">
                   Selamat datang di portal OSITARA Siswa! Di sini kamu bisa memantau jadwal Program Kerja mingguan pengurus OSIS serta mendaftarkan diri pada event kegiatan sekolah yang sedang terbuka.
                 </p>
+              </div>
+            </div>
+
+            {/* STATS CARDS - DI BAWAH PORTAL INFORMASI & TETAP 3 DALAM 1 BARIS */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-5">
+              {/* Total Proker OSIS (Biru Pastel) */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-2.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1.5 sm:gap-2">
+                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+                <div className="min-w-0">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                    Total Proker OSIS
+                  </p>
+                  <h3 className="text-sm sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
+                    {prokerList.length}
+                  </h3>
+                </div>
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                  <Icon type="calendar" />
+                </div>
+              </div>
+
+              {/* Kegiatan Diikuti (Hijau Toska Pastel) */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#2b7a69] via-[#38a88e] to-[#6ee0c5] p-2.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#2b7a69]/30 hover:shadow-2xl hover:shadow-[#2b7a69]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1.5 sm:gap-2">
+                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+                <div className="min-w-0">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                    Kegiatan Diikuti
+                  </p>
+                  <h3 className="text-sm sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
+                    {pendaftaranSaya.length}
+                  </h3>
+                </div>
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                  <Icon type="check" />
+                </div>
+              </div>
+
+              {/* Status Pendaftaran (Emas/Amber Pastel) */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#c7852e] via-[#ebaa46] to-[#ffd27d] p-2.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#c7852e]/30 hover:shadow-2xl hover:shadow-[#c7852e]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1.5 sm:gap-2">
+                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+                <div className="min-w-0">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                    Status Pendaftaran
+                  </p>
+                  <h3 className="text-sm sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
+                    {pendaftaranSaya.length > 0 ? 'Aktif' : 'Belum Ada'}
+                  </h3>
+                </div>
+                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                  <Icon type="bell" />
+                </div>
               </div>
             </div>
 
@@ -801,7 +797,7 @@ export default function DashboardSiswa({ user, onLogout }) {
                   </p>
                 </div>
                 <span className="text-[10px] font-extrabold text-amber-800 bg-amber-100 px-3 py-1 rounded-full border border-amber-200 uppercase tracking-wider self-start sm:self-auto">
-                  Informasi Agenda (Read Only)
+                  Informasi Agenda
                 </span>
               </div>
 

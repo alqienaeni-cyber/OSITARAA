@@ -1,11 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Configuration for standalone React Frontend
 export default defineConfig({
   plugins: [react()],
-  server: {
-    port: 5173,
-    open: true
-  }
+  build: {
+    // Mengarahkan hasil build langsung ke folder public Laravel
+    outDir: '../public',
+    // Wajib false agar file index.php dan .htaccess Laravel tidak terhapus!
+    emptyOutDir: false,
+  },
 })
