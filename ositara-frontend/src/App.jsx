@@ -21,7 +21,7 @@ const getInitialUser = () => {
   return null;
 };
 
-// EKSTRAKSI ROLE, JABATAN, & USERNAME SECARA LENGKAP
+// EKSTRAKSI ROLE, JABATAN, & EMAIL SECARA LENGKAP
 const extractRole = (userData) => {
   if (!userData) return '';
   const roleValue =
@@ -45,10 +45,13 @@ const extractRole = (userData) => {
     userData.user?.email ||
     '';
 
-  return `${roleValue} ${usernameValue} ${emailValue}`.toString().toLowerCase().trim();
+  return `${roleValue} ${usernameValue} ${emailValue}`
+    .toString()
+    .toLowerCase()
+    .trim();
 };
 
-// PENENTU DASHBOARD DENGAN PRIORITAS JABATAN SPESIFIK
+// PENENTU DASHBOARD DENGAN PRIORITAS KETUA DI ATAS SEKRETARIS
 const getInitialPage = (user) => {
   if (!user) return 'login';
   const info = extractRole(user);
@@ -58,27 +61,27 @@ const getInitialPage = (user) => {
     return 'dashboard-pembina';
   }
 
-  // PRIORITAS 2: KETUA & WAKIL KETUA OSIS (Harus di atas Sekretaris agar Wakil Ketua tidak tertukar)
+  // PRIORITAS 2: KETUA & WAKIL KETUA OSIS
   if (info.includes('ketua') || info.includes('wakil')) {
     return 'dashboard-ketua';
   }
 
   // PRIORITAS 3: SEKRETARIS
-  if (info.includes('sekretaris') || info.includes('sekre')) {
+  if (info.includes('sekretaris')) {
     return 'dashboard-sekretaris';
   }
 
   // PRIORITAS 4: BENDAHARA
-  if (info.includes('bendahara') || info.includes('beendaraha')) {
+  if (info.includes('bendahara')) {
     return 'dashboard-bendahara';
   }
 
-  // FALLBACK PENGURUS UMUM / ADMIN
+  // FALLBACK PENGURUS UMUM / ADMIN -> MASUK KE KETUA OSIS
   if (info.includes('pengurus') || info.includes('admin') || info.includes('osis')) {
     return 'dashboard-ketua';
   }
 
-  // DEFAULT FOR SISWA
+  // DEFAULT UNTUK SISWA
   return 'dashboard-siswa';
 };
 
@@ -112,7 +115,7 @@ export default function App() {
     ];
   });
 
-  // 2. STATE PENDAFTARAN SISWA (SINKRON DENGAN 'ositara_pendaftaran' & 'pendaftaranList')
+  // 2. STATE PENDAFTARAN SISWA
   const [pendaftaranList, setPendaftaranList] = useState(() => {
     const saved =
       localStorage.getItem('ositara_pendaftaran') ||
@@ -175,7 +178,7 @@ export default function App() {
     ];
   });
 
-  // SINKRONISASI REAL-TIME DENGAN PENDAFTARAN KEGIATAN
+  // SINKRONISASI REAL-TIME ANTAR DASHBOARD
   const handleGlobalSync = useCallback(() => {
     try {
       const savedProposals =

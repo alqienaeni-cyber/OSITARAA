@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import logoOsitara from '../assets/LOGO OSITARA.png';
 
-// --- KONFIGURASI API BACKEND
+// --- KONFIGURASI API BACKEND ---
 const API_BASE = 'http://127.0.0.1:8000/api';
 
-// --- HELPER UTILS & FORMATTER
+// --- HELPER UTILS & FORMATTER ---
 const formatRupiah = (number) => {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -24,7 +24,7 @@ const formatTanggal = (tgl) => {
   return tgl;
 };
 
-// --- DEKLARASI IKON SVG (SERAGAM DENGAN KETUA, SEKRETARIS & BENDAHARA)
+// --- DEKLARASI IKON SVG (SERAGAM DENGAN KETUA, SEKRETARIS & BENDAHARA) ---
 const SvgHome = () => (
   <svg
     className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
@@ -236,10 +236,9 @@ export default function DashboardPembina({
 }) {
   const [activeMenu, setActiveMenu] = useState('beranda');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
   const isFetchingRef = useRef(false);
 
-  // --- STATE NOTIFIKASI TOAST & MODAL
+  // --- STATE NOTIFIKASI TOAST & MODAL ---
   const [toastNotif, setToastNotif] = useState(null);
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -255,29 +254,24 @@ export default function DashboardPembina({
     }, 3200);
   }, []);
 
-  // --- STATES DATA UTAMA
+  // --- STATES DATA UTAMA ---
   const [proposalList, setProposalList] = useState(() =>
     getInitialData('ositara_proposal', initialProposal)
   );
-
   const [prokerList, setProkerList] = useState(() => {
     const raw = getInitialData('ositara_proker', initialProker);
     return filterOnlyProkerKetua(raw);
   });
-
   const [kegiatanList, setKegiatanList] = useState(() => {
     const raw = getInitialData('ositara_kegiatan', initialKegiatan);
     return filterOnlyKegiatanSekre(raw);
   });
-
   const [keuanganList, setKeuanganList] = useState(() =>
     getInitialData('ositara_keuangan', initialKeuangan)
   );
-
   const [anggotaList, setAnggotaList] = useState(() =>
     getInitialData('ositara_anggota', initialAnggota)
   );
-
   const [pendaftaranList, setPendaftaranList] = useState(() => {
     const primary = getInitialData('ositara_pendaftaran', null);
     const secondary = getInitialData('pendaftaranList', []);
@@ -289,7 +283,7 @@ export default function DashboardPembina({
   );
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
-  // --- STATE MODAL REVISI & PESERTA
+  // --- STATE MODAL REVISI & PESERTA ---
   const [isRevisiModalOpen, setIsRevisiModalOpen] = useState(false);
   const [selectedProposalRevisi, setSelectedProposalRevisi] = useState(null);
   const [catatanRevisiInput, setCatatanRevisiInput] = useState('');
@@ -299,7 +293,7 @@ export default function DashboardPembina({
     user?.namaLengkap || user?.nama || user?.name || user?.username || 'Pembina OSIS';
   const inisialNama = namaDisplay.charAt(0).toUpperCase();
 
-  // --- SINKRONISASI SEMUA DATA DARI BACKEND MYSQL & LOCAL STORAGE
+  // --- SINKRONISASI SEMUA DATA DARI BACKEND MYSQL & LOCAL STORAGE ---
   const syncAllDataFromBackend = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
@@ -384,7 +378,6 @@ export default function DashboardPembina({
           const dataPK = Array.isArray(resultPK) ? resultPK : resultPK.data || [];
           const onlyProker = filterOnlyProkerKetua(dataPK);
           const onlyKegiatan = filterOnlyKegiatanSekre(dataPK);
-
           setProkerList((prev) =>
             JSON.stringify(prev) !== JSON.stringify(onlyProker) ? onlyProker : prev
           );
@@ -482,7 +475,7 @@ export default function DashboardPembina({
     };
   }, [syncAllDataFromBackend]);
 
-  // --- HANDLER FOTO PROFIL PEMBINA
+  // --- HANDLER FOTO PROFIL PEMBINA ---
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -518,17 +511,26 @@ export default function DashboardPembina({
     showToast('Foto profil berhasil dihapus.');
   };
 
-  // --- HANDLER PERSETUJUAN / REVISI / TOLAK PROPOSAL
-  const handleUpdateStatusProposal = async (id, newStatus, catatan = '-') => {
+  // --- HANDLER PERSETUJUAN / REVISI / TOLAK PROPOSAL ---
+  const handleUpdateStatusProposal = async (id, newStatus, catatan = null) => {
+    const catatanFinal =
+      catatan !== null && catatan !== ''
+        ? catatan
+        : newStatus === 'Disetujui'
+        ? 'Proposal disetujui oleh Pembina.'
+        : newStatus === 'Ditolak'
+        ? 'Proposal ditolak oleh Pembina.'
+        : '-';
+
     // 1. Optimistic UI Update
     const updated = proposalList.map((item) =>
       String(item.id) === String(id)
         ? {
             ...item,
             status: newStatus,
-            catatan_revisi: catatan,
-            catatan_pembina: catatan,
-            catatanRevisi: catatan,
+            catatan_revisi: catatanFinal,
+            catatan_pembina: catatanFinal,
+            catatanRevisi: catatanFinal,
           }
         : item
     );
@@ -549,9 +551,10 @@ export default function DashboardPembina({
     try {
       const payload = {
         status: newStatus,
-        catatan_pembina: catatan,
-        catatan_revisi: catatan,
+        catatan_pembina: catatanFinal,
+        catatan_revisi: catatanFinal,
       };
+
       let res = await fetch(`${API_BASE}/proposals/${id}`, {
         method: 'PUT',
         headers: {
@@ -560,6 +563,7 @@ export default function DashboardPembina({
         },
         body: JSON.stringify(payload),
       });
+
       if (!res.ok) {
         res = await fetch(`${API_BASE}/proposal-kegiatan/${id}`, {
           method: 'PUT',
@@ -570,6 +574,7 @@ export default function DashboardPembina({
           body: JSON.stringify(payload),
         });
       }
+
       if (res.ok) {
         await syncAllDataFromBackend();
       }
@@ -627,7 +632,7 @@ export default function DashboardPembina({
     });
   };
 
-  // --- KALKULASI KEUANGAN
+  // --- KALKULASI KEUANGAN ---
   const totalPemasukan = keuanganList
     .filter((k) => (k.jenis || k.kategori) === 'Pemasukan')
     .reduce((acc, cur) => acc + Number(cur.jumlah || cur.nominal || 0), 0);
@@ -1034,7 +1039,6 @@ export default function DashboardPembina({
                 Total: {proposalList.length} Proposal
               </span>
             </div>
-
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[760px]">
                 <thead>
@@ -1061,7 +1065,6 @@ export default function DashboardPembina({
                       const downloadUrl = `${API_BASE}/download-proposal/${encodeURIComponent(
                         fileDisplayName
                       )}`;
-
                       return (
                         <tr key={p.id} className="hover:bg-blue-50/40 transition-colors">
                           <td className="py-3.5 px-4 font-bold text-slate-800">
@@ -1107,7 +1110,13 @@ export default function DashboardPembina({
                           </td>
                           <td className="py-3.5 px-4 text-center space-x-1.5 whitespace-nowrap">
                             <button
-                              onClick={() => handleUpdateStatusProposal(p.id, 'Disetujui', '-')}
+                              onClick={() =>
+                                handleUpdateStatusProposal(
+                                  p.id,
+                                  'Disetujui',
+                                  'Proposal disetujui oleh Pembina.'
+                                )
+                              }
                               className="px-3 py-1.5 bg-[#2158B8] hover:bg-[#1B4694] text-white text-xs font-bold rounded-xl transition-all duration-200 active:scale-95 shadow-sm inline-flex items-center space-x-1 cursor-pointer"
                             >
                               <SvgCheck />

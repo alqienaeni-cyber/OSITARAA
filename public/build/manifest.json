@@ -1,8 +1,38 @@
 {
-  "resources/js/app.js": {
-    "file": "assets/app-DMsN-rLE.js",
-    "name": "app",
-    "src": "resources/js/app.js",
+  "ositara-frontend/src/assets/LOGO OSITARA.png": {
+    "file": "assets/LOGO OSITARA-Cwy0BHnn.png",
+    "src": "ositara-frontend/src/assets/LOGO OSITARA.png"
+  },
+  "ositara-frontend/src/assets/sp3.png": {
+    "file": "assets/sp3-D4QMrM63.png",
+    "src": "ositara-frontend/src/assets/sp3.png"
+  },
+  "ositara-frontend/src/assets/sp4.png": {
+    "file": "assets/sp4-DVH0yArI.png",
+    "src": "ositara-frontend/src/assets/sp4.png"
+  },
+  "ositara-frontend/src/assets/splash screen.jpeg": {
+    "file": "assets/splash screen-zQTmb6Zs.jpeg",
+    "src": "ositara-frontend/src/assets/splash screen.jpeg"
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-CB5U_ODq.css",
+    "src": "resources/css/app.css",
     "isEntry": true
+  },
+  "resources/js/app.jsx": {
+    "file": "assets/app-CdJ3WLKu.js",
+    "name": "app",
+    "src": "resources/js/app.jsx",
+    "isEntry": true,
+    "css": [
+      "assets/app-BZPVH543.css"
+    ],
+    "assets": [
+      "assets/LOGO OSITARA-Cwy0BHnn.png",
+      "assets/splash screen-zQTmb6Zs.jpeg",
+      "assets/sp3-D4QMrM63.png",
+      "assets/sp4-DVH0yArI.png"
+    ]
   }
 }
