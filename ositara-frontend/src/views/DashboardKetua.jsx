@@ -1234,32 +1234,46 @@ export default function DashboardKetua({
                   <tbody className="divide-y divide-slate-100">
                     {prokerList.length === 0 ? (
                       <tr>
-                        <td colSpan="4" className="py-12 text-center text-slate-400 font-medium">
+                        <td colSpan="5" className="py-12 text-center text-slate-400 font-medium">
                           Belum ada data program kerja yang ditambahkan.
                         </td>
                       </tr>
                     ) : (
                       prokerList.map((pk) => (
-                        <tr key={pk.id} className="hover:bg-blue-50/40 transition-colors">
-                          <td className="py-3.5 px-4 font-bold text-slate-800">
-                            {pk.nama_proker || pk.nama}
-                          </td>
-                          <td className="py-3.5 px-4 font-semibold text-[#2158B8]">
-                            {pk.divisi || pk.sekbid || 'Umum'}
-                          </td>
-                          <td className="py-3.5 px-4 text-center text-slate-600 font-medium whitespace-nowrap">
-                            {formatTanggal(pk.target || pk.tanggal)}
-                          </td>
-                          <td className="py-3.5 px-4 text-center space-x-1.5 whitespace-nowrap">
-                            <button
-                              title="Edit Program Kerja"
-                              onClick={() => {
-                                const rawDate = String(pk.target || pk.tanggal || '').split('T')[0];
-                                setEditingProkerId(pk.id);
-                                setNamaProker(pk.nama_proker || pk.nama);
-                                setDivisiProker(pk.divisi || pk.sekbid || '');
-                                setTargetProker(rawDate);
-                              }}
+                     <tr key={pk.id} className="hover:bg-blue-50/40 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-slate-800">
+                        {pk.nama_proker || pk.nama}
+                      </td>
+                      <td className="py-3.5 px-4 font-semibold text-[#2158B8]">
+                        {pk.divisi || pk.sekbid || 'Umum'}
+                      </td>
+                      <td className="py-3.5 px-4 text-center text-slate-600 font-medium whitespace-nowrap">
+                        {formatTanggal(pk.target || pk.tanggal)}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span
+                          className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block uppercase tracking-wider border ${
+                            pk.periode === 'Tahunan'
+                              ? 'bg-purple-50 text-purple-700 border-purple-200'
+                              : pk.periode === 'Bulanan'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-blue-50 text-[#2158B8] border-blue-200'
+                          }`}
+                        >
+                          {pk.periode || 'Mingguan'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-center space-x-1.5 whitespace-nowrap">
+                        <button
+                          title="Edit Program Kerja"
+                          onClick={() => {
+                            const rawDate = String(pk.target || pk.tanggal || '').split('T')[0];
+                            setEditingProkerId(pk.id);
+                            setNamaProker(pk.nama_proker || pk.nama || '');
+                            setDivisiProker(pk.divisi || pk.sekbid || '');
+                            setTargetProker(rawDate);
+                            setPeriodeProker(pk.periode || 'Mingguan');
+                          }}
                               className="p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all duration-200 active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
                             >
                               <SvgEdit />
