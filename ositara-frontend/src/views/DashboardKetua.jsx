@@ -1350,7 +1350,6 @@ export default function DashboardKetua({
                   >
                     <option value="Mingguan">Mingguan</option>
                     <option value="Bulanan">Bulanan</option>
-                    <option value="Semesteran">Semesteran</option>
                     <option value="Tahunan">Tahunan</option>
                   </select>
                 </div>
