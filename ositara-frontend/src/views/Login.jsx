@@ -8,8 +8,8 @@ export default function Login({ onLoginSuccess, onGoToRegister }) {
   const [loading, setLoading] = useState(false);
   const [activeLetterIndex, setActiveLetterIndex] = useState(null);
 
-  // Nomor WhatsApp Admin / Pembina OSIS
-  const whatsappAdminNumber = '628';
+  // Nomor WhatsApp Admin
+  const whatsappAdminNumber = '6283853924990';
 
   const handleForgotPassword = () => {
     const message = encodeURIComponent(
