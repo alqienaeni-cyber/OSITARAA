@@ -469,11 +469,15 @@ export default function DashboardKetua({
 
       // 4. Sync Keuangan (Read-Only untuk Ketua/Wakil OSIS)
       try {
-        const resKeuangan = await requestFirstAvailable('get', [
+      const resKeuangan = await requestFirstAvailable('get', [
+          '/financial-reports',
+          '/laporan-keuangans',
+          '/laporan-keuangan',
           '/keuangans',
           '/keuangan',
-          '/laporan-keuangan',
+          '/lpj',
           '/kas',
+        ]);
         ]);
         if (resKeuangan) {
           const dataK = Array.isArray(resKeuangan.data)
