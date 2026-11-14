@@ -586,10 +586,11 @@ export default function DashboardKetua({
   };
 
   // --- HANDLER KELOLA PROGRAM KERJA (CRUD + DATABASE MYSQL + SYNC SEMUA DASHBOARD) ---
-  const [editingProkerId, setEditingProkerId] = useState(null);
-  const [namaProker, setNamaProker] = useState('');
-  const [divisiProker, setDivisiProker] = useState('');
-  const [targetProker, setTargetProker] = useState('');
+    const [editingProkerId, setEditingProkerId] = useState(null);
+    const [namaProker, setNamaProker] = useState('');
+    const [divisiProker, setDivisiProker] = useState('');
+    const [targetProker, setTargetProker] = useState('');
+    const [periodeProker, setPeriodeProker] = useState('Mingguan');
 
   const handleSubmitProker = async (e) => {
     e.preventDefault();
@@ -1299,8 +1300,7 @@ export default function DashboardKetua({
                   </button>
                 )}
               </div>
-
-              <form onSubmit={handleSubmitProker} className="space-y-4">
+<form onSubmit={handleSubmitProker} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Nama Program Kerja
@@ -1338,6 +1338,21 @@ export default function DashboardKetua({
                     onChange={(e) => setTargetProker(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    Periode Program
+                  </label>
+                  <select
+                    value={periodeProker}
+                    onChange={(e) => setPeriodeProker(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
+                  >
+                    <option value="Mingguan">Mingguan</option>
+                    <option value="Bulanan">Bulanan</option>
+                    <option value="Semesteran">Semesteran</option>
+                    <option value="Tahunan">Tahunan</option>
+                  </select>
                 </div>
                 <button
                   type="submit"
