@@ -478,7 +478,6 @@ export default function DashboardKetua({
           '/lpj',
           '/kas',
         ]);
-        ]);
         if (resKeuangan) {
           const dataK = Array.isArray(resKeuangan.data)
             ? resKeuangan.data
