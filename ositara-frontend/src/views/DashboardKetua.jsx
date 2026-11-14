@@ -1225,10 +1225,11 @@ export default function DashboardKetua({
                 <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[520px]">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
-                      <th className="py-3 px-4 rounded-l-xl">Program Kerja</th>
-                      <th className="py-3 px-4">Divisi / Sekbid</th>
-                      <th className="py-3 px-4 text-center">Target Pelaksanaan</th>
-                      <th className="py-3 px-4 text-center rounded-r-xl">Aksi</th>
+                     <th className="py-3 px-4 rounded-l-xl">Program Kerja</th>
+<th className="py-3 px-4">Divisi / Sekbid</th>
+<th className="py-3 px-4 text-center">Target Pelaksanaan</th>
+<th className="py-3 px-4 text-center">Periode</th>
+<th className="py-3 px-4 text-center rounded-r-xl">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1250,7 +1251,7 @@ export default function DashboardKetua({
                       <td className="py-3.5 px-4 text-center text-slate-600 font-medium whitespace-nowrap">
                         {formatTanggal(pk.target || pk.tanggal)}
                       </td>
-                      <td className="py-3.5 px-4 text-center">
+                     <td className="py-3.5 px-4 text-center">
                         <span
                           className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block uppercase tracking-wider border ${
                             pk.periode === 'Tahunan'
