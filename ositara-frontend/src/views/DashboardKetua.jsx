@@ -602,17 +602,18 @@ export default function DashboardKetua({
     setIsSubmittingProker(true);
     const currentEditId = editingProkerId;
 
-    const payload = {
-      nama_proker: namaProker.trim(),
-      nama: namaProker.trim(),
-      divisi: divisiProker.trim(),
-      sekbid: divisiProker.trim(),
-      penanggungjawab: divisiProker.trim(),
-      target: targetProker,
-      tanggal: targetProker,
-      status: 'Berjalan',
-      is_event: 0,
-    };
+  const payload = {
+        nama_proker: namaProker.trim(),
+        nama: namaProker.trim(),
+        divisi: divisiProker.trim(),
+        sekbid: divisiProker.trim(),
+        penanggungjawab: divisiProker.trim(),
+        target: targetProker,
+        tanggal: targetProker,
+        periode: periodeProker,
+        status: 'Berjalan',
+        is_event: 0,
+      };
 
     try {
       const endpoints = currentEditId
@@ -1226,10 +1227,10 @@ export default function DashboardKetua({
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
                      <th className="py-3 px-4 rounded-l-xl">Program Kerja</th>
-<th className="py-3 px-4">Divisi / Sekbid</th>
-<th className="py-3 px-4 text-center">Target Pelaksanaan</th>
-<th className="py-3 px-4 text-center">Periode</th>
-<th className="py-3 px-4 text-center rounded-r-xl">Aksi</th>
+                        <th className="py-3 px-4">Divisi / Sekbid</th>
+                        <th className="py-3 px-4 text-center">Target Pelaksanaan</th>
+                        <th className="py-3 px-4 text-center">Periode</th>
+                        <th className="py-3 px-4 text-center rounded-r-xl">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
