@@ -1,3 +1,4 @@
+
 <div align="center">
   <img src="ositara-frontend/src/assets/LOGO OSITARA.png" alt="Logo OSITARA" width="120" />
   <h1>OSITARA</h1>
@@ -110,3 +111,114 @@ ositara/
 ├── .env.example                    # Template konfigurasi environment Backend
 ├── composer.json                   # Dependensi PHP / Laravel
 └── README.md                       # Dokumentasi utama repositori
+---
+
+## 🌐 Akses Aplikasi Online (Live Demo)
+Aplikasi telah di-*deploy* secara *online* dan dapat langsung diuji melalui peramban tanpa instalasi lokal:
+- **Frontend (Aplikasi Utama):** [https://ositara-frontend.wasmer.app](https://ositara-frontend.wasmer.app) **[cite: 42]
+- **Backend (REST API):** [https://ositaraa.wasmer.app](https://ositaraa.wasmer.app) [cite: 42]
+---
+
+## 💻 Panduan Instalasi Lokal (Local Setup)
+
+### Prasyarat Sistem
+Pastikan perangkat lokal Anda telah terpasang:
+- **PHP** >= 8.2 & **Composer**
+- **Node.js** >= 18.x & **NPM**
+- **MySQL / MariaDB** (XAMPP / Laragon) atau **SQLite**
+
+### 1. Clone Repositori
+```bash
+git clone https://github.com/alqienaeni-cyber/OSITARAA.git
+cd OSITARAA
+```
+
+### 2. Setup Backend (Laravel)
+```bash
+# Instal dependensi PHP
+composer install
+
+# Salin file konfigurasi environment
+cp .env.example .env
+
+# Generate application key
+php artisan key:generate
+
+# Buat storage link untuk akses unggahan berkas proposal
+php artisan storage:link
+```
+Siapkan database (bisa menggunakan **MySQL** dengan membuat database `db_ositara` atau langsung memakai file `database/database.sqlite` yang sudah tersedia), lalu jalankan migrasi & *seeder*:
+```bash
+php artisan migrate --seed
+```
+Jalankan server lokal Backend:
+```bash
+php artisan serve
+```
+*Server Backend akan berjalan pada `[http://127.0.0.1:8000](http://127.0.0.1:8000)`.*[cite: 42]
+
+### 3. Setup Frontend (React + Vite)
+Buka terminal baru, masuk ke direktori `ositara-frontend`, lalu jalankan perintah berikut:
+```bash
+cd ositara-frontend
+
+# Instal dependensi Node.js
+npm install
+
+# Jalankan server pengembangan lokal
+npm run dev
+```
+*Aplikasi Frontend dapat diakses melalui `http://localhost:5173`.*
+
+---
+
+## ⚙️ Konfigurasi Environment (`.env`)
+
+### Backend (`/.env`)
+```env
+APP_NAME=OSITARA
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://127.0.0.1:8000
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+### Frontend (`/ositara-frontend/.env`)
+```env
+VITE_API_BASE_URL=http://127.0.0.1:8000/api
+```
+
+---
+
+## 🔐 Akun Uji Coba Default
+Gunakan kredensial berikut untuk menguji alur kerja setiap hak akses (*role*) di dalam sistem:
+
+| Peran (Role) | Email | Password | Hak Akses Utama |
+| :--- | :--- | :--- | :--- |
+| *Pembina OSIS* | pembina@ositara.com | Osis26/27 | Approval/Revisi proposal & monitoring laporan |
+| *Ketua OSIS* | ketuaosis@ositara.com | Osis26/27 | Monitoring seluruh kegiatan, anggota, & kas |
+| *Sekretaris* | sekretaris1@ositara.com | Osis26/27 | Pengajuan proposal kegiatan & kelola proker |
+| *Bendahara* | bendahara1@ositara.com| Osis26/27 | Pencatatan kas masuk/keluar & cetak laporan |
+| *Siswa* | siswa@ositara.com | 1234567 | Melihat agenda kegiatan & mendaftar event |
+
+---
+
+## 👥 Tim Pengembang
+Proyek ini dikembangkan oleh tim **UKK RPL — SMK Budi Bakti Ciwidey**:
+
+| Nama Anggota | Peran & Tanggung Jawab |
+| :--- | :--- |
+| **Chika** | *Frontend Development, MVP Core Features, & Core Business Flow Integration* |
+| **Salsabila** | *Backend API Architecture, Database Design (ERD), & Quality Assurance* |
+
+---
+
+<div align="center">
+  <p>Dibuat untuk Uji Kompetensi Keahlian (UKK) RPL 2026/2027 &copy; 2026 <strong>OSITARA Team</strong></p>
+</div>
