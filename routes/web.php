@@ -16,7 +16,7 @@ Route::get('/500', function () {
     abort(500);
 });
 
-// 3. Semua URL acak selain '/' otomatis menampilkan halaman custom 404.blade.php
+// 3. Semua URL acak selain '/' otomatis menampilkan halaman 404
 Route::fallback(function () {
-    return response()->view('errors.404', [], 404);
+    abort(404);
 });
