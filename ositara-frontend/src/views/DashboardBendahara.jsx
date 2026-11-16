@@ -382,8 +382,11 @@ export default function DashboardBendahara({ user, onLogout }) {
             judul: p.judul_proposal || p.judul || 'Tanpa Judul',
             pengaju: p.pengaju || p.sekbid || p.divisi || 'Sekretaris OSIS',
             anggaran: p.anggaran || p.dana || p.estimasi_dana || p.nominal || 0,
+            file_url: p.file_url || p.url || null,
             file_path: p.file_path || p.path || null,
             file_proposal:
+              p.file_url ||
+              p.url ||
               p.file_path ||
               p.path ||
               p.file_proposal ||
@@ -808,6 +811,8 @@ export default function DashboardBendahara({ user, onLogout }) {
   // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG (SUPPORT ANDROID, IOS & LAPTOP) ---
   const handleBukaUnduhProposal = async (item) => {
     const serverFile =
+      item.file_url ||
+      item.url ||
       item.file_path ||
       item.path ||
       item.file_proposal ||
@@ -829,12 +834,11 @@ export default function DashboardBendahara({ user, onLogout }) {
 
     const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-    // Helper khusus agar Download Manager Android & Safari iOS tidak gagal
     const triggerDownloadAndOpenBlob = (blob) => {
       const blobUrl = URL.createObjectURL(blob);
 
       if (isMobileDevice) {
-        // 1. Konversi Blob ke Data URL agar Android Download Manager bisa menyimpan file tanpa gagal
+        // Konversi Blob ke Data URL agar Android Download Manager bisa menyimpan file tanpa gagal
         const reader = new FileReader();
         reader.onloadend = () => {
           const dataUrl = reader.result;
@@ -847,7 +851,6 @@ export default function DashboardBendahara({ user, onLogout }) {
         };
         reader.readAsDataURL(blob);
 
-        // 2. Buka pratinjau file langsung di tab baru
         window.open(blobUrl, '_blank', 'noopener,noreferrer');
       } else {
         // Untuk Laptop / Desktop
@@ -875,32 +878,22 @@ export default function DashboardBendahara({ user, onLogout }) {
       }
     }
 
-    // 2. Jika berkas sudah berupa URL penuh (http/https)
-    if (String(serverFile).startsWith('http://') || String(serverFile).startsWith('https://')) {
-      window.open(serverFile, '_blank', 'noopener,noreferrer');
-      const link = document.createElement('a');
-      link.href = serverFile;
-      link.download = downloadLabelName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      return;
-    }
-
-    // 3. Kumpulkan kandidat URL file di server Laravel
-    const rawStr = String(serverFile).replace(/^\/+/, '');
+    // 2. Kumpulkan kandidat URL file di server Laravel (Prioritaskan API endpoint dulu)
+    const rawStr = String(serverFile).replace(/^https?:\/\/[^/]+/, '').replace(/^\/+/, '');
     const cleanFilename = rawStr.split('/').pop();
     const altFilename = item.nama_file ? String(item.nama_file).split('/').pop() : null;
 
     const candidateUrls = [
-      `/storage/${rawStr}`,
-      `/storage/proposals/${encodeURIComponent(cleanFilename)}`,
+      ...(String(serverFile).startsWith('http') ? [String(serverFile)] : []),
       `${API_BASE}/download-proposal/${encodeURIComponent(cleanFilename)}`,
       ...(altFilename && altFilename !== cleanFilename
         ? [`${API_BASE}/download-proposal/${encodeURIComponent(altFilename)}`]
         : []),
       `${API_BASE}/proposals/${item.id}/download`,
+      `/storage/${rawStr}`,
+      `/storage/proposals/${encodeURIComponent(cleanFilename)}`,
       `/uploads/proposals/${encodeURIComponent(cleanFilename)}`,
+      `/${rawStr}`,
     ];
 
     setDownloadingId(item.id || cleanFilename);
@@ -925,11 +918,11 @@ export default function DashboardBendahara({ user, onLogout }) {
         }
       }
 
-      // Fallback langsung tanpa atribut download agar Android membuka file di tab baru
-      const directStorageUrl = `/storage/${
-        rawStr.startsWith('proposals/') ? rawStr : `proposals/${encodeURIComponent(cleanFilename)}`
-      }`;
-      window.open(directStorageUrl, '_blank', 'noopener,noreferrer');
+      // Jangan redirect ke tab 404; tampilkan notifikasi yang jelas
+      showToast(
+        'File fisik berkas tidak ada di server (terhapus saat deploy ulang, silakan unggah ulang proposal).',
+        'warning'
+      );
     } finally {
       setDownloadingId(null);
     }
@@ -1476,7 +1469,9 @@ export default function DashboardBendahara({ user, onLogout }) {
                   ) : (
                     proposalList.map((item, idx) => {
                       const hasFile = Boolean(
-                        item.file_path ||
+                        item.file_url ||
+                          item.url ||
+                          item.file_path ||
                           item.path ||
                           item.file_proposal ||
                           item.berkas ||
