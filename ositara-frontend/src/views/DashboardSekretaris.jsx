@@ -1,10 +1,22 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import logoOsitara from '../assets/LOGO OSITARA.png';
 
-// --- KONFIGURASI API BACKEND
+// --- KONFIGURASI API BACKEND ---
 const API_BASE = '/api';
 
-// --- HELPER UTILS & FORMATTER
+const getAuthHeaders = () => {
+  const token =
+    localStorage.getItem('token') ||
+    localStorage.getItem('auth_token') ||
+    localStorage.getItem('access_token') ||
+    '';
+  return {
+    Accept: 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
+// --- HELPER UTILS & FORMATTER ---
 const formatRupiah = (number) => {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -24,7 +36,7 @@ const formatTanggal = (tgl) => {
   return tgl;
 };
 
-// --- DEKLARASI IKON SVG
+// --- DEKLARASI IKON SVG ---
 const SvgHome = () => (
   <svg
     className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
@@ -218,7 +230,7 @@ const getInitialData = (key, fallback) => {
       if (Array.isArray(parsed)) return parsed;
     }
     return fallback;
-  } catch (e) {
+  } catch {
     return fallback;
   }
 };
@@ -254,10 +266,10 @@ export default function DashboardSekretaris({
   const [activeMenu, setActiveMenu] = useState('beranda');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // --- REF PENCEGAH TABRAKAN SYNC
+  // --- REF PENCEGAH TABRAKAN SYNC ---
   const isFetchingRef = useRef(false);
 
-  // --- STATE NOTIFIKASI TOAST & MODAL KONFIRMASI CUSTOM
+  // --- STATE NOTIFIKASI TOAST & MODAL KONFIRMASI CUSTOM ---
   const [toastNotif, setToastNotif] = useState(null);
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -267,6 +279,9 @@ export default function DashboardSekretaris({
     message: '',
   });
 
+  // --- STATE DOWNLOAD BERKAS PROPOSAL ---
+  const [downloadingId, setDownloadingId] = useState(null);
+
   const showToast = useCallback((message, type = 'success') => {
     setToastNotif({ message, type });
     setTimeout(() => {
@@ -274,7 +289,7 @@ export default function DashboardSekretaris({
     }, 3200);
   }, []);
 
-  // --- STATES DATA UTAMA
+  // --- STATES DATA UTAMA ---
   const [kegiatanList, setKegiatanList] = useState(() => {
     const raw = getInitialData('ositara_kegiatan', initialKegiatan);
     return filterOnlyKegiatanSekre(raw);
@@ -306,6 +321,7 @@ export default function DashboardSekretaris({
   const [avatarUrl, setAvatarUrl] = useState(
     () => localStorage.getItem('ositara_user_avatar') || null
   );
+
   const [selectedKegiatanPeserta, setSelectedKegiatanPeserta] = useState(null);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [isSubmittingProposal, setIsSubmittingProposal] = useState(false);
@@ -315,37 +331,53 @@ export default function DashboardSekretaris({
     user?.namaLengkap || user?.nama || user?.name || user?.username || 'Salfa Alena Eka Putri';
   const inisialNama = namaDisplay.charAt(0).toUpperCase();
 
-  // --- SINKRONISASI SEMUA DATA DARI BACKEND MYSQL & LOCAL STORAGE
+  // --- SINKRONISASI SEMUA DATA DARI BACKEND MYSQL & LOCAL STORAGE ---
   const syncAllDataFromBackend = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
-
     try {
       // 1. Sync Proposal
       try {
         let resProposal = await fetch(`${API_BASE}/proposals`, {
-          headers: { Accept: 'application/json' },
+          headers: getAuthHeaders(),
         });
         if (!resProposal.ok) {
           resProposal = await fetch(`${API_BASE}/proposal-kegiatan`, {
-            headers: { Accept: 'application/json' },
+            headers: getAuthHeaders(),
           });
         }
         if (resProposal.ok) {
           const result = await resProposal.json();
           const dataArr = Array.isArray(result) ? result : result.data || [];
           const formatted = dataArr.map((p) => {
-            const fileNameFix = p.file_proposal || p.file || 'Dokumen.pdf';
-            const fileUrlFix = `${API_BASE}/download-proposal/${encodeURIComponent(fileNameFix)}`;
+            const rawFile =
+              p.file_path ||
+              p.path ||
+              p.file_proposal ||
+              p.fileProposal ||
+              p.berkas ||
+              p.file ||
+              p.lampiran ||
+              p.dokumen ||
+              null;
+            const fileNameFix =
+              p.nama_file ||
+              p.original_name ||
+              p.file_name ||
+              (rawFile ? String(rawFile).split('/').pop() : null) ||
+              'Dokumen.pdf';
             return {
+              ...p,
               id: p.id,
               judul_proposal: p.judul_proposal || p.judul || 'Tanpa Judul',
               judul: p.judul_proposal || p.judul || 'Tanpa Judul',
               kategori: p.kategori || 'Kegiatan',
               anggaran: Number(p.anggaran) || 0,
-              file: fileNameFix,
-              fileData: fileUrlFix,
-              file_url: fileUrlFix,
+              file: rawFile,
+              file_path: p.file_path || p.path || null,
+              file_proposal: rawFile,
+              nama_file: fileNameFix,
+              file_url: p.file_url || p.url || p.fileUrl || null,
               tanggal: p.tanggal_pengajuan || p.tanggal || '-',
               status: p.status || 'Menunggu Persetujuan',
               catatan_revisi: p.catatan_pembina || p.catatan_revisi || p.catatan || '-',
@@ -364,11 +396,11 @@ export default function DashboardSekretaris({
       // 2. Sync Anggota OSIS
       try {
         let resAnggota = await fetch(`${API_BASE}/pengurus-osis`, {
-          headers: { Accept: 'application/json' },
+          headers: getAuthHeaders(),
         });
         if (!resAnggota.ok) {
           resAnggota = await fetch(`${API_BASE}/anggota`, {
-            headers: { Accept: 'application/json' },
+            headers: getAuthHeaders(),
           });
         }
         if (resAnggota.ok) {
@@ -393,14 +425,13 @@ export default function DashboardSekretaris({
       // 3. Sync Program Kerja & Kegiatan
       try {
         const resProker = await fetch(`${API_BASE}/program-kerja`, {
-          headers: { Accept: 'application/json' },
+          headers: getAuthHeaders(),
         });
         if (resProker.ok) {
           const resultPK = await resProker.json();
           const dataPK = Array.isArray(resultPK) ? resultPK : resultPK.data || [];
           const onlyProker = filterOnlyProkerKetua(dataPK);
           const onlyKegiatan = filterOnlyKegiatanSekre(dataPK);
-
           setProkerList((prev) =>
             JSON.stringify(prev) !== JSON.stringify(onlyProker) ? onlyProker : prev
           );
@@ -417,11 +448,11 @@ export default function DashboardSekretaris({
       // 4. Sync Keuangan
       try {
         let resKeuangan = await fetch(`${API_BASE}/keuangan`, {
-          headers: { Accept: 'application/json' },
+          headers: getAuthHeaders(),
         });
         if (!resKeuangan.ok) {
           resKeuangan = await fetch(`${API_BASE}/laporan-keuangan`, {
-            headers: { Accept: 'application/json' },
+            headers: getAuthHeaders(),
           });
         }
         if (resKeuangan.ok) {
@@ -439,11 +470,11 @@ export default function DashboardSekretaris({
       // 5. Sync Pendaftaran
       try {
         let resPendaftaran = await fetch(`${API_BASE}/pendaftaran-event`, {
-          headers: { Accept: 'application/json' },
+          headers: getAuthHeaders(),
         });
         if (!resPendaftaran.ok) {
           resPendaftaran = await fetch(`${API_BASE}/pendaftaran`, {
-            headers: { Accept: 'application/json' },
+            headers: getAuthHeaders(),
           });
         }
         if (resPendaftaran.ok) {
@@ -496,7 +527,129 @@ export default function DashboardSekretaris({
     };
   }, [syncAllDataFromBackend]);
 
-  // --- HANDLER FOTO PROFIL
+  // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG (SUPPORT ANDROID, IOS & LAPTOP) ---
+  const handleBukaUnduhProposal = async (item) => {
+    const serverFile =
+      item.file_url ||
+      item.url ||
+      item.fileUrl ||
+      item.file_path ||
+      item.path ||
+      item.file_proposal ||
+      item.fileProposal ||
+      item.berkas ||
+      item.file ||
+      item.lampiran ||
+      item.dokumen;
+
+    if (!serverFile || serverFile === 'Tidak ada berkas') {
+      showToast('Berkas proposal tidak ditemukan.', 'warning');
+      return;
+    }
+
+    const downloadLabelName =
+      item.nama_file ||
+      item.original_name ||
+      String(serverFile).split('/').pop() ||
+      `Proposal_${item.judul_proposal || item.judul || 'OSIS'}.pdf`;
+
+    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    const triggerDownloadAndOpenBlob = (blob) => {
+      const blobUrl = URL.createObjectURL(blob);
+
+      if (isMobileDevice) {
+        // Konversi Blob ke Data URL agar Android Download Manager bisa menyimpan file tanpa gagal
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result;
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          link.download = downloadLabelName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        };
+        reader.readAsDataURL(blob);
+
+        window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        // Untuk Laptop / Desktop
+        window.open(blobUrl, '_blank', 'noopener,noreferrer');
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = downloadLabelName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    };
+
+    // 1. Jika berkas berupa Base64 Data URL
+    if (String(serverFile).startsWith('data:')) {
+      try {
+        const res = await fetch(serverFile);
+        const blob = await res.blob();
+        triggerDownloadAndOpenBlob(blob);
+        showToast(`Berkas "${downloadLabelName}" berhasil dibuka & diunduh!`);
+        return;
+      } catch {
+        window.open(serverFile, '_blank', 'noopener,noreferrer');
+        return;
+      }
+    }
+
+    // 2. Kumpulkan kandidat URL file di server Laravel (Prioritaskan API endpoint dulu)
+    const rawStr = String(serverFile)
+      .replace(/^https?:\/\/[^/]+/, '')
+      .replace(/^\/+/, '');
+    const cleanFilename = rawStr.split('/').pop();
+    const altFilename = item.nama_file ? String(item.nama_file).split('/').pop() : null;
+
+    const candidateUrls = [
+      ...(String(serverFile).startsWith('http') ? [String(serverFile)] : []),
+      `${API_BASE}/download-proposal/${encodeURIComponent(cleanFilename)}`,
+      ...(altFilename && altFilename !== cleanFilename
+        ? [`${API_BASE}/download-proposal/${encodeURIComponent(altFilename)}`]
+        : []),
+      `${API_BASE}/proposals/${item.id}/download`,
+      `/storage/${rawStr}`,
+      `/storage/proposals/${encodeURIComponent(cleanFilename)}`,
+      `/uploads/proposals/${encodeURIComponent(cleanFilename)}`,
+      `/${rawStr}`,
+    ];
+
+    setDownloadingId(item.id || cleanFilename);
+    try {
+      const headers = getAuthHeaders();
+
+      for (const url of candidateUrls) {
+        try {
+          const response = await fetch(url, { headers });
+          if (response.ok) {
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('text/html') && !contentType.includes('application/json')) {
+              const blob = await response.blob();
+              triggerDownloadAndOpenBlob(blob);
+              showToast(`Berkas "${downloadLabelName}" berhasil dibuka & diunduh!`);
+              return;
+            }
+          }
+        } catch {
+          // Lanjut coba URL kandidat berikutnya
+        }
+      }
+
+      showToast(
+        'File fisik berkas tidak ada di server (terhapus saat deploy ulang, silakan unggah ulang proposal).',
+        'warning'
+      );
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  // --- HANDLER FOTO PROFIL ---
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -525,7 +678,7 @@ export default function DashboardSekretaris({
     });
   };
 
-  // --- HANDLER SUBMIT & EDIT PROPOSAL (OPTIMISTIC UI + SYNC MYSQL)
+  // --- HANDLER SUBMIT & EDIT PROPOSAL (OPTIMISTIC UI + SYNC MYSQL) ---
   const [editingProposalId, setEditingProposalId] = useState(null);
   const [judulProposal, setJudulProposal] = useState('');
   const [kategoriProposal, setKategoriProposal] = useState('Kegiatan');
@@ -555,7 +708,6 @@ export default function DashboardSekretaris({
     formData.append('catatan_pembina', '-');
     formData.append('catatan_revisi', '-');
     formData.append('deskripsi', 'Proposal diajukan oleh Sekretaris OSIS');
-
     if (fileProposal) {
       formData.append('file_proposal', fileProposal);
       formData.append('file', fileProposal.name);
@@ -572,6 +724,7 @@ export default function DashboardSekretaris({
               kategori: kategoriProposal || 'Kegiatan',
               anggaran: anggaranNum,
               file: fileProposal ? fileName : item.file,
+              nama_file: fileProposal ? fileName : item.nama_file || item.file,
               status: 'Menunggu Persetujuan',
               catatan_revisi: '-',
               catatan_pembina: '-',
@@ -588,6 +741,7 @@ export default function DashboardSekretaris({
         kategori: kategoriProposal || 'Kegiatan',
         anggaran: anggaranNum,
         file: fileName,
+        nama_file: fileName,
         tanggal: new Date().toISOString().split('T')[0],
         status: 'Menunggu Persetujuan',
         catatan_revisi: '-',
@@ -616,26 +770,26 @@ export default function DashboardSekretaris({
         formData.append('_method', 'PUT');
         response = await fetch(`${API_BASE}/proposals/${currentEditId}`, {
           method: 'POST',
-          headers: { Accept: 'application/json' },
+          headers: getAuthHeaders(),
           body: formData,
         });
         if (!response.ok) {
           response = await fetch(`${API_BASE}/proposal-kegiatan/${currentEditId}`, {
             method: 'POST',
-            headers: { Accept: 'application/json' },
+            headers: getAuthHeaders(),
             body: formData,
           });
         }
       } else {
         response = await fetch(`${API_BASE}/proposals`, {
           method: 'POST',
-          headers: { Accept: 'application/json' },
+          headers: getAuthHeaders(),
           body: formData,
         });
         if (!response.ok) {
           response = await fetch(`${API_BASE}/proposal-kegiatan`, {
             method: 'POST',
-            headers: { Accept: 'application/json' },
+            headers: getAuthHeaders(),
             body: formData,
           });
         }
@@ -664,7 +818,7 @@ export default function DashboardSekretaris({
     });
   };
 
-  // --- HANDLER KELOLA KEGIATAN (OPTIMISTIC UI + SYNC MYSQL)
+  // --- HANDLER KELOLA KEGIATAN (OPTIMISTIC UI + SYNC MYSQL) ---
   const [editingKegiatanId, setEditingKegiatanId] = useState(null);
   const [namaKegiatan, setNamaKegiatan] = useState('');
   const [tanggalKegiatan, setTanggalKegiatan] = useState('');
@@ -734,7 +888,7 @@ export default function DashboardSekretaris({
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            Accept: 'application/json',
+            ...getAuthHeaders(),
           },
           body: JSON.stringify(payload),
         });
@@ -743,7 +897,7 @@ export default function DashboardSekretaris({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Accept: 'application/json',
+            ...getAuthHeaders(),
           },
           body: JSON.stringify(payload),
         });
@@ -772,7 +926,7 @@ export default function DashboardSekretaris({
     });
   };
 
-  // --- EKSEKUSI KONFIRMASI HAPUS (MODAL CUSTOM)
+  // --- EKSEKUSI KONFIRMASI HAPUS (MODAL CUSTOM) ---
   const handleExecuteConfirm = async () => {
     const { type, targetId } = confirmModal;
     setConfirmModal({ isOpen: false, type: null, targetId: null, title: '', message: '' });
@@ -792,14 +946,14 @@ export default function DashboardSekretaris({
       showToast('Proposal berhasil dihapus.');
 
       try {
-        let res = await fetch(`${API_BASE}/proposals/${targetId}`, {
+        const res = await fetch(`${API_BASE}/proposals/${targetId}`, {
           method: 'DELETE',
-          headers: { Accept: 'application/json' },
+          headers: getAuthHeaders(),
         });
         if (!res.ok) {
           await fetch(`${API_BASE}/proposal-kegiatan/${targetId}`, {
             method: 'DELETE',
-            headers: { Accept: 'application/json' },
+            headers: getAuthHeaders(),
           });
         }
         await syncAllDataFromBackend();
@@ -818,7 +972,7 @@ export default function DashboardSekretaris({
       try {
         await fetch(`${API_BASE}/program-kerja/${targetId}`, {
           method: 'DELETE',
-          headers: { Accept: 'application/json' },
+          headers: getAuthHeaders(),
         });
         await syncAllDataFromBackend();
       } catch (err) {
@@ -846,12 +1000,11 @@ export default function DashboardSekretaris({
       )
         .toLowerCase()
         .trim();
-
       return (pId && pId === targetId) || (pName && pName === targetName);
     });
   };
 
-  // --- KALKULASI KEUANGAN (UNTUK KARTU RINGKASAN LAPORAN KEUANGAN)
+  // --- KALKULASI KEUANGAN (UNTUK KARTU RINGKASAN LAPORAN KEUANGAN) ---
   const totalPemasukan = keuanganList
     .filter((k) => (k.jenis || k.kategori) === 'Pemasukan')
     .reduce((acc, cur) => acc + Number(cur.jumlah || cur.nominal || 0), 0);
@@ -1123,6 +1276,7 @@ export default function DashboardSekretaris({
                     Lihat Semua &rarr;
                   </button>
                 </div>
+
                 <div className="space-y-3">
                   {kegiatanList.length === 0 ? (
                     <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
@@ -1172,6 +1326,7 @@ export default function DashboardSekretaris({
                     Lihat Semua &rarr;
                   </button>
                 </div>
+
                 <div className="space-y-3">
                   {proposalList.length === 0 ? (
                     <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
@@ -1241,16 +1396,31 @@ export default function DashboardSekretaris({
                         </td>
                       </tr>
                     ) : (
-                      proposalList.map((p) => {
+                      proposalList.map((p, idx) => {
                         const isRevisi = p.status?.toLowerCase().includes('revisi');
+                        const hasFile = Boolean(
+                          p.file_url ||
+                            p.url ||
+                            p.fileUrl ||
+                            p.file_path ||
+                            p.path ||
+                            p.file_proposal ||
+                            p.fileProposal ||
+                            p.berkas ||
+                            p.file ||
+                            p.lampiran ||
+                            p.dokumen
+                        );
                         const fileDisplayName =
-                          p.file || p.fileName || p.file_proposal || 'Dokumen.pdf';
-                        const downloadUrl = `${API_BASE}/download-proposal/${encodeURIComponent(
-                          fileDisplayName
-                        )}`;
+                          p.nama_file ||
+                          p.original_name ||
+                          (p.file_proposal ? String(p.file_proposal).split('/').pop() : null) ||
+                          (p.file ? String(p.file).split('/').pop() : null) ||
+                          'Unduh Berkas';
+                        const isDownloadingThis = downloadingId === (p.id || fileDisplayName);
 
                         return (
-                          <tr key={p.id} className="hover:bg-blue-50/40 transition-colors">
+                          <tr key={p.id || idx} className="hover:bg-blue-50/40 transition-colors">
                             <td className="py-3.5 px-4 font-bold text-slate-800">
                               {p.judul_proposal || p.judul || '-'}
                             </td>
@@ -1258,18 +1428,19 @@ export default function DashboardSekretaris({
                               {formatRupiah(p.anggaran)}
                             </td>
                             <td className="py-3.5 px-4">
-                              {fileDisplayName && fileDisplayName !== 'Tidak ada berkas' ? (
-                                <a
-                                  href={downloadUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  download={fileDisplayName}
-                                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-blue-50 text-[#2158B8] hover:bg-blue-100 font-bold text-xs rounded-xl border border-blue-200 transition-all duration-200 active:scale-95 shadow-xs cursor-pointer max-w-[140px]"
-                                  title="Unduh / Buka Berkas PDF"
+                              {hasFile && fileDisplayName !== 'Tidak ada berkas' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleBukaUnduhProposal(p)}
+                                  disabled={isDownloadingThis}
+                                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-blue-50 text-[#2158B8] hover:bg-blue-100 font-bold text-xs rounded-xl border border-blue-200 transition-all duration-200 active:scale-95 shadow-xs cursor-pointer max-w-[155px]"
+                                  title={`Klik untuk membuka & mengunduh ${fileDisplayName}`}
                                 >
                                   <SvgDownload />
-                                  <span className="truncate">{fileDisplayName}</span>
-                                </a>
+                                  <span className="truncate">
+                                    {isDownloadingThis ? 'Membuka...' : fileDisplayName}
+                                  </span>
+                                </button>
                               ) : (
                                 <span className="text-slate-400 text-xs italic">
                                   Tidak ada berkas
@@ -1356,6 +1527,7 @@ export default function DashboardSekretaris({
                   </button>
                 )}
               </div>
+
               <form onSubmit={handleSubmitProposal} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
@@ -1385,7 +1557,7 @@ export default function DashboardSekretaris({
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                    Unggah Berkas PDF (Maks 2MB)
+                    Unggah Berkas PDF
                   </label>
                   <input
                     type="file"
@@ -1602,6 +1774,7 @@ export default function DashboardSekretaris({
                   </button>
                 )}
               </div>
+
               <form onSubmit={handleSubmitKegiatan} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
@@ -1677,6 +1850,7 @@ export default function DashboardSekretaris({
                 Daftar Kegiatan Sekolah Tersedia
               </h3>
             </div>
+
             {kegiatanList.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                 <p className="text-xs sm:text-sm text-slate-400 font-medium">
@@ -1711,6 +1885,7 @@ export default function DashboardSekretaris({
                           {k.deskripsi || 'Tidak ada deskripsi kegiatan.'}
                         </p>
                       </div>
+
                       <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
                         <span className="text-xs font-semibold text-slate-600">
                           Jadwal: {formatTanggal(k.target || k.tanggal)}
