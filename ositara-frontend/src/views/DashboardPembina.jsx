@@ -4,6 +4,18 @@ import logoOsitara from '../assets/LOGO OSITARA.png';
 // --- KONFIGURASI API BACKEND ---
 const API_BASE = '/api';
 
+const getAuthHeaders = () => {
+  const token =
+    localStorage.getItem('token') ||
+    localStorage.getItem('auth_token') ||
+    localStorage.getItem('access_token') ||
+    '';
+  return {
+    Accept: 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
 // --- HELPER UTILS & FORMATTER ---
 const formatRupiah = (number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -247,6 +259,9 @@ export default function DashboardPembina({
     message: '',
   });
 
+  // --- STATE DOWNLOAD BERKAS PROPOSAL ---
+  const [downloadingId, setDownloadingId] = useState(null);
+
   const showToast = useCallback((message, type = 'success') => {
     setToastNotif({ message, type });
     setTimeout(() => {
@@ -258,20 +273,25 @@ export default function DashboardPembina({
   const [proposalList, setProposalList] = useState(() =>
     getInitialData('ositara_proposal', initialProposal)
   );
+
   const [prokerList, setProkerList] = useState(() => {
     const raw = getInitialData('ositara_proker', initialProker);
     return filterOnlyProkerKetua(raw);
   });
+
   const [kegiatanList, setKegiatanList] = useState(() => {
     const raw = getInitialData('ositara_kegiatan', initialKegiatan);
     return filterOnlyKegiatanSekre(raw);
   });
+
   const [keuanganList, setKeuanganList] = useState(() =>
     getInitialData('ositara_keuangan', initialKeuangan)
   );
+
   const [anggotaList, setAnggotaList] = useState(() =>
     getInitialData('ositara_anggota', initialAnggota)
   );
+
   const [pendaftaranList, setPendaftaranList] = useState(() => {
     const primary = getInitialData('ositara_pendaftaran', null);
     const secondary = getInitialData('pendaftaranList', []);
@@ -297,33 +317,49 @@ export default function DashboardPembina({
   const syncAllDataFromBackend = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
-
     try {
       // 1. Sync Proposal
       try {
         let resProposal = await fetch(`${API_BASE}/proposals`, {
-          headers: { Accept: 'application/json' },
+          headers: getAuthHeaders(),
         });
         if (!resProposal.ok) {
           resProposal = await fetch(`${API_BASE}/proposal-kegiatan`, {
-            headers: { Accept: 'application/json' },
+            headers: getAuthHeaders(),
           });
         }
         if (resProposal.ok) {
           const result = await resProposal.json();
           const dataArr = Array.isArray(result) ? result : result.data || [];
           const formatted = dataArr.map((p) => {
-            const fileNameFix = p.file_proposal || p.file || 'Dokumen.pdf';
-            const fileUrlFix = `${API_BASE}/download-proposal/${encodeURIComponent(fileNameFix)}`;
+            const rawFile =
+              p.file_path ||
+              p.path ||
+              p.file_proposal ||
+              p.fileProposal ||
+              p.berkas ||
+              p.file ||
+              p.lampiran ||
+              p.dokumen ||
+              null;
+            const fileNameFix =
+              p.nama_file ||
+              p.original_name ||
+              p.file_name ||
+              (rawFile ? String(rawFile).split('/').pop() : null) ||
+              'Dokumen.pdf';
             return {
+              ...p,
               id: p.id,
               judul_proposal: p.judul_proposal || p.judul || 'Tanpa Judul',
               judul: p.judul_proposal || p.judul || 'Tanpa Judul',
               kategori: p.kategori || 'Kegiatan',
               anggaran: Number(p.anggaran) || 0,
-              file: fileNameFix,
-              fileData: fileUrlFix,
-              file_url: fileUrlFix,
+              file: rawFile,
+              file_path: p.file_path || p.path || null,
+              file_proposal: rawFile,
+              nama_file: fileNameFix,
+              file_url: p.file_url || p.url || p.fileUrl || null,
               tanggal: p.tanggal_pengajuan || p.tanggal || '-',
               status: p.status || 'Menunggu Persetujuan',
               catatan_revisi: p.catatan_pembina || p.catatan_revisi || p.catatan || '-',
@@ -342,11 +378,11 @@ export default function DashboardPembina({
       // 2. Sync Anggota OSIS
       try {
         let resAnggota = await fetch(`${API_BASE}/pengurus-osis`, {
-          headers: { Accept: 'application/json' },
+          headers: getAuthHeaders(),
         });
         if (!resAnggota.ok) {
           resAnggota = await fetch(`${API_BASE}/anggota`, {
-            headers: { Accept: 'application/json' },
+            headers: getAuthHeaders(),
           });
         }
         if (resAnggota.ok) {
@@ -371,7 +407,7 @@ export default function DashboardPembina({
       // 3. Sync Program Kerja & Kegiatan
       try {
         const resProker = await fetch(`${API_BASE}/program-kerja`, {
-          headers: { Accept: 'application/json' },
+          headers: getAuthHeaders(),
         });
         if (resProker.ok) {
           const resultPK = await resProker.json();
@@ -394,11 +430,11 @@ export default function DashboardPembina({
       // 4. Sync Keuangan
       try {
         let resKeuangan = await fetch(`${API_BASE}/keuangan`, {
-          headers: { Accept: 'application/json' },
+          headers: getAuthHeaders(),
         });
         if (!resKeuangan.ok) {
           resKeuangan = await fetch(`${API_BASE}/laporan-keuangan`, {
-            headers: { Accept: 'application/json' },
+            headers: getAuthHeaders(),
           });
         }
         if (resKeuangan.ok) {
@@ -416,11 +452,11 @@ export default function DashboardPembina({
       // 5. Sync Pendaftaran
       try {
         let resPendaftaran = await fetch(`${API_BASE}/pendaftaran-event`, {
-          headers: { Accept: 'application/json' },
+          headers: getAuthHeaders(),
         });
         if (!resPendaftaran.ok) {
           resPendaftaran = await fetch(`${API_BASE}/pendaftaran`, {
-            headers: { Accept: 'application/json' },
+            headers: getAuthHeaders(),
           });
         }
         if (resPendaftaran.ok) {
@@ -475,6 +511,128 @@ export default function DashboardPembina({
     };
   }, [syncAllDataFromBackend]);
 
+  // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG (SUPPORT ANDROID, IOS & LAPTOP) ---
+  const handleBukaUnduhProposal = async (item) => {
+    const serverFile =
+      item.file_url ||
+      item.url ||
+      item.fileUrl ||
+      item.file_path ||
+      item.path ||
+      item.file_proposal ||
+      item.fileProposal ||
+      item.berkas ||
+      item.file ||
+      item.lampiran ||
+      item.dokumen;
+
+    if (!serverFile || serverFile === 'Tidak ada berkas') {
+      showToast('Berkas proposal tidak ditemukan.', 'warning');
+      return;
+    }
+
+    const downloadLabelName =
+      item.nama_file ||
+      item.original_name ||
+      String(serverFile).split('/').pop() ||
+      `Proposal_${item.judul_proposal || item.judul || 'OSIS'}.pdf`;
+
+    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    const triggerDownloadAndOpenBlob = (blob) => {
+      const blobUrl = URL.createObjectURL(blob);
+
+      if (isMobileDevice) {
+        // Konversi Blob ke Data URL agar Android Download Manager bisa menyimpan file tanpa gagal
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result;
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          link.download = downloadLabelName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        };
+        reader.readAsDataURL(blob);
+
+        window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        // Untuk Laptop / Desktop
+        window.open(blobUrl, '_blank', 'noopener,noreferrer');
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = downloadLabelName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    };
+
+    // 1. Jika berkas berupa Base64 Data URL
+    if (String(serverFile).startsWith('data:')) {
+      try {
+        const res = await fetch(serverFile);
+        const blob = await res.blob();
+        triggerDownloadAndOpenBlob(blob);
+        showToast(`Berkas "${downloadLabelName}" berhasil dibuka & diunduh!`);
+        return;
+      } catch {
+        window.open(serverFile, '_blank', 'noopener,noreferrer');
+        return;
+      }
+    }
+
+    // 2. Kumpulkan kandidat URL file di server Laravel (Prioritaskan API endpoint dulu)
+    const rawStr = String(serverFile)
+      .replace(/^https?:\/\/[^/]+/, '')
+      .replace(/^\/+/, '');
+    const cleanFilename = rawStr.split('/').pop();
+    const altFilename = item.nama_file ? String(item.nama_file).split('/').pop() : null;
+
+    const candidateUrls = [
+      ...(String(serverFile).startsWith('http') ? [String(serverFile)] : []),
+      `${API_BASE}/download-proposal/${encodeURIComponent(cleanFilename)}`,
+      ...(altFilename && altFilename !== cleanFilename
+        ? [`${API_BASE}/download-proposal/${encodeURIComponent(altFilename)}`]
+        : []),
+      `${API_BASE}/proposals/${item.id}/download`,
+      `/storage/${rawStr}`,
+      `/storage/proposals/${encodeURIComponent(cleanFilename)}`,
+      `/uploads/proposals/${encodeURIComponent(cleanFilename)}`,
+      `/${rawStr}`,
+    ];
+
+    setDownloadingId(item.id || cleanFilename);
+    try {
+      const headers = getAuthHeaders();
+
+      for (const url of candidateUrls) {
+        try {
+          const response = await fetch(url, { headers });
+          if (response.ok) {
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('text/html') && !contentType.includes('application/json')) {
+              const blob = await response.blob();
+              triggerDownloadAndOpenBlob(blob);
+              showToast(`Berkas "${downloadLabelName}" berhasil dibuka & diunduh!`);
+              return;
+            }
+          }
+        } catch {
+          // Lanjut coba URL kandidat berikutnya
+        }
+      }
+
+      showToast(
+        'File fisik berkas tidak ada di server (terhapus saat deploy ulang, silakan unggah ulang proposal).',
+        'warning'
+      );
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   // --- HANDLER FOTO PROFIL PEMBINA ---
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
@@ -520,7 +678,7 @@ export default function DashboardPembina({
         ? 'Proposal disetujui oleh Pembina.'
         : newStatus === 'Ditolak'
         ? 'Proposal ditolak oleh Pembina.'
-        : '-';
+        : '';
 
     // 1. Optimistic UI Update
     const updated = proposalList.map((item) =>
@@ -554,27 +712,24 @@ export default function DashboardPembina({
         catatan_pembina: catatanFinal,
         catatan_revisi: catatanFinal,
       };
-
       let res = await fetch(`${API_BASE}/proposals/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Accept: 'application/json',
+          ...getAuthHeaders(),
         },
         body: JSON.stringify(payload),
       });
-
       if (!res.ok) {
         res = await fetch(`${API_BASE}/proposal-kegiatan/${id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            Accept: 'application/json',
+            ...getAuthHeaders(),
           },
           body: JSON.stringify(payload),
         });
       }
-
       if (res.ok) {
         await syncAllDataFromBackend();
       }
@@ -627,7 +782,6 @@ export default function DashboardPembina({
       )
         .toLowerCase()
         .trim();
-
       return (pId && pId === targetId) || (pName && pName === targetName);
     });
   };
@@ -933,6 +1087,7 @@ export default function DashboardPembina({
                     Kelola Semua &rarr;
                   </button>
                 </div>
+
                 <div className="space-y-3">
                   {proposalList.length === 0 ? (
                     <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
@@ -984,6 +1139,7 @@ export default function DashboardPembina({
                     Lihat Semua &rarr;
                   </button>
                 </div>
+
                 <div className="space-y-3">
                   {kegiatanList.length === 0 ? (
                     <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
@@ -1039,6 +1195,7 @@ export default function DashboardPembina({
                 Total: {proposalList.length} Proposal
               </span>
             </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[760px]">
                 <thead>
@@ -1059,14 +1216,30 @@ export default function DashboardPembina({
                       </td>
                     </tr>
                   ) : (
-                    proposalList.map((p) => {
+                    proposalList.map((p, idx) => {
+                      const hasFile = Boolean(
+                        p.file_url ||
+                          p.url ||
+                          p.fileUrl ||
+                          p.file_path ||
+                          p.path ||
+                          p.file_proposal ||
+                          p.fileProposal ||
+                          p.berkas ||
+                          p.file ||
+                          p.lampiran ||
+                          p.dokumen
+                      );
                       const fileDisplayName =
-                        p.file || p.fileName || p.file_proposal || 'Dokumen.pdf';
-                      const downloadUrl = `${API_BASE}/download-proposal/${encodeURIComponent(
-                        fileDisplayName
-                      )}`;
+                        p.nama_file ||
+                        p.original_name ||
+                        (p.file_proposal ? String(p.file_proposal).split('/').pop() : null) ||
+                        (p.file ? String(p.file).split('/').pop() : null) ||
+                        'Unduh Berkas';
+                      const isDownloadingThis = downloadingId === (p.id || fileDisplayName);
+
                       return (
-                        <tr key={p.id} className="hover:bg-blue-50/40 transition-colors">
+                        <tr key={p.id || idx} className="hover:bg-blue-50/40 transition-colors">
                           <td className="py-3.5 px-4 font-bold text-slate-800">
                             {p.judul_proposal || p.judul || '-'}
                           </td>
@@ -1074,18 +1247,19 @@ export default function DashboardPembina({
                             {formatRupiah(p.anggaran)}
                           </td>
                           <td className="py-3.5 px-4">
-                            {fileDisplayName && fileDisplayName !== 'Tidak ada berkas' ? (
-                              <a
-                                href={downloadUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                download={fileDisplayName}
-                                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-blue-50 text-[#2158B8] hover:bg-blue-100 font-bold text-xs rounded-xl border border-blue-200 transition-all duration-200 active:scale-95 shadow-xs cursor-pointer max-w-[150px]"
-                                title="Unduh / Buka Berkas PDF"
+                            {hasFile && fileDisplayName !== 'Tidak ada berkas' ? (
+                              <button
+                                type="button"
+                                onClick={() => handleBukaUnduhProposal(p)}
+                                disabled={isDownloadingThis}
+                                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-blue-50 text-[#2158B8] hover:bg-blue-100 font-bold text-xs rounded-xl border border-blue-200 transition-all duration-200 active:scale-95 shadow-xs cursor-pointer max-w-[155px]"
+                                title={`Klik untuk membuka & mengunduh ${fileDisplayName}`}
                               >
                                 <SvgDownload />
-                                <span className="truncate">{fileDisplayName}</span>
-                              </a>
+                                <span className="truncate">
+                                  {isDownloadingThis ? 'Membuka...' : fileDisplayName}
+                                </span>
+                              </button>
                             ) : (
                               <span className="text-slate-400 text-xs italic">
                                 Tidak ada berkas
@@ -1260,6 +1434,7 @@ export default function DashboardPembina({
                 Daftar Kegiatan OSIS & Pendaftar Siswa
               </h3>
             </div>
+
             {kegiatanList.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                 <p className="text-xs sm:text-sm text-slate-400 font-medium">
@@ -1294,6 +1469,7 @@ export default function DashboardPembina({
                           {k.deskripsi || 'Tidak ada deskripsi kegiatan.'}
                         </p>
                       </div>
+
                       <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
                         <span className="text-xs font-semibold text-slate-600">
                           Jadwal: {formatTanggal(k.target || k.tanggal)}
