@@ -360,7 +360,7 @@ export default function DashboardBendahara({ user, onLogout }) {
         console.warn('Sync proker & kegiatan terlewati:', e);
       }
 
-      // 2. Fetch Proposal
+      // 2. Fetch Proposal (Lengkap dengan Anggaran, Berkas, Status & Catatan Pembina)
       try {
         let resProposal = await fetch(`${API_BASE}/proposals`, {
           headers: getAuthHeaders(),
@@ -374,10 +374,22 @@ export default function DashboardBendahara({ user, onLogout }) {
           const resultP = await resProposal.json();
           const dataP = Array.isArray(resultP) ? resultP : resultP.data || [];
           const formattedP = dataP.map((p) => ({
+            ...p,
             id: p.id,
             judul_proposal: p.judul_proposal || p.judul || 'Tanpa Judul',
             judul: p.judul_proposal || p.judul || 'Tanpa Judul',
             pengaju: p.pengaju || p.sekbid || p.divisi || 'Sekretaris OSIS',
+            anggaran: p.anggaran || p.dana || p.estimasi_dana || p.nominal || 0,
+            file_proposal:
+              p.file_proposal || p.berkas || p.file || p.lampiran || p.dokumen || null,
+            nama_file:
+              p.nama_file ||
+              p.original_name ||
+              p.file_name ||
+              p.file_proposal ||
+              p.berkas ||
+              null,
+            catatan_pembina: p.catatan_pembina || p.catatan || p.komentar || '-',
             tanggal: p.tanggal_pengajuan || p.tanggal || p.created_at || '-',
             status: p.status || 'Menunggu Persetujuan',
           }));
@@ -781,6 +793,17 @@ export default function DashboardBendahara({ user, onLogout }) {
         .trim();
       return (pId && pId === targetId) || (pName && pName === targetName);
     });
+  };
+
+  // --- HELPER DOWNLOAD BERKAS PROPOSAL ---
+  const getProposalFileUrl = (item) => {
+    const rawFile = item.file_proposal || item.berkas || item.file || item.lampiran;
+    if (!rawFile) return null;
+    if (String(rawFile).startsWith('http://') || String(rawFile).startsWith('https://')) {
+      return rawFile;
+    }
+    const cleanFilename = String(rawFile).split('/').pop();
+    return `${API_BASE}/download-proposal/${encodeURIComponent(cleanFilename)}`;
   };
 
   // --- HITUNG RINGKASAN SALDO ---
@@ -1296,56 +1319,102 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 3. PROPOSAL MASUK */}
+        {/* 3. PROPOSAL MASUK (SAMA SEPERTI DASHBOARD KETUA: ANGGARAN, BERKAS, STATUS, CATATAN PEMBINA) */}
         {activeMenu === 'proposal-masuk' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
             <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
               Daftar Pengajuan Proposal
             </h3>
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[600px]">
+              <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[750px]">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
                     <th className="py-3 px-4 rounded-l-xl">Judul Proposal</th>
-                    <th className="py-3 px-4">Pengaju</th>
+                    <th className="py-3 px-4">Anggaran</th>
+                    <th className="py-3 px-4">Berkas</th>
                     <th className="py-3 px-4">Tanggal</th>
-                    <th className="py-3 px-4 text-center rounded-r-xl">Status</th>
+                    <th className="py-3 px-4 text-center">Status</th>
+                    <th className="py-3 px-4 rounded-r-xl">Catatan Pembina</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {proposalList.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="py-12 text-center text-slate-400 font-medium">
+                      <td colSpan="6" className="py-12 text-center text-slate-400 font-medium">
                         Belum ada pengajuan proposal.
                       </td>
                     </tr>
                   ) : (
-                    proposalList.map((item, idx) => (
-                      <tr key={item.id || idx} className="hover:bg-blue-50/40 transition-colors">
-                        <td className="py-3.5 px-4 font-bold text-slate-800">
-                          {item.judul_proposal || item.judul || item.nama}
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-600">
-                          {item.pengaju || item.sekbid || item.divisi || 'Sekretaris OSIS'}
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap">
-                          {formatTanggal(item.tanggal || item.created_at)}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span
-                            className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block ${
-                              item.status === 'Disetujui' || item.status === 'Diterima'
-                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                                : item.status === 'Ditolak'
-                                ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                                : 'bg-amber-100 text-amber-700 border border-amber-200'
-                            }`}
-                          >
-                            {item.status || 'Menunggu Persetujuan'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                    proposalList.map((item, idx) => {
+                      const fileUrl = getProposalFileUrl(item);
+                      const fileNameLabel =
+                        item.nama_file ||
+                        (item.file_proposal ? String(item.file_proposal).split('/').pop() : null) ||
+                        'Unduh Berkas';
+
+                      return (
+                        <tr key={item.id || idx} className="hover:bg-blue-50/40 transition-colors">
+                          <td className="py-3.5 px-4 font-bold text-slate-800">
+                            <div>{item.judul_proposal || item.judul || item.nama}</div>
+                            <div className="text-[11px] font-medium text-slate-400 mt-0.5">
+                              Pengaju: {item.pengaju || item.sekbid || item.divisi || 'Sekretaris OSIS'}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 font-bold text-slate-700 whitespace-nowrap">
+                            {formatRupiah(item.anggaran || item.dana || item.estimasi_dana || 0)}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            {fileUrl ? (
+                              <a
+                                href={fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-[#2158B8] font-bold text-xs transition-all max-w-[160px]"
+                                title={fileNameLabel}
+                              >
+                                <svg
+                                  className="w-3.5 h-3.5 shrink-0"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2.2"
+                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                  />
+                                </svg>
+                                <span className="truncate">{fileNameLabel}</span>
+                              </a>
+                            ) : (
+                              <span className="text-xs text-slate-400 italic">Tidak ada berkas</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap">
+                            {formatTanggal(item.tanggal || item.created_at)}
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span
+                              className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block uppercase ${
+                                item.status === 'Disetujui' ||
+                                item.status === 'DISETUJUI' ||
+                                item.status === 'Diterima'
+                                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                  : item.status === 'Ditolak' || item.status === 'DITOLAK'
+                                  ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                                  : 'bg-amber-100 text-amber-700 border border-amber-200'
+                              }`}
+                            >
+                              {item.status || 'Menunggu Persetujuan'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-500 italic text-xs">
+                            {item.catatan_pembina || item.catatan || '-'}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
