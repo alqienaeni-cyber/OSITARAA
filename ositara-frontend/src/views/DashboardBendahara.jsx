@@ -74,8 +74,8 @@ const Icon = ({ type }) => {
   }
 };
 
-// HELPER PEMISAH DATA PROKER (KETUA) VS KEGIATAN (SEKRETARIS)
-const isDataKegiatanSekretaris = (item) => {
+// HELPER PEMISAH PROGRAM KERJA (KETUA) VS KEGIATAN (SEKRETARIS)
+const isKegiatanSekretaris = (item) => {
   const divisi = String(item?.divisi || item?.sekbid || item?.penanggung_jawab || '').toLowerCase().trim();
   const tipe = String(item?.tipe || item?.jenis || item?.kategori || '').toLowerCase().trim();
   return divisi === 'sekretaris' || tipe === 'kegiatan' || Boolean(item?.is_kegiatan);
@@ -103,7 +103,7 @@ export default function DashboardBendahara({ user, onLogout }) {
   const [prokerList, setProkerList] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('ositara_proker') || '[]');
-      return saved.filter((item) => !isDataKegiatanSekretaris(item));
+      return saved.filter((item) => !isKegiatanSekretaris(item));
     } catch {
       return [];
     }
@@ -130,7 +130,7 @@ export default function DashboardBendahara({ user, onLogout }) {
     }
   });
 
-  // STATE FORM INPUT KAS BARU
+  // STATE FORM INPUT KAS
   const [keterangan, setKeterangan] = useState('');
   const [sumber, setSumber] = useState('Kas OSIS');
   const [jenisTransaksi, setJenisTransaksi] = useState('Pemasukan');
@@ -171,7 +171,7 @@ export default function DashboardBendahara({ user, onLogout }) {
     }, 3500);
   };
 
-  // FUNGSI BROADCAST SINKRONISASI KE KETUA, SEKRETARIS, & PEMBINA
+  // SINKRONISASI KEUANGAN KE KETUA, SEKRETARIS, & PEMBINA
   const broadcastKeuangan = (updatedData) => {
     try {
       localStorage.setItem('ositara_keuangan', JSON.stringify(updatedData));
@@ -242,20 +242,19 @@ export default function DashboardBendahara({ user, onLogout }) {
       localStorage.setItem('ositara_proposal', JSON.stringify(propData));
     }
 
-    // PISAHKAN DATA PROKER (INPUT KETUA) VS KEGIATAN (INPUT SEKRETARIS)
+    // Program Kerja hanya dari Ketua, Kegiatan hanya dari Sekretaris
     if (prokData) {
-      const hanyaProkerKetua = prokData.filter((item) => !isDataKegiatanSekretaris(item));
-      setProkerList(hanyaProkerKetua);
-      localStorage.setItem('ositara_proker', JSON.stringify(hanyaProkerKetua));
+      const prokerKetua = prokData.filter((item) => !isKegiatanSekretaris(item));
+      setProkerList(prokerKetua);
+      localStorage.setItem('ositara_proker', JSON.stringify(prokerKetua));
 
-      // Jika endpoint /kegiatan kosong/tidak terpisah di backend, ambil kegiatan Sekretaris dari tabel yang sama
-      const kegiatanDariProker = prokData.filter((item) => isDataKegiatanSekretaris(item));
+      const kegiatanDariTabel = prokData.filter((item) => isKegiatanSekretaris(item));
       if (kegData && kegData.length > 0) {
         setKegiatanList(kegData);
         localStorage.setItem('ositara_kegiatan', JSON.stringify(kegData));
       } else {
-        setKegiatanList(kegiatanDariProker);
-        localStorage.setItem('ositara_kegiatan', JSON.stringify(kegiatanDariProker));
+        setKegiatanList(kegiatanDariTabel);
+        localStorage.setItem('ositara_kegiatan', JSON.stringify(kegiatanDariTabel));
       }
     } else if (kegData) {
       setKegiatanList(kegData);
@@ -277,7 +276,6 @@ export default function DashboardBendahara({ user, onLogout }) {
       handleSyncData();
     }, 0);
 
-    // Auto-refresh setiap 5 detik agar sinkron dengan Ketua, Sekretaris, dan Pembina
     const interval = setInterval(() => {
       handleSyncData();
     }, 5000);
@@ -291,14 +289,14 @@ export default function DashboardBendahara({ user, onLogout }) {
         const keg = JSON.parse(localStorage.getItem('ositara_kegiatan') || '[]');
         const pend = JSON.parse(localStorage.getItem('ositara_pendaftaran') || '[]');
 
-        const prokKetua = prokRaw.filter((item) => !isDataKegiatanSekretaris(item));
-        const kegSekreFromProk = prokRaw.filter((item) => isDataKegiatanSekretaris(item));
+        const prokKetua = prokRaw.filter((item) => !isKegiatanSekretaris(item));
+        const kegSekre = prokRaw.filter((item) => isKegiatanSekretaris(item));
 
         setKeuanganList(keu);
         setProposalList(prop);
         setProkerList(prokKetua);
         setAnggotaList(ang);
-        setKegiatanList(keg.length > 0 ? keg : kegSekreFromProk);
+        setKegiatanList(keg.length > 0 ? keg : kegSekre);
         setPendaftaranList(pend);
       } catch {
         // abaikan error parse
@@ -390,7 +388,7 @@ export default function DashboardBendahara({ user, onLogout }) {
         setKeterangan('');
         setNominal('');
         setSumber('Kas OSIS');
-        showToast('Transaksi berhasil disimpan & disinkronkan!');
+        showToast('Transaksi berhasil disimpan ke database!');
 
         await handleSyncData();
       }
@@ -415,7 +413,7 @@ export default function DashboardBendahara({ user, onLogout }) {
     });
   };
 
-  // --- HANDLER SIMPAN PERUBAHAN EDIT KAS ---
+  // --- HANDLER SIMPAN EDIT KAS ---
   const handleSimpanEditKas = async (e) => {
     e.preventDefault();
     if (!editKasModal.keterangan.trim() || !editKasModal.nominal) return;
@@ -459,7 +457,7 @@ export default function DashboardBendahara({ user, onLogout }) {
         nominal: '',
         tanggal: '',
       });
-      showToast('Transaksi kas berhasil diperbarui & disinkronkan!');
+      showToast('Transaksi kas berhasil diperbarui!');
       await handleSyncData();
     } catch (err) {
       console.error('Gagal mengedit transaksi kas:', err);
@@ -517,7 +515,7 @@ export default function DashboardBendahara({ user, onLogout }) {
       const updated = keuanganList.filter((item) => String(item.id) !== String(id));
       setKeuanganList(updated);
       broadcastKeuangan(updated);
-      showToast('Catatan transaksi berhasil dihapus & disinkronkan.');
+      showToast('Catatan transaksi berhasil dihapus.');
 
       try {
         try {
@@ -724,13 +722,10 @@ export default function DashboardBendahara({ user, onLogout }) {
               <h2 className="text-lg sm:text-2xl font-black text-slate-800 tracking-tight">
                 Selamat Datang, <span className="text-[#2158B8]">{namaBendahara}!</span>
               </h2>
-              <div className="flex items-center flex-wrap gap-2 mt-1">
+              <div className="flex items-center space-x-2 mt-1">
                 <p className="text-xs text-slate-500 font-medium">Jabatan:</p>
                 <span className="px-2.5 py-0.5 text-[10px] sm:text-xs font-extrabold rounded-full bg-blue-50 text-[#2158B8] border border-blue-200/80 uppercase tracking-wide">
                   BENDAHARA OSIS
-                </span>
-                <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
-                  ● Tersinkron (Ketua, Sekretaris & Pembina)
                 </span>
               </div>
             </div>
@@ -825,7 +820,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                 </div>
               </div>
 
-              {/* Agenda Kegiatan (Sinkron Sekretaris) */}
+              {/* Agenda Kegiatan */}
               <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-300">
                 <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
                   <h3 className="text-base sm:text-lg font-black text-slate-800 flex items-center gap-2">
@@ -881,14 +876,11 @@ export default function DashboardBendahara({ user, onLogout }) {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-[fadeIn_0.3s_ease-out]">
             {/* TABEL LAPORAN KAS */}
             <div className="lg:col-span-8 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
-                <h3 className="text-base sm:text-lg font-black text-slate-800">Laporan Kas Keuangan OSIS</h3>
-                <span className="text-[11px] font-bold text-slate-400">
-                  Otomatis tersinkron ke Ketua, Sekretaris & Pembina
-                </span>
-              </div>
+              <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
+                Laporan Kas Keuangan OSIS
+              </h3>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[580px]">
+                <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[550px]">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
                       <th className="py-3 px-4 rounded-l-xl">Tanggal</th>
@@ -911,12 +903,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                           <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap">
                             {formatTanggal(item.tanggal)}
                           </td>
-                          <td className="py-3.5 px-4 font-bold text-slate-800">
-                            <div>{item.keterangan}</div>
-                            {item.sumber && (
-                              <span className="text-[10px] font-semibold text-slate-400">Sumber: {item.sumber}</span>
-                            )}
-                          </td>
+                          <td className="py-3.5 px-4 font-bold text-slate-800">{item.keterangan}</td>
                           <td className="py-3.5 px-4">
                             <span
                               className={`px-2.5 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block ${
@@ -1087,14 +1074,11 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 4. PROGRAM KERJA (SINKRON DENGAN KETUA OSIS) */}
+        {/* 4. PROGRAM KERJA (SINKRON KETUA OSIS) */}
         {activeMenu === 'program-kerja' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm space-y-4 animate-[fadeIn_0.3s_ease-out]">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base sm:text-lg font-black text-slate-800">Program Kerja OSIS</h3>
-              <span className="px-3 py-1 bg-blue-50 text-[#2158B8] text-[11px] font-bold rounded-full border border-blue-200/80">
-                Sinkron Ketua OSIS
-              </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[550px]">
@@ -1102,15 +1086,14 @@ export default function DashboardBendahara({ user, onLogout }) {
                   <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
                     <th className="py-3 px-4 rounded-l-xl">Nama Program Kerja</th>
                     <th className="py-3 px-4">Divisi Pelaksana</th>
-                    <th className="py-3 px-4">Target Waktu</th>
-                    <th className="py-3 px-4 rounded-r-xl">Status</th>
+                    <th className="py-3 px-4 rounded-r-xl">Target Waktu</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {prokerList.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="py-10 text-center text-slate-400 font-medium">
-                        Belum ada data program kerja dari Ketua OSIS.
+                      <td colSpan="3" className="py-10 text-center text-slate-400 font-medium">
+                        Belum ada data program kerja.
                       </td>
                     </tr>
                   ) : (
@@ -1119,11 +1102,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                         <td className="py-3.5 px-4 font-bold text-slate-800">{pk.nama_proker || pk.nama}</td>
                         <td className="py-3.5 px-4 text-slate-600">{pk.divisi || pk.sekbid || '-'}</td>
                         <td className="py-3.5 px-4 text-slate-500">{formatTanggal(pk.target || pk.tanggal)}</td>
-                        <td className="py-3.5 px-4">
-                          <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-blue-100 text-[#2158B8]">
-                            {pk.status || 'Direncanakan'}
-                          </span>
-                        </td>
                       </tr>
                     ))
                   )}
@@ -1173,14 +1151,11 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 6. KELOLA KEGIATAN (SINKRON DENGAN SEKRETARIS) */}
+        {/* 6. KELOLA KEGIATAN (SINKRON SEKRETARIS) */}
         {activeMenu === 'kelola-kegiatan' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm space-y-4 animate-[fadeIn_0.3s_ease-out]">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base sm:text-lg font-black text-slate-800">Daftar Kegiatan OSIS</h3>
-              <span className="px-3 py-1 bg-blue-50 text-[#2158B8] text-[11px] font-bold rounded-full border border-blue-200/80">
-                Sinkron Sekretaris
-              </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[550px]">
@@ -1197,7 +1172,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                   {kegiatanList.length === 0 ? (
                     <tr>
                       <td colSpan="5" className="py-10 text-center text-slate-400 font-medium">
-                        Belum ada data kegiatan dari Sekretaris.
+                        Belum ada data kegiatan OSIS.
                       </td>
                     </tr>
                   ) : (
