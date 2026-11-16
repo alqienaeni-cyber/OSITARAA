@@ -363,7 +363,7 @@ export default function DashboardBendahara({ user, onLogout }) {
         console.warn('Sync proker & kegiatan terlewati:', e);
       }
 
-      // 2. Fetch Proposal (Lengkap dengan Anggaran, Berkas, Status & Catatan Pembina)
+      // 2. Fetch Proposal (Lengkap dengan Path Fisik, Anggaran, Berkas, Status & Catatan Pembina)
       try {
         let resProposal = await fetch(`${API_BASE}/proposals`, {
           headers: getAuthHeaders(),
@@ -383,8 +383,16 @@ export default function DashboardBendahara({ user, onLogout }) {
             judul: p.judul_proposal || p.judul || 'Tanpa Judul',
             pengaju: p.pengaju || p.sekbid || p.divisi || 'Sekretaris OSIS',
             anggaran: p.anggaran || p.dana || p.estimasi_dana || p.nominal || 0,
+            file_path: p.file_path || p.path || null,
             file_proposal:
-              p.file_proposal || p.berkas || p.file || p.lampiran || p.dokumen || null,
+              p.file_path ||
+              p.path ||
+              p.file_proposal ||
+              p.berkas ||
+              p.file ||
+              p.lampiran ||
+              p.dokumen ||
+              null,
             nama_file:
               p.nama_file ||
               p.original_name ||
@@ -800,44 +808,53 @@ export default function DashboardBendahara({ user, onLogout }) {
 
   // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG ---
   const handleBukaUnduhProposal = async (item) => {
-    const rawFile = item.file_proposal || item.berkas || item.file || item.lampiran;
-    if (!rawFile) {
+    const serverFile =
+      item.file_path ||
+      item.path ||
+      item.file_proposal ||
+      item.berkas ||
+      item.file ||
+      item.lampiran ||
+      item.dokumen;
+
+    if (!serverFile) {
       showToast('Berkas proposal tidak ditemukan.', 'warning');
       return;
     }
 
-    const fileName =
+    const downloadLabelName =
       item.nama_file ||
-      String(rawFile).split('/').pop() ||
+      item.original_name ||
+      String(serverFile).split('/').pop() ||
       `Proposal_${item.judul_proposal || 'OSIS'}.pdf`;
 
-    // Jika berkas berupa Data URL (Base64)
-    if (String(rawFile).startsWith('data:')) {
+    // 1. Jika berkas berupa Base64 Data URL
+    if (String(serverFile).startsWith('data:')) {
       try {
-        const res = await fetch(rawFile);
+        const res = await fetch(serverFile);
         const blob = await res.blob();
         const blobUrl = URL.createObjectURL(blob);
         window.open(blobUrl, '_blank', 'noopener,noreferrer');
         const link = document.createElement('a');
         link.href = blobUrl;
-        link.download = fileName;
+        link.download = downloadLabelName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        showToast(`Berkas "${fileName}" berhasil dibuka & diunduh!`);
+        showToast(`Berkas "${downloadLabelName}" berhasil dibuka & diunduh!`);
         return;
       } catch {
-        window.open(rawFile, '_blank', 'noopener,noreferrer');
+        window.open(serverFile, '_blank', 'noopener,noreferrer');
         return;
       }
     }
 
-    // Jika berkas berupa URL penuh (http/https)
-    if (String(rawFile).startsWith('http://') || String(rawFile).startsWith('https://')) {
-      window.open(rawFile, '_blank', 'noopener,noreferrer');
+    // 2. Jika berkas berupa URL penuh (http/https)
+    if (String(serverFile).startsWith('http://') || String(serverFile).startsWith('https://')) {
+      window.open(serverFile, '_blank', 'noopener,noreferrer');
       const link = document.createElement('a');
-      link.href = rawFile;
-      link.download = fileName;
+      link.href = serverFile;
+      link.download = downloadLabelName;
       link.target = '_blank';
       document.body.appendChild(link);
       link.click();
@@ -845,12 +862,21 @@ export default function DashboardBendahara({ user, onLogout }) {
       return;
     }
 
-    const cleanFilename = String(rawFile).split('/').pop();
+    // 3. Kumpulkan semua kandidat nama file & URL dari server Laravel
+    const rawStr = String(serverFile).replace(/^\/+/, '');
+    const cleanFilename = rawStr.split('/').pop();
+    const altFilename = item.nama_file ? String(item.nama_file).split('/').pop() : null;
+
     const candidateUrls = [
       `${API_BASE}/download-proposal/${encodeURIComponent(cleanFilename)}`,
+      ...(altFilename && altFilename !== cleanFilename
+        ? [`${API_BASE}/download-proposal/${encodeURIComponent(altFilename)}`]
+        : []),
       `${API_BASE}/proposals/${item.id}/download`,
-      `/storage/${String(rawFile).replace(/^\/+/, '')}`,
+      `/storage/${rawStr}`,
       `/storage/proposals/${encodeURIComponent(cleanFilename)}`,
+      `/uploads/proposals/${encodeURIComponent(cleanFilename)}`,
+      `/${rawStr}`,
     ];
 
     setDownloadingId(item.id || cleanFilename);
@@ -867,18 +893,18 @@ export default function DashboardBendahara({ user, onLogout }) {
               const blob = await response.blob();
               const blobUrl = URL.createObjectURL(blob);
 
-              // 1. Langsung buka berkas di tab baru
+              // Langsung buka berkas di tab baru
               window.open(blobUrl, '_blank', 'noopener,noreferrer');
 
-              // 2. Sekaligus otomatis ter-download
+              // Sekaligus otomatis ter-download
               const link = document.createElement('a');
               link.href = blobUrl;
-              link.download = fileName;
+              link.download = downloadLabelName;
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
 
-              showToast(`Berkas "${fileName}" berhasil dibuka & diunduh!`);
+              showToast(`Berkas "${downloadLabelName}" berhasil dibuka & diunduh!`);
               return;
             }
           }
@@ -887,8 +913,10 @@ export default function DashboardBendahara({ user, onLogout }) {
         }
       }
 
-      // Fallback terakhir: buka langsung URL file
-      window.open(candidateUrls[0], '_blank', 'noopener,noreferrer');
+      showToast(
+        'File fisik berkas tidak ditemukan di folder server (silakan coba unggah ulang proposal).',
+        'warning'
+      );
     } finally {
       setDownloadingId(null);
     }
@@ -1435,10 +1463,17 @@ export default function DashboardBendahara({ user, onLogout }) {
                   ) : (
                     proposalList.map((item, idx) => {
                       const hasFile = Boolean(
-                        item.file_proposal || item.berkas || item.file || item.lampiran
+                        item.file_path ||
+                          item.path ||
+                          item.file_proposal ||
+                          item.berkas ||
+                          item.file ||
+                          item.lampiran ||
+                          item.dokumen
                       );
                       const fileNameLabel =
                         item.nama_file ||
+                        item.original_name ||
                         (item.file_proposal ? String(item.file_proposal).split('/').pop() : null) ||
                         'Unduh Berkas';
                       const isDownloadingThis =
