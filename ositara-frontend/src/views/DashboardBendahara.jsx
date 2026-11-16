@@ -735,41 +735,74 @@ export default function DashboardBendahara({ user, onLogout }) {
         {/* 1. BERANDA */}
         {activeMenu === 'beranda' && (
           <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
-            {/* 3 STAT CARDS */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
-              <div className="bg-gradient-to-br from-[#1B4694] via-[#2158B8] to-[#316CE0] text-white p-6 rounded-3xl shadow-lg shadow-blue-900/15 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
-                <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-xl pointer-events-none" />
-                <p className="text-[11px] font-bold text-blue-100 uppercase tracking-wider">Total Saldo Kas OSIS</p>
-                <h3 className="text-2xl sm:text-3xl font-black mt-2 tracking-tight">{formatRupiah(saldoSaatIni)}</h3>
-                <p className="text-[11px] text-blue-200/90 mt-2 font-medium flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#FFF5BF] inline-block" /> Dana aktif tersedia saat ini
-                </p>
+            {/* STAT CARDS TEMA SUMMER WARNA-WARNI (GRID 2 KOLOM DI MOBILE) */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
+              {/* Card 1: Total Saldo Kas OSIS (Summer Sky Blue) */}
+              <div className="col-span-2 lg:col-span-1 bg-gradient-to-br from-[#2C6FD1] via-[#4791EB] to-[#74B9FF] text-white p-4 sm:p-5 rounded-3xl shadow-lg shadow-blue-500/20 hover:-translate-y-1 transition-all duration-300 flex items-center justify-between gap-3 relative overflow-hidden">
+                <div className="min-w-0 relative z-10">
+                  <p className="text-[10px] sm:text-[11px] font-extrabold text-white/90 uppercase tracking-wider">
+                    TOTAL SALDO KAS
+                  </p>
+                  <h3 className="text-lg sm:text-2xl font-black mt-1.5 tracking-tight truncate">
+                    {formatRupiah(saldoSaatIni)}
+                  </h3>
+                </div>
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Pemasukan</p>
-                  <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200">
-                    + MASUK
-                  </span>
+              {/* Card 2: Total Pemasukan (Summer Tropical Teal / Cyan) */}
+              <div className="bg-gradient-to-br from-[#2A8C9E] via-[#3DB3C5] to-[#6EE0F0] text-white p-4 sm:p-5 rounded-3xl shadow-lg shadow-cyan-500/20 hover:-translate-y-1 transition-all duration-300 flex items-center justify-between gap-2.5 relative overflow-hidden">
+                <div className="min-w-0 relative z-10">
+                  <p className="text-[10px] sm:text-[11px] font-extrabold text-white/90 uppercase tracking-wider">
+                    PEMASUKAN
+                  </p>
+                  <h3 className="text-base sm:text-xl font-black mt-1.5 tracking-tight truncate">
+                    {formatRupiah(totalPemasukan)}
+                  </h3>
                 </div>
-                <h3 className="text-2xl sm:text-3xl font-black text-emerald-600 mt-2 tracking-tight">
-                  {formatRupiah(totalPemasukan)}
-                </h3>
-                <p className="text-[11px] text-slate-400 mt-2 font-medium">Akumulasi dana masuk</p>
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                  </svg>
+                </div>
               </div>
 
-              <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Pengeluaran</p>
-                  <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-lg bg-rose-50 text-rose-600 border border-rose-200">
-                    - KELUAR
-                  </span>
+              {/* Card 3: Total Pengeluaran (Summer Coral / Sunset Pink) */}
+              <div className="bg-gradient-to-br from-[#DA5B67] via-[#F27D88] to-[#FFACB5] text-white p-4 sm:p-5 rounded-3xl shadow-lg shadow-rose-500/20 hover:-translate-y-1 transition-all duration-300 flex items-center justify-between gap-2.5 relative overflow-hidden">
+                <div className="min-w-0 relative z-10">
+                  <p className="text-[10px] sm:text-[11px] font-extrabold text-white/90 uppercase tracking-wider">
+                    PENGELUARAN
+                  </p>
+                  <h3 className="text-base sm:text-xl font-black mt-1.5 tracking-tight truncate">
+                    {formatRupiah(totalPengeluaran)}
+                  </h3>
                 </div>
-                <h3 className="text-2xl sm:text-3xl font-black text-rose-500 mt-2 tracking-tight">
-                  {formatRupiah(totalPengeluaran)}
-                </h3>
-                <p className="text-[11px] text-slate-400 mt-2 font-medium">Akumulasi pengeluaran kas</p>
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 13l-5 5m0 0l-5-5m5 5V6" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Card 4: Pengajuan Proposal (Summer Warm Amber / Gold) */}
+              <div className="col-span-2 lg:col-span-1 bg-gradient-to-br from-[#D68B28] via-[#EDA844] to-[#FFC76B] text-white p-4 sm:p-5 rounded-3xl shadow-lg shadow-amber-500/20 hover:-translate-y-1 transition-all duration-300 flex items-center justify-between gap-3 relative overflow-hidden">
+                <div className="min-w-0 relative z-10">
+                  <p className="text-[10px] sm:text-[11px] font-extrabold text-white/90 uppercase tracking-wider">
+                    PROPOSAL MASUK
+                  </p>
+                  <h3 className="text-lg sm:text-2xl font-black mt-1.5 tracking-tight">
+                    {proposalList.length}
+                  </h3>
+                </div>
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white/20 backdrop-blur-xs border border-white/25 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
               </div>
             </div>
 
