@@ -308,7 +308,6 @@ export default function DashboardBendahara({ user, onLogout }) {
           rawKeg = Array.isArray(resultKeg) ? resultKeg : resultKeg.data || [];
         }
 
-        // Gabungkan lalu deduplikasi berdasarkan ID agar tidak dobel jika backend memakai 1 tabel
         const mergedMap = new Map();
         [...rawPK, ...rawKeg].forEach((item) => {
           if (item && item.id !== undefined) {
@@ -806,7 +805,7 @@ export default function DashboardBendahara({ user, onLogout }) {
     });
   };
 
-  // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG ---
+  // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG (SUPPORT HP & LAPTOP) ---
   const handleBukaUnduhProposal = async (item) => {
     const serverFile =
       item.file_path ||
@@ -834,49 +833,48 @@ export default function DashboardBendahara({ user, onLogout }) {
         const res = await fetch(serverFile);
         const blob = await res.blob();
         const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank', 'noopener,noreferrer');
         const link = document.createElement('a');
         link.href = blobUrl;
         link.download = downloadLabelName;
+        link.target = '_blank';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         showToast(`Berkas "${downloadLabelName}" berhasil dibuka & diunduh!`);
         return;
       } catch {
-        window.open(serverFile, '_blank', 'noopener,noreferrer');
+        window.location.href = serverFile;
         return;
       }
     }
 
-    // 2. Jika berkas berupa URL penuh (http/https)
+    // 2. Jika berkas sudah berupa URL penuh (http/https)
     if (String(serverFile).startsWith('http://') || String(serverFile).startsWith('https://')) {
-      window.open(serverFile, '_blank', 'noopener,noreferrer');
       const link = document.createElement('a');
       link.href = serverFile;
       link.download = downloadLabelName;
       link.target = '_blank';
+      link.rel = 'noopener noreferrer';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       return;
     }
 
-    // 3. Kumpulkan semua kandidat nama file & URL dari server Laravel
+    // 3. Kumpulkan kandidat URL file di server Laravel
     const rawStr = String(serverFile).replace(/^\/+/, '');
     const cleanFilename = rawStr.split('/').pop();
     const altFilename = item.nama_file ? String(item.nama_file).split('/').pop() : null;
 
     const candidateUrls = [
+      `/storage/${rawStr}`,
+      `/storage/proposals/${encodeURIComponent(cleanFilename)}`,
       `${API_BASE}/download-proposal/${encodeURIComponent(cleanFilename)}`,
       ...(altFilename && altFilename !== cleanFilename
         ? [`${API_BASE}/download-proposal/${encodeURIComponent(altFilename)}`]
         : []),
       `${API_BASE}/proposals/${item.id}/download`,
-      `/storage/${rawStr}`,
-      `/storage/proposals/${encodeURIComponent(cleanFilename)}`,
       `/uploads/proposals/${encodeURIComponent(cleanFilename)}`,
-      `/${rawStr}`,
     ];
 
     setDownloadingId(item.id || cleanFilename);
@@ -893,18 +891,22 @@ export default function DashboardBendahara({ user, onLogout }) {
               const blob = await response.blob();
               const blobUrl = URL.createObjectURL(blob);
 
-              // Langsung buka berkas di tab baru
-              window.open(blobUrl, '_blank', 'noopener,noreferrer');
-
-              // Sekaligus otomatis ter-download
+              // Trigger download + buka langsung (kompatibel Chrome HP & Safari iOS)
               const link = document.createElement('a');
               link.href = blobUrl;
               link.download = downloadLabelName;
+              link.target = '_blank';
+              link.rel = 'noopener noreferrer';
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
 
-              showToast(`Berkas "${downloadLabelName}" berhasil dibuka & diunduh!`);
+              // Buka tab/viewer baru untuk pratinjau langsung
+              setTimeout(() => {
+                window.open(blobUrl, '_blank', 'noopener,noreferrer');
+              }, 100);
+
+              showToast(`Berkas "${downloadLabelName}" berhasil diunduh!`);
               return;
             }
           }
@@ -913,10 +915,17 @@ export default function DashboardBendahara({ user, onLogout }) {
         }
       }
 
-      showToast(
-        'File fisik berkas tidak ditemukan di folder server (silakan coba unggah ulang proposal).',
-        'warning'
-      );
+      // Fallback langsung ke URL storage publik jika fetch blob diblokir browser HP
+      const directStorageUrl = `/storage/${
+        rawStr.startsWith('proposals/') ? rawStr : `proposals/${encodeURIComponent(cleanFilename)}`
+      }`;
+      const fallbackLink = document.createElement('a');
+      fallbackLink.href = directStorageUrl;
+      fallbackLink.download = downloadLabelName;
+      fallbackLink.target = '_blank';
+      document.body.appendChild(fallbackLink);
+      fallbackLink.click();
+      document.body.removeChild(fallbackLink);
     } finally {
       setDownloadingId(null);
     }
