@@ -54,6 +54,36 @@ const getInitialData = (keys, fallback) => {
   return fallback;
 };
 
+// --- PENENTU PEMISAHAN DATA SEKRETARIS VS KETUA ---
+const isItemKegiatanSekre = (item) => {
+  if (!item) return false;
+  const divisi = String(item.sekbid || item.divisi || item.penanggung_jawab || '')
+    .toLowerCase()
+    .trim();
+  const status = String(item.status || '')
+    .toLowerCase()
+    .trim();
+
+  return (
+    String(item.is_event) === '1' ||
+    item.is_event === true ||
+    divisi === 'sekretaris' ||
+    status === 'mendatang' ||
+    status === 'berlangsung' ||
+    status === 'selesai'
+  );
+};
+
+const filterOnlyKegiatanSekre = (list) => {
+  if (!Array.isArray(list)) return [];
+  return list.filter((item) => isItemKegiatanSekre(item));
+};
+
+const filterOnlyProkerKetua = (list) => {
+  if (!Array.isArray(list)) return [];
+  return list.filter((item) => !isItemKegiatanSekre(item));
+};
+
 // --- HELPER COMPONENT: ICON ---
 function Icon({ type }) {
   const icons = {
@@ -223,13 +253,13 @@ export default function DashboardBendahara({ user, onLogout }) {
     getInitialData(['ositara_proposal', 'proposals'], [])
   );
   const [prokerList, setProkerList] = useState(() =>
-    getInitialData(['ositara_proker', 'prokerList'], [])
+    filterOnlyProkerKetua(getInitialData(['ositara_proker', 'prokerList'], []))
   );
   const [anggotaList, setAnggotaList] = useState(() =>
     getInitialData(['ositara_anggota', 'anggotaList'], [])
   );
   const [kegiatanList, setKegiatanList] = useState(() =>
-    getInitialData(['ositara_kegiatan', 'kegiatanList'], [])
+    filterOnlyKegiatanSekre(getInitialData(['ositara_kegiatan', 'kegiatanList'], []))
   );
   const [pendaftaranList, setPendaftaranList] = useState(() =>
     getInitialData(['ositara_pendaftaran', 'pendaftaranList'], [])
@@ -256,72 +286,78 @@ export default function DashboardBendahara({ user, onLogout }) {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-      // 1A. Fetch Program Kerja (Sinkron langsung dengan Ketua -> /api/program-kerja)
+      // 1. Fetch & Pisahkan Program Kerja (Ketua) vs Kelola Kegiatan (Sekretaris)
       try {
-        const resProker = await fetch(`${API_BASE}/program-kerja`, {
-          headers: getAuthHeaders(),
-        });
-        if (resProker.ok) {
-          const resultPK = await resProker.json();
-          const dataPK = Array.isArray(resultPK) ? resultPK : resultPK.data || [];
-          const mappedPK = dataPK.map((pk) => ({
-            ...pk,
-            id: pk.id,
-            nama_proker: pk.nama_proker || pk.nama || 'Tanpa Nama Program Kerja',
-            divisi: pk.divisi || pk.sekbid || 'Ketua OSIS',
-            target: pk.target || pk.tanggal || pk.tanggal_pelaksanaan || '-',
-            status: pk.status || 'Direncanakan',
-          }));
-          setProkerList(mappedPK);
-          localStorage.setItem('ositara_proker', JSON.stringify(mappedPK));
-          localStorage.setItem('prokerList', JSON.stringify(mappedPK));
-        }
-      } catch (e) {
-        console.warn('Sync program kerja terlewati:', e);
-      }
+        const [resProker, resKegiatan] = await Promise.all([
+          fetch(`${API_BASE}/program-kerja`, { headers: getAuthHeaders() }).catch(() => null),
+          fetch(`${API_BASE}/kegiatan`, { headers: getAuthHeaders() }).catch(() => null),
+        ]);
 
-      // 1B. Fetch Kelola Kegiatan (Sinkron langsung dengan Sekretaris -> /api/kegiatan atau /api/events)
-      try {
-        let resKegiatan = await fetch(`${API_BASE}/kegiatan`, {
-          headers: getAuthHeaders(),
-        });
-        if (!resKegiatan.ok) {
-          resKegiatan = await fetch(`${API_BASE}/events`, {
-            headers: getAuthHeaders(),
-          });
+        let rawPK = [];
+        if (resProker && resProker.ok) {
+          const resultPK = await resProker.json();
+          rawPK = Array.isArray(resultPK) ? resultPK : resultPK.data || [];
         }
-        if (resKegiatan.ok) {
+
+        let rawKeg = [];
+        if (resKegiatan && resKegiatan.ok) {
           const resultKeg = await resKegiatan.json();
-          const dataKeg = Array.isArray(resultKeg) ? resultKeg : resultKeg.data || [];
-          const mappedKeg = dataKeg.map((k) => ({
-            ...k,
-            id: k.id,
-            namaKegiatan:
-              k.nama_kegiatan ||
-              k.nama_event ||
-              k.judul ||
-              k.nama_proker ||
-              k.nama ||
-              'Tanpa Nama Kegiatan',
-            nama_proker:
-              k.nama_kegiatan ||
-              k.nama_event ||
-              k.judul ||
-              k.nama_proker ||
-              k.nama ||
-              'Tanpa Nama Kegiatan',
-            tanggal: k.tanggal || k.tanggal_pelaksanaan || k.target || '-',
-            target: k.tanggal || k.tanggal_pelaksanaan || k.target || '-',
-            sekbid: k.penanggung_jawab || k.sekbid || k.divisi || 'Sekretaris',
-            divisi: k.penanggung_jawab || k.divisi || k.sekbid || 'Sekretaris',
-            status: k.status || 'Mendatang',
-          }));
-          setKegiatanList(mappedKeg);
-          localStorage.setItem('ositara_kegiatan', JSON.stringify(mappedKeg));
-          localStorage.setItem('kegiatanList', JSON.stringify(mappedKeg));
+          rawKeg = Array.isArray(resultKeg) ? resultKeg : resultKeg.data || [];
         }
+
+        // Gabungkan lalu deduplikasi berdasarkan ID agar tidak dobel jika backend memakai 1 tabel
+        const mergedMap = new Map();
+        [...rawPK, ...rawKeg].forEach((item) => {
+          if (item && item.id !== undefined) {
+            mergedMap.set(String(item.id), item);
+          }
+        });
+        const allItems = Array.from(mergedMap.values());
+
+        // Pisahkan Program Kerja (Ketua)
+        const onlyProker = filterOnlyProkerKetua(allItems).map((pk) => ({
+          ...pk,
+          id: pk.id,
+          nama_proker: pk.nama_proker || pk.nama || 'Tanpa Nama Program Kerja',
+          divisi: pk.divisi || pk.sekbid || 'Ketua OSIS',
+          target: pk.target || pk.tanggal || pk.tanggal_pelaksanaan || '-',
+          status: pk.status || 'Direncanakan',
+        }));
+
+        // Pisahkan Kelola Kegiatan (Sekretaris)
+        const onlyKegiatan = filterOnlyKegiatanSekre(allItems).map((k) => ({
+          ...k,
+          id: k.id,
+          namaKegiatan:
+            k.nama_kegiatan ||
+            k.nama_event ||
+            k.judul ||
+            k.nama_proker ||
+            k.nama ||
+            'Tanpa Nama Kegiatan',
+          nama_proker:
+            k.nama_kegiatan ||
+            k.nama_event ||
+            k.judul ||
+            k.nama_proker ||
+            k.nama ||
+            'Tanpa Nama Kegiatan',
+          tanggal: k.tanggal || k.tanggal_pelaksanaan || k.target || '-',
+          target: k.tanggal || k.tanggal_pelaksanaan || k.target || '-',
+          sekbid: k.penanggung_jawab || k.sekbid || k.divisi || 'Sekretaris',
+          divisi: k.penanggung_jawab || k.divisi || k.sekbid || 'Sekretaris',
+          status: k.status || 'Mendatang',
+        }));
+
+        setProkerList(onlyProker);
+        localStorage.setItem('ositara_proker', JSON.stringify(onlyProker));
+        localStorage.setItem('prokerList', JSON.stringify(onlyProker));
+
+        setKegiatanList(onlyKegiatan);
+        localStorage.setItem('ositara_kegiatan', JSON.stringify(onlyKegiatan));
+        localStorage.setItem('kegiatanList', JSON.stringify(onlyKegiatan));
       } catch (e) {
-        console.warn('Sync kegiatan sekretaris terlewati:', e);
+        console.warn('Sync proker & kegiatan terlewati:', e);
       }
 
       // 2. Fetch Proposal
@@ -552,8 +588,14 @@ export default function DashboardBendahara({ user, onLogout }) {
     e.preventDefault();
     if (isUpdatingKas) return;
 
-    const { id, tanggal, keterangan: ketEdit, sumber: sumberEdit, jenis: jenisEdit, nominal: nomEdit } =
-      editKasModal;
+    const {
+      id,
+      tanggal,
+      keterangan: ketEdit,
+      sumber: sumberEdit,
+      jenis: jenisEdit,
+      nominal: nomEdit,
+    } = editKasModal;
 
     if (!ketEdit.trim() || !nomEdit || Number(nomEdit) <= 0) {
       showToast('Silakan lengkapi keterangan dan nominal yang valid!', 'warning');
@@ -1311,7 +1353,7 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 4. PROGRAM KERJA (SINKRON DENGAN KETUA OSIS) */}
+        {/* 4. PROGRAM KERJA (SINKRON KHUSUS KETUA OSIS) */}
         {activeMenu === 'program-kerja' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
             <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
@@ -1323,14 +1365,13 @@ export default function DashboardBendahara({ user, onLogout }) {
                   <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
                     <th className="py-3 px-4 rounded-l-xl">Nama Program Kerja</th>
                     <th className="py-3 px-4">Divisi Pelaksana</th>
-                    <th className="py-3 px-4">Target Waktu</th>
-                    <th className="py-3 px-4 text-center rounded-r-xl">Status</th>
+                    <th className="py-3 px-4 rounded-r-xl">Target Waktu</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {prokerList.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="py-12 text-center text-slate-400 font-medium">
+                      <td colSpan="3" className="py-12 text-center text-slate-400 font-medium">
                         Belum ada program kerja terdaftar dari Ketua OSIS.
                       </td>
                     </tr>
@@ -1345,19 +1386,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                         </td>
                         <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap">
                           {formatTanggal(pk.target || pk.tanggal)}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span
-                            className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block ${
-                              pk.status === 'Selesai' || pk.status === 'Terlaksana'
-                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                                : pk.status === 'Berjalan'
-                                ? 'bg-amber-100 text-amber-700 border border-amber-200'
-                                : 'bg-blue-100 text-[#2158B8] border border-blue-200'
-                            }`}
-                          >
-                            {pk.status || 'Direncanakan'}
-                          </span>
                         </td>
                       </tr>
                     ))
@@ -1415,7 +1443,7 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 6. KELOLA KEGIATAN (SINKRON DENGAN SEKRETARIS) */}
+        {/* 6. KELOLA KEGIATAN (SINKRON KHUSUS SEKRETARIS) */}
         {activeMenu === 'kelola-kegiatan' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
             <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
