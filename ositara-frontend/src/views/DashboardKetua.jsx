@@ -248,24 +248,35 @@ const requestFirstAvailable = async (method, endpoints, payload = null) => {
   return null;
 };
 
+// --- PENENTU PEMISAHAN DATA KEGIATAN SEKRETARIS VS PROKER KETUA (BERSATU DI DB, TERPISAH DI UI) ---
+const isItemKegiatanSekre = (item) => {
+  if (!item) return false;
+  const divisi = String(item.sekbid || item.divisi || item.penanggung_jawab || '')
+    .toLowerCase()
+    .trim();
+  const status = String(item.status || '')
+    .toLowerCase()
+    .trim();
+  return (
+    String(item.is_event) === '1' ||
+    item.is_event === true ||
+    divisi === 'sekretaris' ||
+    status === 'mendatang' ||
+    status === 'berlangsung' ||
+    status === 'selesai'
+  );
+};
+
 // Filter khusus Program Kerja Ketua/Wakil OSIS (mengecualikan agenda kegiatan Sekretaris)
 const filterOnlyProkerKetua = (list) => {
   if (!Array.isArray(list)) return [];
-  return list.filter(
-    (item) =>
-      String(item.is_event) !== '1' &&
-      String(item.sekbid || item.divisi || '').toLowerCase().trim() !== 'sekretaris'
-  );
+  return list.filter((item) => !isItemKegiatanSekre(item));
 };
 
 // Filter khusus Kegiatan OSIS yang diinput Sekretaris
 const filterOnlyKegiatanSekre = (list) => {
   if (!Array.isArray(list)) return [];
-  return list.filter(
-    (item) =>
-      String(item.is_event) === '1' ||
-      String(item.sekbid || item.divisi || '').toLowerCase().trim() === 'sekretaris'
-  );
+  return list.filter((item) => isItemKegiatanSekre(item));
 };
 
 export default function DashboardKetua({
@@ -332,9 +343,9 @@ export default function DashboardKetua({
   const [avatarUrl, setAvatarUrl] = useState(
     () => localStorage.getItem('ositara_user_avatar') || null
   );
-
   const [selectedKegiatanPeserta, setSelectedKegiatanPeserta] = useState(null);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+
   const [isSubmittingProker, setIsSubmittingProker] = useState(false);
   const [isSubmittingAnggota, setIsSubmittingAnggota] = useState(false);
 
@@ -362,47 +373,55 @@ export default function DashboardKetua({
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-      // 1. Sync Program Kerja & Kegiatan (Events)
+      // 1. Sync & Pisahkan Program Kerja (Ketua) vs Kegiatan OSIS (Sekretaris)
+      // Di database menyatu, di frontend dipisahkan ketat berdasarkan kategori/flag
       try {
-        const resProker = await requestFirstAvailable('get', [
-          '/program-kerja',
-          '/program_kerja',
-          '/prokers',
-          '/proker',
+        const [resProker, resEvents] = await Promise.all([
+          requestFirstAvailable('get', [
+            '/program-kerja',
+            '/program_kerja',
+            '/prokers',
+            '/proker',
+          ]),
+          requestFirstAvailable('get', ['/events', '/kegiatan']),
         ]);
-        if (resProker) {
-          const dataPK = Array.isArray(resProker.data)
+
+        const dataPK = resProker
+          ? Array.isArray(resProker.data)
             ? resProker.data
-            : resProker.data?.data || [];
-          const onlyProker = filterOnlyProkerKetua(dataPK);
-          setProkerList((prev) =>
-            JSON.stringify(prev) !== JSON.stringify(onlyProker) ? onlyProker : prev
-          );
-          localStorage.setItem('ositara_proker', JSON.stringify(onlyProker));
-          localStorage.setItem('prokerList', JSON.stringify(onlyProker));
+            : resProker.data?.data || []
+          : [];
 
-          const onlyKegFromPK = filterOnlyKegiatanSekre(dataPK);
-          if (onlyKegFromPK.length > 0) {
-            setKegiatanList(onlyKegFromPK);
-            localStorage.setItem('ositara_kegiatan', JSON.stringify(onlyKegFromPK));
-            localStorage.setItem('kegiatanList', JSON.stringify(onlyKegFromPK));
-          }
-        }
-
-        // Ambil juga langsung dari /events (endpoint resmi di App.jsx)
-        const resEvents = await requestFirstAvailable('get', ['/events', '/kegiatan']);
-        if (resEvents) {
-          const dataEv = Array.isArray(resEvents.data)
+        const dataEv = resEvents
+          ? Array.isArray(resEvents.data)
             ? resEvents.data
-            : resEvents.data?.data || [];
-          if (dataEv.length > 0) {
-            setKegiatanList((prev) =>
-              JSON.stringify(prev) !== JSON.stringify(dataEv) ? dataEv : prev
-            );
-            localStorage.setItem('ositara_kegiatan', JSON.stringify(dataEv));
-            localStorage.setItem('kegiatanList', JSON.stringify(dataEv));
+            : resEvents.data?.data || []
+          : [];
+
+        // Gabungkan dan deduplikasi berdasarkan ID
+        const mergedMap = new Map();
+        [...dataPK, ...dataEv].forEach((item) => {
+          if (item && item.id !== undefined) {
+            mergedMap.set(String(item.id), item);
           }
-        }
+        });
+        const allItems = Array.from(mergedMap.values());
+
+        // Pisahkan: Hanya Program Kerja Ketua
+        const onlyProker = filterOnlyProkerKetua(allItems);
+        setProkerList((prev) =>
+          JSON.stringify(prev) !== JSON.stringify(onlyProker) ? onlyProker : prev
+        );
+        localStorage.setItem('ositara_proker', JSON.stringify(onlyProker));
+        localStorage.setItem('prokerList', JSON.stringify(onlyProker));
+
+        // Pisahkan: Hanya Kegiatan OSIS dari Sekretaris (TIDAK boleh mencampur proker Ketua)
+        const onlyKegiatan = filterOnlyKegiatanSekre(allItems);
+        setKegiatanList((prev) =>
+          JSON.stringify(prev) !== JSON.stringify(onlyKegiatan) ? onlyKegiatan : prev
+        );
+        localStorage.setItem('ositara_kegiatan', JSON.stringify(onlyKegiatan));
+        localStorage.setItem('kegiatanList', JSON.stringify(onlyKegiatan));
       } catch (e) {
         console.warn('Sync proker/events terlewati:', e);
       }
@@ -621,7 +640,6 @@ export default function DashboardKetua({
       const blobUrl = URL.createObjectURL(blob);
 
       if (isMobileDevice) {
-        // Konversi Blob ke Data URL agar Android Download Manager bisa menyimpan file tanpa gagal
         const reader = new FileReader();
         reader.onloadend = () => {
           const dataUrl = reader.result;
@@ -636,7 +654,6 @@ export default function DashboardKetua({
 
         window.open(blobUrl, '_blank', 'noopener,noreferrer');
       } else {
-        // Untuk Laptop / Desktop
         window.open(blobUrl, '_blank', 'noopener,noreferrer');
         const link = document.createElement('a');
         link.href = blobUrl;
@@ -647,7 +664,6 @@ export default function DashboardKetua({
       }
     };
 
-    // 1. Jika berkas berupa Base64 Data URL
     if (String(serverFile).startsWith('data:')) {
       try {
         const res = await fetch(serverFile);
@@ -661,7 +677,6 @@ export default function DashboardKetua({
       }
     }
 
-    // 2. Kumpulkan kandidat URL file di server Laravel (Prioritaskan API endpoint dulu)
     const rawStr = String(serverFile)
       .replace(/^https?:\/\/[^/]+/, '')
       .replace(/^\/+/, '');
@@ -788,6 +803,7 @@ export default function DashboardKetua({
               String(item.id) === String(currentEditId) ? { ...item, ...savedRecord } : item
             )
           : [savedRecord, ...prokerList];
+
         setProkerList(updated);
         syncProkerToAllDashboards(updated);
         await syncAllDataFromBackend();
@@ -803,6 +819,7 @@ export default function DashboardKetua({
               String(item.id) === String(currentEditId) ? tempItem : item
             )
           : [tempItem, ...prokerList];
+
         setProkerList(updated);
         syncProkerToAllDashboards(updated);
         showToast(
@@ -885,6 +902,7 @@ export default function DashboardKetua({
               String(item.id) === String(currentEditId) ? { ...item, ...savedRecord } : item
             )
           : [savedRecord, ...anggotaList];
+
         setAnggotaList(updated);
         syncAnggotaToAllDashboards(updated);
         await syncAllDataFromBackend();
@@ -900,6 +918,7 @@ export default function DashboardKetua({
               String(item.id) === String(currentEditId) ? tempItem : item
             )
           : [tempItem, ...anggotaList];
+
         setAnggotaList(updated);
         syncAnggotaToAllDashboards(updated);
         showToast(
@@ -1343,7 +1362,7 @@ export default function DashboardKetua({
                             {a.nama}
                           </p>
                           <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                            NIS: {a.nis || '-'} • {a.sekbid || a.divisi || a.kelas || '-'}
+                            NIS: {a.nis || '-'} | {a.sekbid || a.divisi || a.kelas || '-'}
                           </p>
                         </div>
                         <span className="px-3 py-1 text-[10px] font-extrabold rounded-xl shrink-0 uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
@@ -1513,6 +1532,7 @@ export default function DashboardKetua({
                     <option value="Tahunan">Tahunan</option>
                   </select>
                 </div>
+
                 <button
                   type="submit"
                   disabled={isSubmittingProker}
@@ -1671,6 +1691,7 @@ export default function DashboardKetua({
                     className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
+
                 <button
                   type="submit"
                   disabled={isSubmittingAnggota}
@@ -1824,7 +1845,7 @@ export default function DashboardKetua({
                                 : 'bg-blue-50 text-[#2158B8] border-blue-200'
                             }`}
                           >
-                            {k.status || 'KEGIATAN'}
+                            {k.status || 'MENDATANG'}
                           </span>
                         </div>
                         <p className="text-xs sm:text-sm text-slate-500 leading-relaxed line-clamp-2">
