@@ -805,7 +805,7 @@ export default function DashboardBendahara({ user, onLogout }) {
     });
   };
 
-  // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG (SUPPORT HP & LAPTOP) ---
+  // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG (SUPPORT ANDROID, IOS & LAPTOP) ---
   const handleBukaUnduhProposal = async (item) => {
     const serverFile =
       item.file_path ||
@@ -827,34 +827,60 @@ export default function DashboardBendahara({ user, onLogout }) {
       String(serverFile).split('/').pop() ||
       `Proposal_${item.judul_proposal || 'OSIS'}.pdf`;
 
+    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    // Helper khusus agar Download Manager Android & Safari iOS tidak gagal
+    const triggerDownloadAndOpenBlob = (blob) => {
+      const blobUrl = URL.createObjectURL(blob);
+
+      if (isMobileDevice) {
+        // 1. Konversi Blob ke Data URL agar Android Download Manager bisa menyimpan file tanpa gagal
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result;
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          link.download = downloadLabelName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        };
+        reader.readAsDataURL(blob);
+
+        // 2. Buka pratinjau file langsung di tab baru
+        window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        // Untuk Laptop / Desktop
+        window.open(blobUrl, '_blank', 'noopener,noreferrer');
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = downloadLabelName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    };
+
     // 1. Jika berkas berupa Base64 Data URL
     if (String(serverFile).startsWith('data:')) {
       try {
         const res = await fetch(serverFile);
         const blob = await res.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = downloadLabelName;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        triggerDownloadAndOpenBlob(blob);
         showToast(`Berkas "${downloadLabelName}" berhasil dibuka & diunduh!`);
         return;
       } catch {
-        window.location.href = serverFile;
+        window.open(serverFile, '_blank', 'noopener,noreferrer');
         return;
       }
     }
 
     // 2. Jika berkas sudah berupa URL penuh (http/https)
     if (String(serverFile).startsWith('http://') || String(serverFile).startsWith('https://')) {
+      window.open(serverFile, '_blank', 'noopener,noreferrer');
       const link = document.createElement('a');
       link.href = serverFile;
       link.download = downloadLabelName;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -889,24 +915,8 @@ export default function DashboardBendahara({ user, onLogout }) {
             const contentType = response.headers.get('content-type') || '';
             if (!contentType.includes('text/html') && !contentType.includes('application/json')) {
               const blob = await response.blob();
-              const blobUrl = URL.createObjectURL(blob);
-
-              // Trigger download + buka langsung (kompatibel Chrome HP & Safari iOS)
-              const link = document.createElement('a');
-              link.href = blobUrl;
-              link.download = downloadLabelName;
-              link.target = '_blank';
-              link.rel = 'noopener noreferrer';
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-
-              // Buka tab/viewer baru untuk pratinjau langsung
-              setTimeout(() => {
-                window.open(blobUrl, '_blank', 'noopener,noreferrer');
-              }, 100);
-
-              showToast(`Berkas "${downloadLabelName}" berhasil diunduh!`);
+              triggerDownloadAndOpenBlob(blob);
+              showToast(`Berkas "${downloadLabelName}" berhasil dibuka & diunduh!`);
               return;
             }
           }
@@ -915,17 +925,11 @@ export default function DashboardBendahara({ user, onLogout }) {
         }
       }
 
-      // Fallback langsung ke URL storage publik jika fetch blob diblokir browser HP
+      // Fallback langsung tanpa atribut download agar Android membuka file di tab baru
       const directStorageUrl = `/storage/${
         rawStr.startsWith('proposals/') ? rawStr : `proposals/${encodeURIComponent(cleanFilename)}`
       }`;
-      const fallbackLink = document.createElement('a');
-      fallbackLink.href = directStorageUrl;
-      fallbackLink.download = downloadLabelName;
-      fallbackLink.target = '_blank';
-      document.body.appendChild(fallbackLink);
-      fallbackLink.click();
-      document.body.removeChild(fallbackLink);
+      window.open(directStorageUrl, '_blank', 'noopener,noreferrer');
     } finally {
       setDownloadingId(null);
     }
