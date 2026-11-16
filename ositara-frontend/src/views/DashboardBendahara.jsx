@@ -54,7 +54,7 @@ const getInitialData = (keys, fallback) => {
   return fallback;
 };
 
-// --- PENENTU PEMISAHAN DATA SEKRETARIS VS KETUA ---
+// --- PENENTU PEMISAHAN DATA SEKRETARIS VS KETUA (BERSATU DI DB, TERPISAH DI UI) ---
 const isItemKegiatanSekre = (item) => {
   if (!item) return false;
   const divisi = String(item.sekbid || item.divisi || item.penanggung_jawab || '')
@@ -63,7 +63,6 @@ const isItemKegiatanSekre = (item) => {
   const status = String(item.status || '')
     .toLowerCase()
     .trim();
-
   return (
     String(item.is_event) === '1' ||
     item.is_event === true ||
@@ -252,21 +251,27 @@ export default function DashboardBendahara({ user, onLogout }) {
   const [keuanganList, setKeuanganList] = useState(() =>
     getInitialData(['ositara_keuangan', 'keuanganList'], [])
   );
+
   const [proposalList, setProposalList] = useState(() =>
     getInitialData(['ositara_proposal', 'proposals'], [])
   );
+
   const [prokerList, setProkerList] = useState(() =>
     filterOnlyProkerKetua(getInitialData(['ositara_proker', 'prokerList'], []))
   );
+
   const [anggotaList, setAnggotaList] = useState(() =>
     getInitialData(['ositara_anggota', 'anggotaList'], [])
   );
+
   const [kegiatanList, setKegiatanList] = useState(() =>
     filterOnlyKegiatanSekre(getInitialData(['ositara_kegiatan', 'kegiatanList'], []))
   );
+
   const [pendaftaranList, setPendaftaranList] = useState(() =>
     getInitialData(['ositara_pendaftaran', 'pendaftaranList'], [])
   );
+
   const [selectedKegiatanPeserta, setSelectedKegiatanPeserta] = useState(null);
 
   // --- FORM CATAT KAS ---
@@ -289,7 +294,8 @@ export default function DashboardBendahara({ user, onLogout }) {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-      // 1. Fetch & Pisahkan Program Kerja (Ketua) vs Kelola Kegiatan (Sekretaris)
+      // 1. Fetch & Pisahkan Program Kerja (Ketua) vs Kegiatan OSIS (Sekretaris)
+      // Di database bersatu, di frontend dipisahkan dengan filter
       try {
         const [resProker, resKegiatan] = await Promise.all([
           fetch(`${API_BASE}/program-kerja`, { headers: getAuthHeaders() }).catch(() => null),
@@ -314,6 +320,7 @@ export default function DashboardBendahara({ user, onLogout }) {
             mergedMap.set(String(item.id), item);
           }
         });
+
         const allItems = Array.from(mergedMap.values());
 
         // Pisahkan Program Kerja (Ketua)
@@ -326,7 +333,7 @@ export default function DashboardBendahara({ user, onLogout }) {
           status: pk.status || 'Direncanakan',
         }));
 
-        // Pisahkan Kelola Kegiatan (Sekretaris)
+        // Pisahkan Kegiatan OSIS (Sekretaris)
         const onlyKegiatan = filterOnlyKegiatanSekre(allItems).map((k) => ({
           ...k,
           id: k.id,
@@ -344,6 +351,7 @@ export default function DashboardBendahara({ user, onLogout }) {
             k.nama_proker ||
             k.nama ||
             'Tanpa Nama Kegiatan',
+          deskripsi: k.deskripsi || k.keterangan || 'Tidak ada deskripsi kegiatan.',
           tanggal: k.tanggal || k.tanggal_pelaksanaan || k.target || '-',
           target: k.tanggal || k.tanggal_pelaksanaan || k.target || '-',
           sekbid: k.penanggung_jawab || k.sekbid || k.divisi || 'Sekretaris',
@@ -362,7 +370,7 @@ export default function DashboardBendahara({ user, onLogout }) {
         console.warn('Sync proker & kegiatan terlewati:', e);
       }
 
-      // 2. Fetch Proposal (Lengkap dengan Path Fisik, Anggaran, Berkas, Status & Catatan Pembina)
+      // 2. Fetch Proposal
       try {
         let resProposal = await fetch(`${API_BASE}/proposals`, {
           headers: getAuthHeaders(),
@@ -476,21 +484,27 @@ export default function DashboardBendahara({ user, onLogout }) {
         if (resPendaftaran.ok) {
           const resultD = await resPendaftaran.json();
           const dataD = Array.isArray(resultD) ? resultD : resultD.data || [];
-          const formattedD = dataD.map((p) => ({
-            id: p.id,
-            kegiatanId: p.kegiatan_id || p.kegiatanId || p.event_id,
-            namaKegiatan:
-              p.nama_kegiatan ||
-              p.namaKegiatan ||
-              p.nama_event ||
-              p.nama_proker ||
-              p.nama ||
-              'Kegiatan OSIS',
-            namaSiswa: p.nama_siswa || p.namaSiswa || p.nama || '-',
-            nis: p.nis || p.nisn || '-',
-            kelas: p.kelas || '-',
-            tanggalDaftar: p.tanggal_daftar || p.tanggalDaftar || '-',
-          }));
+          const formattedD = dataD.map((p) => {
+            const catatanFix =
+              p.catatan || p.alasan || p.alasan_mengikuti || p.keterangan || '-';
+            return {
+              id: p.id,
+              kegiatanId: p.kegiatan_id || p.kegiatanId || p.event_id,
+              namaKegiatan:
+                p.nama_kegiatan ||
+                p.namaKegiatan ||
+                p.nama_event ||
+                p.nama_proker ||
+                p.nama ||
+                'Kegiatan OSIS',
+              namaSiswa: p.nama_siswa || p.namaSiswa || p.nama || '-',
+              nis: p.nis || p.nisn || '-',
+              kelas: p.kelas || '-',
+              catatan: catatanFix,
+              alasan: catatanFix,
+              tanggalDaftar: p.tanggal_daftar || p.tanggalDaftar || '-',
+            };
+          });
           setPendaftaranList(formattedD);
           localStorage.setItem('ositara_pendaftaran', JSON.stringify(formattedD));
           localStorage.setItem('pendaftaranList', JSON.stringify(formattedD));
@@ -525,7 +539,6 @@ export default function DashboardBendahara({ user, onLogout }) {
     setIsSubmitting(true);
     const todayStr = new Date().toISOString().split('T')[0];
     const nominalNum = Number(nominal);
-
     const payload = {
       tanggal: todayStr,
       keterangan: keterangan.trim(),
@@ -539,6 +552,7 @@ export default function DashboardBendahara({ user, onLogout }) {
     try {
       let resData = null;
       let isSuccess = false;
+
       try {
         const axiosRes = await api.post('/keuangan', payload);
         if (axiosRes && axiosRes.status >= 200 && axiosRes.status < 300) {
@@ -551,6 +565,7 @@ export default function DashboardBendahara({ user, onLogout }) {
           headers: getAuthHeaders(),
           body: JSON.stringify(payload),
         });
+
         if (res.ok) {
           const json = await res.json().catch(() => ({}));
           resData = json?.data || json;
@@ -578,6 +593,7 @@ export default function DashboardBendahara({ user, onLogout }) {
         const updatedList = [recordBaru, ...keuanganList];
         setKeuanganList(updatedList);
         broadcastKeuanganUpdate(updatedList);
+
         setKeterangan('');
         setNominal('');
         setSumber('Kas OSIS');
@@ -629,7 +645,6 @@ export default function DashboardBendahara({ user, onLogout }) {
 
     setIsUpdatingKas(true);
     const nominalNum = Number(nomEdit);
-
     const payload = {
       tanggal: tanggal || new Date().toISOString().split('T')[0],
       keterangan: ketEdit.trim(),
@@ -838,7 +853,6 @@ export default function DashboardBendahara({ user, onLogout }) {
       const blobUrl = URL.createObjectURL(blob);
 
       if (isMobileDevice) {
-        // Konversi Blob ke Data URL agar Android Download Manager bisa menyimpan file tanpa gagal
         const reader = new FileReader();
         reader.onloadend = () => {
           const dataUrl = reader.result;
@@ -853,7 +867,6 @@ export default function DashboardBendahara({ user, onLogout }) {
 
         window.open(blobUrl, '_blank', 'noopener,noreferrer');
       } else {
-        // Untuk Laptop / Desktop
         window.open(blobUrl, '_blank', 'noopener,noreferrer');
         const link = document.createElement('a');
         link.href = blobUrl;
@@ -864,7 +877,6 @@ export default function DashboardBendahara({ user, onLogout }) {
       }
     };
 
-    // 1. Jika berkas berupa Base64 Data URL
     if (String(serverFile).startsWith('data:')) {
       try {
         const res = await fetch(serverFile);
@@ -878,7 +890,6 @@ export default function DashboardBendahara({ user, onLogout }) {
       }
     }
 
-    // 2. Kumpulkan kandidat URL file di server Laravel (Prioritaskan API endpoint dulu)
     const rawStr = String(serverFile).replace(/^https?:\/\/[^/]+/, '').replace(/^\/+/, '');
     const cleanFilename = rawStr.split('/').pop();
     const altFilename = item.nama_file ? String(item.nama_file).split('/').pop() : null;
@@ -918,7 +929,6 @@ export default function DashboardBendahara({ user, onLogout }) {
         }
       }
 
-      // Jangan redirect ke tab 404; tampilkan notifikasi yang jelas
       showToast(
         'File fisik berkas tidak ada di server (terhapus saat deploy ulang, silakan unggah ulang proposal).',
         'warning'
@@ -943,17 +953,18 @@ export default function DashboardBendahara({ user, onLogout }) {
     user?.namaLengkap || user?.nama || user?.name || 'Shopia Widarti Noviani';
   const inisialNama = namaBendahara.charAt(0).toUpperCase();
 
+  // --- MENU SIDEBAR (LABEL & URUTAN DISAMAKAN DENGAN SEKRETARIS) ---
   const menuItems = [
-    { id: 'beranda', label: 'Beranda', icon: 'beranda' },
+    { id: 'beranda', label: 'Beranda Utama', icon: 'beranda' },
     { id: 'catat-kas', label: 'Catat Kas & Laporan', icon: 'keuangan' },
     { id: 'proposal-masuk', label: 'Proposal Masuk', icon: 'proposal' },
     { id: 'program-kerja', label: 'Program Kerja', icon: 'proker' },
     { id: 'anggota-osis', label: 'Anggota OSIS', icon: 'anggota' },
-    { id: 'kelola-kegiatan', label: 'Kelola Kegiatan', icon: 'kegiatan' },
+    { id: 'kegiatan-osis', label: 'Kegiatan OSIS', icon: 'kegiatan' },
   ];
 
   return (
-    <div className="flex flex-col md:flex-row h-screen w-full bg-slate-100/90 font-sans text-slate-800 overflow-hidden selection:bg-[#2158B8] selection:text-white">
+    <div className="flex flex-col md:flex-row min-h-screen w-full bg-slate-100/90 font-sans text-slate-800 selection:bg-[#2158B8] selection:text-white">
       {/* NOTIFIKASI TOAST MELAYANG */}
       {toastNotif && (
         <div className="fixed top-4 right-4 left-4 sm:left-auto z-[60] flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-white shadow-2xl border border-slate-200/80 animate-[fadeIn_0.2s_ease-out] sm:max-w-sm">
@@ -973,18 +984,16 @@ export default function DashboardBendahara({ user, onLogout }) {
       )}
 
       {/* HEADER NAVBAR MOBILE */}
-      <div className="md:hidden bg-gradient-to-b from-[#1B4694] to-[#2158B8] text-white px-4 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-md w-full shrink-0 border-b border-blue-800/30">
-        <div className="flex items-center space-x-3">
-          <div className="p-1">
-            <img
-              src={logoOsitara}
-              alt="Logo OSITARA"
-              className="w-7 h-7 object-contain cursor-pointer hover:scale-110 transition-transform duration-300 drop-shadow"
-              onError={(e) => (e.target.style.display = 'none')}
-            />
-          </div>
+      <div className="md:hidden bg-gradient-to-r from-[#1B4694] to-[#2158B8] text-white px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-md w-full shrink-0 border-b border-blue-800/30">
+        <div className="flex items-center space-x-2.5">
+          <img
+            src={logoOsitara}
+            alt="Logo OSITARA"
+            className="w-7 h-7 object-contain drop-shadow"
+            onError={(e) => (e.target.style.display = 'none')}
+          />
           <div>
-            <h1 className="text-base font-black tracking-widest leading-none drop-shadow-sm">
+            <h1 className="text-base font-black tracking-widest leading-none">
               OSITARA
             </h1>
             <p className="text-[9px] text-[#FFD43B] font-extrabold tracking-wider uppercase mt-0.5">
@@ -994,9 +1003,9 @@ export default function DashboardBendahara({ user, onLogout }) {
         </div>
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 transition-all border border-white/15 focus:outline-none cursor-pointer"
+          className="p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 transition-all border border-white/15 focus:outline-none cursor-pointer"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -1011,37 +1020,45 @@ export default function DashboardBendahara({ user, onLogout }) {
       {isMobileMenuOpen && (
         <div
           onClick={() => setIsMobileMenuOpen(false)}
-          className="fixed inset-0 bg-slate-950/60 z-40 md:hidden backdrop-blur-sm transition-all animate-[fadeIn_0.2s_ease-out]"
+          className="fixed inset-0 bg-slate-950/50 z-40 md:hidden backdrop-blur-xs transition-all animate-[fadeIn_0.2s_ease-out]"
         />
       )}
 
-      {/* SIDEBAR NAVIGATION */}
+      {/* SIDEBAR NAVIGATION (STICKY FULL-HEIGHT SEPERTI SEKRETARIS) */}
       <aside
-        className={`fixed md:relative inset-y-0 left-0 z-50 h-screen w-64 bg-gradient-to-b from-[#1B4694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col justify-between p-5 shrink-0 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ease-in-out overflow-y-auto ${
+        className={`fixed md:sticky top-0 inset-y-0 left-0 z-50 h-screen w-64 bg-gradient-to-b from-[#1B4694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col justify-between p-5 shrink-0 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ease-in-out overflow-y-auto ${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
         <div>
-          <div className="hidden md:flex items-center space-x-3.5 mb-8 p-1">
-            <div className="relative group cursor-pointer transition-transform duration-300 hover:rotate-6">
-              <img
-                src={logoOsitara}
-                alt="Logo OSITARA"
-                className="w-10 h-10 object-contain shrink-0 transition-transform duration-300 animate-bounce drop-shadow-md"
-                onError={(e) => (e.target.style.display = 'none')}
-              />
+          <div className="flex items-center justify-between md:justify-start space-x-3.5 mb-8 p-1">
+            <div className="flex items-center space-x-3.5">
+              <div className="relative group cursor-pointer transition-transform duration-300 hover:rotate-6">
+                <img
+                  src={logoOsitara}
+                  alt="Logo OSITARA"
+                  className="w-10 h-10 object-contain shrink-0 drop-shadow-md"
+                  onError={(e) => (e.target.style.display = 'none')}
+                />
+              </div>
+              <div>
+                <h1 className="text-xl font-black tracking-widest leading-none drop-shadow-md">
+                  OSITARA
+                </h1>
+                <p className="text-[10px] text-[#FFD43B] font-extrabold tracking-wider mt-1 uppercase drop-shadow-xs">
+                  BENDAHARA OSIS
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-black tracking-widest leading-none drop-shadow-md">
-                OSITARA
-              </h1>
-              <p className="text-[10px] text-[#FFD43B] font-extrabold tracking-wider mt-1 uppercase drop-shadow-xs">
-                BENDAHARA OSIS
-              </p>
-            </div>
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="md:hidden p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+            >
+              ✕
+            </button>
           </div>
 
-          <nav className="space-y-2 mt-4 md:mt-0">
+          <nav className="space-y-2">
             {menuItems.map((menu) => {
               const isActive = activeMenu === menu.id;
               return (
@@ -1075,8 +1092,8 @@ export default function DashboardBendahara({ user, onLogout }) {
         </button>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
-      <main className="flex-1 h-screen overflow-y-auto p-3.5 sm:p-6 lg:p-8 min-w-0 w-full space-y-4 sm:space-y-6">
+      {/* MAIN CONTENT AREA (LAYOUT SERAGAM DENGAN SEKRETARIS) */}
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 w-full space-y-5 sm:space-y-6">
         {/* HEADER USER CARD */}
         <div className="relative overflow-hidden bg-white p-4 sm:p-6 rounded-3xl shadow-sm border border-slate-200/90 transition-all duration-300 hover:shadow-md">
           <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-[#2158B8]/15 rounded-full blur-2xl pointer-events-none" />
@@ -1109,7 +1126,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                 <p className="text-xs font-semibold text-slate-500 mt-1 flex flex-wrap items-center gap-2">
                   <span>Jabatan:</span>
                   <span className="bg-blue-100/80 text-[#2158B8] font-black px-3 py-0.5 rounded-full text-[10px] uppercase tracking-wider border border-blue-300">
-                    Bendahara OSIS
+                    BENDAHARA OSIS
                   </span>
                 </p>
               </div>
@@ -1117,16 +1134,16 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         </div>
 
-        {/* 1. BERANDA */}
+        {/* 1. BERANDA UTAMA */}
         {activeMenu === 'beranda' && (
-          <div className="space-y-4 sm:space-y-8 animate-[fadeIn_0.3s_ease-out]">
+          <div className="space-y-5 sm:space-y-6 animate-[fadeIn_0.3s_ease-out]">
             {/* STATS CARDS */}
             <div className="grid grid-cols-3 gap-2 sm:gap-5">
               {/* Card Pemasukan */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#2b7a69] via-[#38a88e] to-[#6ee0c5] p-2.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#2b7a69]/30 hover:shadow-2xl hover:shadow-[#2b7a69]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1.5 sm:gap-2">
-                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-2.5 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#249ea0]/30 hover:shadow-2xl hover:shadow-[#249ea0]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1.5 sm:gap-2">
+                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
                 <div className="min-w-0">
-                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
                     Total Pemasukan
                   </p>
                   <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
@@ -1139,10 +1156,10 @@ export default function DashboardBendahara({ user, onLogout }) {
               </div>
 
               {/* Card Pengeluaran */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#c96268] via-[#eb8288] to-[#ffafb4] p-2.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#c96268]/30 hover:shadow-2xl hover:shadow-[#c96268]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1.5 sm:gap-2">
-                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform" />
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#e05263] via-[#f27482] to-[#fca5b0] p-2.5 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#e05263]/30 hover:shadow-2xl hover:shadow-[#e05263]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1.5 sm:gap-2">
+                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
                 <div className="min-w-0">
-                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
                     Total Pengeluaran
                   </p>
                   <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
@@ -1155,10 +1172,10 @@ export default function DashboardBendahara({ user, onLogout }) {
               </div>
 
               {/* Card Saldo Kas Saat Ini */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-2.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1.5 sm:gap-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-2.5 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1.5 sm:gap-2">
                 <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
                 <div className="min-w-0">
-                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight">
+                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
                     Saldo Kas Saat Ini
                   </p>
                   <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-1 truncate">
@@ -1187,6 +1204,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                     Lihat Semua &rarr;
                   </button>
                 </div>
+
                 <div className="space-y-3">
                   {keuanganList.length === 0 ? (
                     <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
@@ -1226,7 +1244,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                 </div>
               </div>
 
-              {/* Agenda Kegiatan (Sekretaris) */}
+              {/* Agenda Kegiatan OSIS (Terpisah dari Program Kerja Ketua) */}
               <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-300">
                 <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
                   <h3 className="text-base sm:text-lg font-black text-slate-800 flex items-center gap-2">
@@ -1234,12 +1252,13 @@ export default function DashboardBendahara({ user, onLogout }) {
                     Agenda Kegiatan OSIS
                   </h3>
                   <button
-                    onClick={() => setActiveMenu('kelola-kegiatan')}
+                    onClick={() => setActiveMenu('kegiatan-osis')}
                     className="text-xs font-bold text-[#2158B8] hover:text-amber-500 transition-colors duration-200 cursor-pointer hover:underline"
                   >
                     Lihat Semua &rarr;
                   </button>
                 </div>
+
                 <div className="space-y-3">
                   {kegiatanList.length === 0 ? (
                     <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
@@ -1383,6 +1402,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                     className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/80 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Sumber Dana
@@ -1398,6 +1418,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                     <option value="Lainnya">Lainnya</option>
                   </select>
                 </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Jenis Transaksi
@@ -1411,6 +1432,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                     <option value="Pengeluaran">Pengeluaran (-)</option>
                   </select>
                 </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Nominal Transaksi (Rp)
@@ -1424,6 +1446,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                     className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/80 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
+
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -1559,7 +1582,7 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 4. PROGRAM KERJA (SINKRON KHUSUS KETUA OSIS) */}
+        {/* 4. PROGRAM KERJA (SINKRON KHUSUS KETUA OSIS - TERPISAH DARI KEGIATAN) */}
         {activeMenu === 'program-kerja' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
             <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
@@ -1649,71 +1672,69 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 6. KELOLA KEGIATAN (SINKRON KHUSUS SEKRETARIS) */}
-        {activeMenu === 'kelola-kegiatan' && (
-          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
-            <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
-              Daftar Kegiatan OSIS
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[550px]">
-                <thead>
-                  <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
-                    <th className="py-3 px-4 rounded-l-xl">Nama Kegiatan</th>
-                    <th className="py-3 px-4">Tanggal Pelaksanaan</th>
-                    <th className="py-3 px-4">Penanggung Jawab</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4 text-center rounded-r-xl">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {kegiatanList.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="py-12 text-center text-slate-400 font-medium">
-                        Belum ada kegiatan terdaftar dari Sekretaris.
-                      </td>
-                    </tr>
-                  ) : (
-                    kegiatanList.map((k) => {
-                      const pesertaKegiatan = getPesertaByKegiatan(k);
-                      return (
-                        <tr key={k.id} className="hover:bg-blue-50/40 transition-colors">
-                          <td className="py-3.5 px-4 font-bold text-slate-800">
-                            {k.nama_proker || k.namaKegiatan || k.nama}
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
-                            {formatTanggal(k.target || k.tanggal)}
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-600 font-medium">
-                            {k.sekbid || k.divisi || 'Sekretaris'}
-                          </td>
-                          <td className="py-3.5 px-4">
-                            <span
-                              className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block ${
-                                k.status === 'Selesai'
-                                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                                  : 'bg-blue-100 text-[#2158B8] border border-blue-200'
-                              }`}
-                            >
-                              {k.status || 'Mendatang'}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-center">
-                            <button
-                              onClick={() => setSelectedKegiatanPeserta(k)}
-                              className="px-3.5 py-1.5 bg-[#2158B8] hover:bg-[#1B4694] text-white rounded-xl text-xs font-bold inline-flex items-center space-x-2 shadow-md shadow-blue-600/20 active:scale-95 transition-all cursor-pointer"
-                            >
-                              <Icon type="users" />
-                              <span>Peserta ({pesertaKegiatan.length})</span>
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+        {/* 6. KEGIATAN OSIS (LAYOUT CARD GRID SAMA PERSIS DENGAN SEKRETARIS & TERPISAH DARI PROGRAM KERJA) */}
+        {activeMenu === 'kegiatan-osis' && (
+          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm w-full animate-[fadeIn_0.3s_ease-out]">
+            <div className="flex items-center space-x-2.5 mb-5 pb-3 border-b border-slate-100">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#2158B8]" />
+              <h3 className="text-base sm:text-lg font-black text-slate-800">
+                Daftar Kegiatan Sekolah Tersedia
+              </h3>
             </div>
+
+            {kegiatanList.length === 0 ? (
+              <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                <p className="text-xs sm:text-sm text-slate-400 font-medium">
+                  Belum ada kegiatan yang ditambahkan oleh Sekretaris.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                {kegiatanList.map((k) => {
+                  const pesertaKegiatan = getPesertaByKegiatan(k);
+                  return (
+                    <div
+                      key={k.id}
+                      className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between space-y-4"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-2.5 mb-2">
+                          <h4 className="font-black text-slate-800 text-base sm:text-lg leading-snug">
+                            {k.nama_proker || k.namaKegiatan || k.nama}
+                          </h4>
+                          <span
+                            className={`px-3 py-0.5 font-extrabold text-[10px] rounded-full shrink-0 uppercase tracking-wider border ${
+                              k.status === 'Selesai'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-blue-50 text-[#2158B8] border-blue-200'
+                            }`}
+                          >
+                            {k.status || 'MENDATANG'}
+                          </span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-slate-500 leading-relaxed line-clamp-2">
+                          {k.deskripsi || 'Tidak ada deskripsi kegiatan.'}
+                        </p>
+                      </div>
+
+                      <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-slate-600">
+                          Jadwal: {formatTanggal(k.target || k.tanggal)}
+                        </span>
+                        <button
+                          title="Lihat Daftar Peserta"
+                          onClick={() => setSelectedKegiatanPeserta(k)}
+                          className="px-4 py-2 bg-[#2158B8] hover:bg-[#1B4694] text-white rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 shadow-sm shadow-blue-600/20 inline-flex items-center space-x-1.5 cursor-pointer shrink-0"
+                        >
+                          <Icon type="users" />
+                          <span>Peserta ({pesertaKegiatan.length})</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -1929,7 +1950,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                 ✕
               </button>
             </div>
-            <div className="max-h-64 overflow-y-auto space-y-2.5 pr-1">
+            <div className="max-h-72 overflow-y-auto space-y-2.5 pr-1">
               {getPesertaByKegiatan(selectedKegiatanPeserta).length === 0 ? (
                 <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                   <p className="text-xs text-slate-400 font-medium">
@@ -1940,15 +1961,19 @@ export default function DashboardBendahara({ user, onLogout }) {
                 getPesertaByKegiatan(selectedKegiatanPeserta).map((p, idx) => (
                   <div
                     key={idx}
-                    className="p-3.5 bg-slate-50/80 hover:bg-slate-100/80 rounded-2xl text-xs border border-slate-100 flex justify-between items-center transition-all"
+                    className="p-3.5 bg-slate-50/80 hover:bg-slate-100/80 rounded-2xl text-xs border border-slate-100 flex justify-between items-start transition-all gap-2"
                   >
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <p className="font-bold text-slate-800">{p.namaSiswa || p.nama}</p>
                       <p className="text-slate-400 text-[11px] mt-0.5">
                         {p.kelas} | NIS: {p.nis || p.nisn || '-'}
                       </p>
+                      <p className="text-slate-600 text-xs mt-1.5 font-medium bg-white p-2 rounded-xl border border-slate-100">
+                        <span className="font-bold text-slate-500">Catatan/Alasan: </span>
+                        {p.catatan || p.alasan || '-'}
+                      </p>
                     </div>
-                    <span className="text-slate-400 text-[10px] bg-white px-2.5 py-1 rounded-lg font-medium border border-slate-200/60">
+                    <span className="text-slate-400 text-[10px] bg-white px-2.5 py-1 rounded-lg font-medium border border-slate-200/60 shrink-0">
                       {formatTanggal(p.tanggalDaftar)}
                     </span>
                   </div>
