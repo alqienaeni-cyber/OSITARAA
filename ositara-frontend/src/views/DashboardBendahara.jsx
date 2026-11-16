@@ -238,6 +238,9 @@ export default function DashboardBendahara({ user, onLogout }) {
   });
   const [isUpdatingKas, setIsUpdatingKas] = useState(false);
 
+  // --- STATE DOWNLOAD BERKAS PROPOSAL ---
+  const [downloadingId, setDownloadingId] = useState(null);
+
   const showToast = useCallback((message, type = 'success') => {
     setToastNotif({ message, type });
     setTimeout(() => {
@@ -795,15 +798,100 @@ export default function DashboardBendahara({ user, onLogout }) {
     });
   };
 
-  // --- HELPER DOWNLOAD BERKAS PROPOSAL ---
-  const getProposalFileUrl = (item) => {
+  // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG ---
+  const handleBukaUnduhProposal = async (item) => {
     const rawFile = item.file_proposal || item.berkas || item.file || item.lampiran;
-    if (!rawFile) return null;
-    if (String(rawFile).startsWith('http://') || String(rawFile).startsWith('https://')) {
-      return rawFile;
+    if (!rawFile) {
+      showToast('Berkas proposal tidak ditemukan.', 'warning');
+      return;
     }
+
+    const fileName =
+      item.nama_file ||
+      String(rawFile).split('/').pop() ||
+      `Proposal_${item.judul_proposal || 'OSIS'}.pdf`;
+
+    // Jika berkas berupa Data URL (Base64)
+    if (String(rawFile).startsWith('data:')) {
+      try {
+        const res = await fetch(rawFile);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank', 'noopener,noreferrer');
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast(`Berkas "${fileName}" berhasil dibuka & diunduh!`);
+        return;
+      } catch {
+        window.open(rawFile, '_blank', 'noopener,noreferrer');
+        return;
+      }
+    }
+
+    // Jika berkas berupa URL penuh (http/https)
+    if (String(rawFile).startsWith('http://') || String(rawFile).startsWith('https://')) {
+      window.open(rawFile, '_blank', 'noopener,noreferrer');
+      const link = document.createElement('a');
+      link.href = rawFile;
+      link.download = fileName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+
     const cleanFilename = String(rawFile).split('/').pop();
-    return `${API_BASE}/download-proposal/${encodeURIComponent(cleanFilename)}`;
+    const candidateUrls = [
+      `${API_BASE}/download-proposal/${encodeURIComponent(cleanFilename)}`,
+      `${API_BASE}/proposals/${item.id}/download`,
+      `/storage/${String(rawFile).replace(/^\/+/, '')}`,
+      `/storage/proposals/${encodeURIComponent(cleanFilename)}`,
+    ];
+
+    setDownloadingId(item.id || cleanFilename);
+    try {
+      const headers = getAuthHeaders();
+      delete headers['Content-Type'];
+
+      for (const url of candidateUrls) {
+        try {
+          const response = await fetch(url, { headers });
+          if (response.ok) {
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('text/html') && !contentType.includes('application/json')) {
+              const blob = await response.blob();
+              const blobUrl = URL.createObjectURL(blob);
+
+              // 1. Langsung buka berkas di tab baru
+              window.open(blobUrl, '_blank', 'noopener,noreferrer');
+
+              // 2. Sekaligus otomatis ter-download
+              const link = document.createElement('a');
+              link.href = blobUrl;
+              link.download = fileName;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+
+              showToast(`Berkas "${fileName}" berhasil dibuka & diunduh!`);
+              return;
+            }
+          }
+        } catch {
+          // Lanjut coba URL kandidat berikutnya
+        }
+      }
+
+      // Fallback terakhir: buka langsung URL file
+      window.open(candidateUrls[0], '_blank', 'noopener,noreferrer');
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   // --- HITUNG RINGKASAN SALDO ---
@@ -1319,7 +1407,7 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 3. PROPOSAL MASUK (SAMA SEPERTI DASHBOARD KETUA: ANGGARAN, BERKAS, STATUS, CATATAN PEMBINA) */}
+        {/* 3. PROPOSAL MASUK */}
         {activeMenu === 'proposal-masuk' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
             <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
@@ -1346,11 +1434,15 @@ export default function DashboardBendahara({ user, onLogout }) {
                     </tr>
                   ) : (
                     proposalList.map((item, idx) => {
-                      const fileUrl = getProposalFileUrl(item);
+                      const hasFile = Boolean(
+                        item.file_proposal || item.berkas || item.file || item.lampiran
+                      );
                       const fileNameLabel =
                         item.nama_file ||
                         (item.file_proposal ? String(item.file_proposal).split('/').pop() : null) ||
                         'Unduh Berkas';
+                      const isDownloadingThis =
+                        downloadingId === (item.id || fileNameLabel);
 
                       return (
                         <tr key={item.id || idx} className="hover:bg-blue-50/40 transition-colors">
@@ -1364,13 +1456,13 @@ export default function DashboardBendahara({ user, onLogout }) {
                             {formatRupiah(item.anggaran || item.dana || item.estimasi_dana || 0)}
                           </td>
                           <td className="py-3.5 px-4">
-                            {fileUrl ? (
-                              <a
-                                href={fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-[#2158B8] font-bold text-xs transition-all max-w-[160px]"
-                                title={fileNameLabel}
+                            {hasFile ? (
+                              <button
+                                type="button"
+                                onClick={() => handleBukaUnduhProposal(item)}
+                                disabled={isDownloadingThis}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-[#2158B8] font-bold text-xs transition-all max-w-[175px] cursor-pointer active:scale-95"
+                                title={`Klik untuk membuka & mengunduh ${fileNameLabel}`}
                               >
                                 <svg
                                   className="w-3.5 h-3.5 shrink-0"
@@ -1385,8 +1477,10 @@ export default function DashboardBendahara({ user, onLogout }) {
                                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                                   />
                                 </svg>
-                                <span className="truncate">{fileNameLabel}</span>
-                              </a>
+                                <span className="truncate">
+                                  {isDownloadingThis ? 'Membuka...' : fileNameLabel}
+                                </span>
+                              </button>
                             ) : (
                               <span className="text-xs text-slate-400 italic">Tidak ada berkas</span>
                             )}
