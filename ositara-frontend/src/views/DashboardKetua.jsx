@@ -2,6 +2,22 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import logoOsitara from '../assets/LOGO OSITARA.png';
 import api from '../api';
 
+// --- KONFIGURASI API & AUTH HEADERS ---
+const API_BASE = '/api';
+
+const getAuthHeaders = () => {
+  const token =
+    localStorage.getItem('token') ||
+    localStorage.getItem('auth_token') ||
+    localStorage.getItem('access_token') ||
+    '';
+  return {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
 // --- HELPER UTILS & FORMATTER ---
 const formatRupiah = (number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -222,7 +238,6 @@ const requestFirstAvailable = async (method, endpoints, payload = null) => {
       else if (method === 'post') res = await api.post(endpoint, payload);
       else if (method === 'put') res = await api.put(endpoint, payload);
       else if (method === 'delete') res = await api.delete(endpoint);
-
       if (res && res.status >= 200 && res.status < 300) {
         return res;
       }
@@ -277,6 +292,9 @@ export default function DashboardKetua({
     message: '',
   });
 
+  // --- STATE DOWNLOAD BERKAS PROPOSAL ---
+  const [downloadingId, setDownloadingId] = useState(null);
+
   const showToast = useCallback((message, type = 'success') => {
     setToastNotif({ message, type });
     setTimeout(() => {
@@ -314,6 +332,7 @@ export default function DashboardKetua({
   const [avatarUrl, setAvatarUrl] = useState(
     () => localStorage.getItem('ositara_user_avatar') || null
   );
+
   const [selectedKegiatanPeserta, setSelectedKegiatanPeserta] = useState(null);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [isSubmittingProker, setIsSubmittingProker] = useState(false);
@@ -342,7 +361,6 @@ export default function DashboardKetua({
   const syncAllDataFromBackend = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
-
     try {
       // 1. Sync Program Kerja & Kegiatan (Events)
       try {
@@ -404,8 +422,8 @@ export default function DashboardKetua({
             : resAnggota.data?.data || [];
           const formattedA = dataA.map((a) => ({
             id: a.id,
-            nis: a.nis || a.nisn || '-',
-            nama: a.nama || a.nama_lengkap || a.name || '-',
+            nis: a.nis || a.nisn || '',
+            nama: a.nama || a.nama_lengkap || a.name || '',
             jabatan: a.jabatan || '-',
             sekbid: a.sekbid || a.divisi || '-',
             kelas: a.kelas || '-',
@@ -432,23 +450,36 @@ export default function DashboardKetua({
           const dataArr = Array.isArray(resProposal.data)
             ? resProposal.data
             : resProposal.data?.data || [];
-          const baseApiUrl = (api.defaults?.baseURL || '/api').replace(/\/$/, '');
           const formatted = dataArr.map((p) => {
-            const fileNameFix = p.file_proposal || p.fileProposal || p.file || 'Dokumen.pdf';
-            const fileUrlFix =
-              p.fileUrl ||
-              p.file_url ||
-              `${baseApiUrl}/download-proposal/${encodeURIComponent(fileNameFix)}`;
+            const rawFile =
+              p.file_path ||
+              p.path ||
+              p.file_proposal ||
+              p.fileProposal ||
+              p.berkas ||
+              p.file ||
+              p.lampiran ||
+              p.dokumen ||
+              null;
+            const fileNameFix =
+              p.nama_file ||
+              p.original_name ||
+              p.file_name ||
+              (rawFile ? String(rawFile).split('/').pop() : null) ||
+              'Dokumen.pdf';
             return {
+              ...p,
               id: p.id,
               judul_proposal: p.judul_proposal || p.judul || 'Tanpa Judul',
               judul: p.judul_proposal || p.judul || 'Tanpa Judul',
               kategori: p.kategori || 'Kegiatan',
               anggaran: Number(p.anggaran) || 0,
-              file: fileNameFix,
-              fileProposal: fileNameFix,
-              fileData: fileUrlFix,
-              file_url: fileUrlFix,
+              file: rawFile,
+              file_path: p.file_path || p.path || null,
+              file_proposal: rawFile,
+              fileProposal: rawFile,
+              nama_file: fileNameFix,
+              file_url: p.file_url || p.url || p.fileUrl || null,
               tanggal: p.tanggal_pengajuan || p.tanggal || '-',
               status: p.status || 'Menunggu Persetujuan',
               catatan_revisi:
@@ -469,7 +500,7 @@ export default function DashboardKetua({
 
       // 4. Sync Keuangan (Read-Only untuk Ketua/Wakil OSIS)
       try {
-      const resKeuangan = await requestFirstAvailable('get', [
+        const resKeuangan = await requestFirstAvailable('get', [
           '/financial-reports',
           '/laporan-keuangans',
           '/laporan-keuangan',
@@ -549,7 +580,6 @@ export default function DashboardKetua({
     window.addEventListener('ositara_proposal_updated', syncAllDataFromBackend);
     window.addEventListener('ositara_keuangan_updated', syncAllDataFromBackend);
     window.addEventListener('ositara_pendaftaran_updated', syncAllDataFromBackend);
-
     return () => {
       clearInterval(interval);
       window.removeEventListener('storage', syncAllDataFromBackend);
@@ -558,6 +588,129 @@ export default function DashboardKetua({
       window.removeEventListener('ositara_pendaftaran_updated', syncAllDataFromBackend);
     };
   }, [syncAllDataFromBackend]);
+
+  // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG (SUPPORT ANDROID, IOS & LAPTOP) ---
+  const handleBukaUnduhProposal = async (item) => {
+    const serverFile =
+      item.file_url ||
+      item.url ||
+      item.fileUrl ||
+      item.file_path ||
+      item.path ||
+      item.file_proposal ||
+      item.fileProposal ||
+      item.berkas ||
+      item.file ||
+      item.lampiran ||
+      item.dokumen;
+
+    if (!serverFile || serverFile === 'Tidak ada berkas') {
+      showToast('Berkas proposal tidak ditemukan.', 'warning');
+      return;
+    }
+
+    const downloadLabelName =
+      item.nama_file ||
+      item.original_name ||
+      String(serverFile).split('/').pop() ||
+      `Proposal_${item.judul_proposal || item.judul || 'OSIS'}.pdf`;
+
+    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    const triggerDownloadAndOpenBlob = (blob) => {
+      const blobUrl = URL.createObjectURL(blob);
+
+      if (isMobileDevice) {
+        // Konversi Blob ke Data URL agar Android Download Manager bisa menyimpan file tanpa gagal
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const dataUrl = reader.result;
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          link.download = downloadLabelName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        };
+        reader.readAsDataURL(blob);
+
+        window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        // Untuk Laptop / Desktop
+        window.open(blobUrl, '_blank', 'noopener,noreferrer');
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = downloadLabelName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    };
+
+    // 1. Jika berkas berupa Base64 Data URL
+    if (String(serverFile).startsWith('data:')) {
+      try {
+        const res = await fetch(serverFile);
+        const blob = await res.blob();
+        triggerDownloadAndOpenBlob(blob);
+        showToast(`Berkas "${downloadLabelName}" berhasil dibuka & diunduh!`);
+        return;
+      } catch {
+        window.open(serverFile, '_blank', 'noopener,noreferrer');
+        return;
+      }
+    }
+
+    // 2. Kumpulkan kandidat URL file di server Laravel (Prioritaskan API endpoint dulu)
+    const rawStr = String(serverFile)
+      .replace(/^https?:\/\/[^/]+/, '')
+      .replace(/^\/+/, '');
+    const cleanFilename = rawStr.split('/').pop();
+    const altFilename = item.nama_file ? String(item.nama_file).split('/').pop() : null;
+
+    const candidateUrls = [
+      ...(String(serverFile).startsWith('http') ? [String(serverFile)] : []),
+      `${API_BASE}/download-proposal/${encodeURIComponent(cleanFilename)}`,
+      ...(altFilename && altFilename !== cleanFilename
+        ? [`${API_BASE}/download-proposal/${encodeURIComponent(altFilename)}`]
+        : []),
+      `${API_BASE}/proposals/${item.id}/download`,
+      `/storage/${rawStr}`,
+      `/storage/proposals/${encodeURIComponent(cleanFilename)}`,
+      `/uploads/proposals/${encodeURIComponent(cleanFilename)}`,
+      `/${rawStr}`,
+    ];
+
+    setDownloadingId(item.id || cleanFilename);
+    try {
+      const headers = getAuthHeaders();
+      delete headers['Content-Type'];
+
+      for (const url of candidateUrls) {
+        try {
+          const response = await fetch(url, { headers });
+          if (response.ok) {
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('text/html') && !contentType.includes('application/json')) {
+              const blob = await response.blob();
+              triggerDownloadAndOpenBlob(blob);
+              showToast(`Berkas "${downloadLabelName}" berhasil dibuka & diunduh!`);
+              return;
+            }
+          }
+        } catch {
+          // Lanjut coba URL kandidat berikutnya
+        }
+      }
+
+      showToast(
+        'File fisik berkas tidak ada di server (terhapus saat deploy ulang, silakan unggah ulang proposal).',
+        'warning'
+      );
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   // --- HANDLER FOTO PROFIL ---
   const handleAvatarChange = (e) => {
@@ -589,11 +742,11 @@ export default function DashboardKetua({
   };
 
   // --- HANDLER KELOLA PROGRAM KERJA (CRUD + DATABASE MYSQL + SYNC SEMUA DASHBOARD) ---
-    const [editingProkerId, setEditingProkerId] = useState(null);
-    const [namaProker, setNamaProker] = useState('');
-    const [divisiProker, setDivisiProker] = useState('');
-    const [targetProker, setTargetProker] = useState('');
-    const [periodeProker, setPeriodeProker] = useState('Mingguan');
+  const [editingProkerId, setEditingProkerId] = useState(null);
+  const [namaProker, setNamaProker] = useState('');
+  const [divisiProker, setDivisiProker] = useState('');
+  const [targetProker, setTargetProker] = useState('');
+  const [periodeProker, setPeriodeProker] = useState('Mingguan');
 
   const handleSubmitProker = async (e) => {
     e.preventDefault();
@@ -604,19 +757,18 @@ export default function DashboardKetua({
 
     setIsSubmittingProker(true);
     const currentEditId = editingProkerId;
-
-  const payload = {
-        nama_proker: namaProker.trim(),
-        nama: namaProker.trim(),
-        divisi: divisiProker.trim(),
-        sekbid: divisiProker.trim(),
-        penanggungjawab: divisiProker.trim(),
-        target: targetProker,
-        tanggal: targetProker,
-        periode: periodeProker,
-        status: 'Berjalan',
-        is_event: 0,
-      };
+    const payload = {
+      nama_proker: namaProker.trim(),
+      nama: namaProker.trim(),
+      divisi: divisiProker.trim(),
+      sekbid: divisiProker.trim(),
+      penanggung_jawab: divisiProker.trim(),
+      target: targetProker,
+      tanggal: targetProker,
+      periode: periodeProker,
+      status: 'Berjalan',
+      is_event: 0,
+    };
 
     try {
       const endpoints = currentEditId
@@ -629,7 +781,6 @@ export default function DashboardKetua({
         : ['/program-kerja', '/program_kerja', '/prokers', '/proker'];
 
       const res = await requestFirstAvailable(currentEditId ? 'put' : 'post', endpoints, payload);
-
       if (res) {
         const savedRecord = res.data?.data || res.data || { id: Date.now(), ...payload };
         const updated = currentEditId
@@ -637,11 +788,9 @@ export default function DashboardKetua({
               String(item.id) === String(currentEditId) ? { ...item, ...savedRecord } : item
             )
           : [savedRecord, ...prokerList];
-
         setProkerList(updated);
         syncProkerToAllDashboards(updated);
         await syncAllDataFromBackend();
-
         showToast(
           currentEditId
             ? 'Program kerja berhasil diperbarui di database!'
@@ -654,7 +803,6 @@ export default function DashboardKetua({
               String(item.id) === String(currentEditId) ? tempItem : item
             )
           : [tempItem, ...prokerList];
-
         setProkerList(updated);
         syncProkerToAllDashboards(updated);
         showToast(
@@ -706,7 +854,6 @@ export default function DashboardKetua({
 
     setIsSubmittingAnggota(true);
     const currentEditId = editingAnggotaId;
-
     const payload = {
       nis: nisAnggota.trim(),
       nisn: nisAnggota.trim(),
@@ -731,7 +878,6 @@ export default function DashboardKetua({
         : ['/pengurus-osis', '/pengurus_osis', '/anggota-osis', '/anggotas', '/anggota'];
 
       const res = await requestFirstAvailable(currentEditId ? 'put' : 'post', endpoints, payload);
-
       if (res) {
         const savedRecord = res.data?.data || res.data || { id: Date.now(), ...payload };
         const updated = currentEditId
@@ -739,11 +885,9 @@ export default function DashboardKetua({
               String(item.id) === String(currentEditId) ? { ...item, ...savedRecord } : item
             )
           : [savedRecord, ...anggotaList];
-
         setAnggotaList(updated);
         syncAnggotaToAllDashboards(updated);
         await syncAllDataFromBackend();
-
         showToast(
           currentEditId
             ? 'Data anggota OSIS berhasil diperbarui di database!'
@@ -756,7 +900,6 @@ export default function DashboardKetua({
               String(item.id) === String(currentEditId) ? tempItem : item
             )
           : [tempItem, ...anggotaList];
-
         setAnggotaList(updated);
         syncAnggotaToAllDashboards(updated);
         showToast(
@@ -812,7 +955,6 @@ export default function DashboardKetua({
         `/prokers/${targetId}`,
         `/proker/${targetId}`,
       ]);
-
       if (res) {
         await syncAllDataFromBackend();
         showToast('Program kerja berhasil dihapus dari database.');
@@ -834,7 +976,6 @@ export default function DashboardKetua({
         `/anggotas/${targetId}`,
         `/anggota/${targetId}`,
       ]);
-
       if (res) {
         await syncAllDataFromBackend();
         showToast('Anggota OSIS berhasil dihapus dari database.');
@@ -863,7 +1004,6 @@ export default function DashboardKetua({
       )
         .toLowerCase()
         .trim();
-
       return (pId && pId === targetId) || (pName && pName === targetName);
     });
   };
@@ -888,8 +1028,6 @@ export default function DashboardKetua({
     { id: 'kegiatan', label: 'Kegiatan OSIS', IconComponent: SvgKegiatan },
     { id: 'laporan-keuangan', label: 'Laporan Keuangan', IconComponent: SvgKeuangan },
   ];
-
-  const baseApiUrl = (api.defaults?.baseURL || '/api').replace(/\/$/, '');
 
   return (
     <div className="flex flex-col md:flex-row h-screen w-full bg-slate-100/90 font-sans text-slate-800 overflow-hidden selection:bg-[#2158B8] selection:text-white">
@@ -1142,6 +1280,7 @@ export default function DashboardKetua({
                     Kelola &rarr;
                   </button>
                 </div>
+
                 <div className="space-y-3">
                   {prokerList.length === 0 ? (
                     <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
@@ -1185,6 +1324,7 @@ export default function DashboardKetua({
                     Kelola &rarr;
                   </button>
                 </div>
+
                 <div className="space-y-3">
                   {anggotaList.length === 0 ? (
                     <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
@@ -1229,11 +1369,11 @@ export default function DashboardKetua({
                 <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[520px]">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
-                     <th className="py-3 px-4 rounded-l-xl">Program Kerja</th>
-                        <th className="py-3 px-4">Divisi / Sekbid</th>
-                        <th className="py-3 px-4 text-center">Target Pelaksanaan</th>
-                        <th className="py-3 px-4 text-center">Periode</th>
-                        <th className="py-3 px-4 text-center rounded-r-xl">Aksi</th>
+                      <th className="py-3 px-4 rounded-l-xl">Program Kerja</th>
+                      <th className="py-3 px-4">Divisi / Sekbid</th>
+                      <th className="py-3 px-4 text-center">Target Pelaksanaan</th>
+                      <th className="py-3 px-4 text-center">Periode</th>
+                      <th className="py-3 px-4 text-center rounded-r-xl">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1245,40 +1385,40 @@ export default function DashboardKetua({
                       </tr>
                     ) : (
                       prokerList.map((pk) => (
-                     <tr key={pk.id} className="hover:bg-blue-50/40 transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-slate-800">
-                        {pk.nama_proker || pk.nama}
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-[#2158B8]">
-                        {pk.divisi || pk.sekbid || 'Umum'}
-                      </td>
-                      <td className="py-3.5 px-4 text-center text-slate-600 font-medium whitespace-nowrap">
-                        {formatTanggal(pk.target || pk.tanggal)}
-                      </td>
-                     <td className="py-3.5 px-4 text-center">
-                        <span
-                          className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block uppercase tracking-wider border ${
-                            pk.periode === 'Tahunan'
-                              ? 'bg-purple-50 text-purple-700 border-purple-200'
-                              : pk.periode === 'Bulanan'
-                              ? 'bg-amber-50 text-amber-700 border-amber-200'
-                              : 'bg-blue-50 text-[#2158B8] border-blue-200'
-                          }`}
-                        >
-                          {pk.periode || 'Mingguan'}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-center space-x-1.5 whitespace-nowrap">
-                        <button
-                          title="Edit Program Kerja"
-                          onClick={() => {
-                            const rawDate = String(pk.target || pk.tanggal || '').split('T')[0];
-                            setEditingProkerId(pk.id);
-                            setNamaProker(pk.nama_proker || pk.nama || '');
-                            setDivisiProker(pk.divisi || pk.sekbid || '');
-                            setTargetProker(rawDate);
-                            setPeriodeProker(pk.periode || 'Mingguan');
-                          }}
+                        <tr key={pk.id} className="hover:bg-blue-50/40 transition-colors">
+                          <td className="py-3.5 px-4 font-bold text-slate-800">
+                            {pk.nama_proker || pk.nama}
+                          </td>
+                          <td className="py-3.5 px-4 font-semibold text-[#2158B8]">
+                            {pk.divisi || pk.sekbid || 'Umum'}
+                          </td>
+                          <td className="py-3.5 px-4 text-center text-slate-600 font-medium whitespace-nowrap">
+                            {formatTanggal(pk.target || pk.tanggal)}
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span
+                              className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block uppercase tracking-wider border ${
+                                pk.periode === 'Tahunan'
+                                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                  : pk.periode === 'Bulanan'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : 'bg-blue-50 text-[#2158B8] border-blue-200'
+                              }`}
+                            >
+                              {pk.periode || 'Mingguan'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-center space-x-1.5 whitespace-nowrap">
+                            <button
+                              title="Edit Program Kerja"
+                              onClick={() => {
+                                const rawDate = String(pk.target || pk.tanggal || '').split('T')[0];
+                                setEditingProkerId(pk.id);
+                                setNamaProker(pk.nama_proker || pk.nama || '');
+                                setDivisiProker(pk.divisi || pk.sekbid || '');
+                                setTargetProker(rawDate);
+                                setPeriodeProker(pk.periode || 'Mingguan');
+                              }}
                               className="p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all duration-200 active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
                             >
                               <SvgEdit />
@@ -1319,7 +1459,8 @@ export default function DashboardKetua({
                   </button>
                 )}
               </div>
-<form onSubmit={handleSubmitProker} className="space-y-4">
+
+              <form onSubmit={handleSubmitProker} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Nama Program Kerja
@@ -1570,15 +1711,30 @@ export default function DashboardKetua({
                       </td>
                     </tr>
                   ) : (
-                    proposalList.map((p) => {
-                      const fileDisplayName =
-                        p.file || p.fileName || p.fileProposal || p.file_proposal || 'Dokumen.pdf';
-                      const downloadUrl =
-                        p.fileUrl ||
+                    proposalList.map((p, idx) => {
+                      const hasFile = Boolean(
                         p.file_url ||
-                        `${baseApiUrl}/download-proposal/${encodeURIComponent(fileDisplayName)}`;
+                          p.url ||
+                          p.fileUrl ||
+                          p.file_path ||
+                          p.path ||
+                          p.file_proposal ||
+                          p.fileProposal ||
+                          p.berkas ||
+                          p.file ||
+                          p.lampiran ||
+                          p.dokumen
+                      );
+                      const fileDisplayName =
+                        p.nama_file ||
+                        p.original_name ||
+                        (p.file_proposal ? String(p.file_proposal).split('/').pop() : null) ||
+                        (p.file ? String(p.file).split('/').pop() : null) ||
+                        'Unduh Berkas';
+                      const isDownloadingThis = downloadingId === (p.id || fileDisplayName);
+
                       return (
-                        <tr key={p.id} className="hover:bg-blue-50/40 transition-colors">
+                        <tr key={p.id || idx} className="hover:bg-blue-50/40 transition-colors">
                           <td className="py-3.5 px-4 font-bold text-slate-800">
                             {p.judul_proposal || p.judul || '-'}
                           </td>
@@ -1586,17 +1742,19 @@ export default function DashboardKetua({
                             {formatRupiah(p.anggaran)}
                           </td>
                           <td className="py-3.5 px-4">
-                            {fileDisplayName && fileDisplayName !== 'Tidak ada berkas' ? (
-                              <a
-                                href={downloadUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                download={fileDisplayName}
-                                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-blue-50 text-[#2158B8] hover:bg-blue-100 font-bold text-xs rounded-xl border border-blue-200 transition-all duration-200 active:scale-95 shadow-xs cursor-pointer max-w-[150px]"
+                            {hasFile && fileDisplayName !== 'Tidak ada berkas' ? (
+                              <button
+                                type="button"
+                                onClick={() => handleBukaUnduhProposal(p)}
+                                disabled={isDownloadingThis}
+                                title={`Klik untuk membuka & mengunduh ${fileDisplayName}`}
+                                className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-blue-50 text-[#2158B8] hover:bg-blue-100 font-bold text-xs rounded-xl border border-blue-200 transition-all duration-200 active:scale-95 shadow-xs cursor-pointer max-w-[165px]"
                               >
                                 <SvgDownload />
-                                <span className="truncate">{fileDisplayName}</span>
-                              </a>
+                                <span className="truncate">
+                                  {isDownloadingThis ? 'Membuka...' : fileDisplayName}
+                                </span>
+                              </button>
                             ) : (
                               <span className="text-slate-400 text-xs italic">
                                 Tidak ada berkas
@@ -1638,6 +1796,7 @@ export default function DashboardKetua({
                 Daftar Kegiatan Sekolah Tersedia
               </h3>
             </div>
+
             {kegiatanList.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                 <p className="text-xs sm:text-sm text-slate-400 font-medium">
@@ -1672,6 +1831,7 @@ export default function DashboardKetua({
                           {k.deskripsi || 'Tidak ada deskripsi kegiatan.'}
                         </p>
                       </div>
+
                       <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
                         <span className="text-xs font-semibold text-slate-600">
                           Jadwal: {formatTanggal(k.target || k.tanggal)}
