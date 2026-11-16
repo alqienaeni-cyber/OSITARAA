@@ -74,6 +74,13 @@ const Icon = ({ type }) => {
   }
 };
 
+// HELPER PEMISAH DATA PROKER (KETUA) VS KEGIATAN (SEKRETARIS)
+const isDataKegiatanSekretaris = (item) => {
+  const divisi = String(item?.divisi || item?.sekbid || item?.penanggung_jawab || '').toLowerCase().trim();
+  const tipe = String(item?.tipe || item?.jenis || item?.kategori || '').toLowerCase().trim();
+  return divisi === 'sekretaris' || tipe === 'kegiatan' || Boolean(item?.is_kegiatan);
+};
+
 export default function DashboardBendahara({ user, onLogout }) {
   const [activeMenu, setActiveMenu] = useState('beranda');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -95,7 +102,8 @@ export default function DashboardBendahara({ user, onLogout }) {
   });
   const [prokerList, setProkerList] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('ositara_proker') || '[]');
+      const saved = JSON.parse(localStorage.getItem('ositara_proker') || '[]');
+      return saved.filter((item) => !isDataKegiatanSekretaris(item));
     } catch {
       return [];
     }
@@ -233,17 +241,30 @@ export default function DashboardBendahara({ user, onLogout }) {
       setProposalList(propData);
       localStorage.setItem('ositara_proposal', JSON.stringify(propData));
     }
+
+    // PISAHKAN DATA PROKER (INPUT KETUA) VS KEGIATAN (INPUT SEKRETARIS)
     if (prokData) {
-      setProkerList(prokData);
-      localStorage.setItem('ositara_proker', JSON.stringify(prokData));
+      const hanyaProkerKetua = prokData.filter((item) => !isDataKegiatanSekretaris(item));
+      setProkerList(hanyaProkerKetua);
+      localStorage.setItem('ositara_proker', JSON.stringify(hanyaProkerKetua));
+
+      // Jika endpoint /kegiatan kosong/tidak terpisah di backend, ambil kegiatan Sekretaris dari tabel yang sama
+      const kegiatanDariProker = prokData.filter((item) => isDataKegiatanSekretaris(item));
+      if (kegData && kegData.length > 0) {
+        setKegiatanList(kegData);
+        localStorage.setItem('ositara_kegiatan', JSON.stringify(kegData));
+      } else {
+        setKegiatanList(kegiatanDariProker);
+        localStorage.setItem('ositara_kegiatan', JSON.stringify(kegiatanDariProker));
+      }
+    } else if (kegData) {
+      setKegiatanList(kegData);
+      localStorage.setItem('ositara_kegiatan', JSON.stringify(kegData));
     }
+
     if (angData) {
       setAnggotaList(angData);
       localStorage.setItem('ositara_anggota', JSON.stringify(angData));
-    }
-    if (kegData) {
-      setKegiatanList(kegData);
-      localStorage.setItem('ositara_kegiatan', JSON.stringify(kegData));
     }
     if (pendData) {
       setPendaftaranList(pendData);
@@ -265,15 +286,19 @@ export default function DashboardBendahara({ user, onLogout }) {
       try {
         const keu = JSON.parse(localStorage.getItem('ositara_keuangan') || '[]');
         const prop = JSON.parse(localStorage.getItem('ositara_proposal') || '[]');
-        const prok = JSON.parse(localStorage.getItem('ositara_proker') || '[]');
+        const prokRaw = JSON.parse(localStorage.getItem('ositara_proker') || '[]');
         const ang = JSON.parse(localStorage.getItem('ositara_anggota') || '[]');
         const keg = JSON.parse(localStorage.getItem('ositara_kegiatan') || '[]');
         const pend = JSON.parse(localStorage.getItem('ositara_pendaftaran') || '[]');
+
+        const prokKetua = prokRaw.filter((item) => !isDataKegiatanSekretaris(item));
+        const kegSekreFromProk = prokRaw.filter((item) => isDataKegiatanSekretaris(item));
+
         setKeuanganList(keu);
         setProposalList(prop);
-        setProkerList(prok);
+        setProkerList(prokKetua);
         setAnggotaList(ang);
-        setKegiatanList(keg);
+        setKegiatanList(keg.length > 0 ? keg : kegSekreFromProk);
         setPendaftaranList(pend);
       } catch {
         // abaikan error parse
@@ -284,6 +309,7 @@ export default function DashboardBendahara({ user, onLogout }) {
     window.addEventListener('ositara_keuangan_updated', onStorageSync);
     window.addEventListener('ositara_proposal_updated', onStorageSync);
     window.addEventListener('ositara_proker_updated', onStorageSync);
+    window.addEventListener('ositara_kegiatan_updated', onStorageSync);
 
     return () => {
       clearTimeout(initialSync);
@@ -292,6 +318,7 @@ export default function DashboardBendahara({ user, onLogout }) {
       window.removeEventListener('ositara_keuangan_updated', onStorageSync);
       window.removeEventListener('ositara_proposal_updated', onStorageSync);
       window.removeEventListener('ositara_proker_updated', onStorageSync);
+      window.removeEventListener('ositara_kegiatan_updated', onStorageSync);
     };
   }, [handleSyncData]);
 
@@ -798,7 +825,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                 </div>
               </div>
 
-              {/* Agenda Kegiatan */}
+              {/* Agenda Kegiatan (Sinkron Sekretaris) */}
               <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-300">
                 <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
                   <h3 className="text-base sm:text-lg font-black text-slate-800 flex items-center gap-2">
@@ -1060,20 +1087,22 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 4. PROGRAM KERJA (READ-ONLY) */}
+        {/* 4. PROGRAM KERJA (SINKRON DENGAN KETUA OSIS) */}
         {activeMenu === 'program-kerja' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm space-y-4 animate-[fadeIn_0.3s_ease-out]">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base sm:text-lg font-black text-slate-800">Program Kerja OSIS</h3>
-              <span className="px-3 py-1 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-full">Read-Only</span>
+              <span className="px-3 py-1 bg-blue-50 text-[#2158B8] text-[11px] font-bold rounded-full border border-blue-200/80">
+                Sinkron Ketua OSIS
+              </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[550px]">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
                     <th className="py-3 px-4 rounded-l-xl">Nama Program Kerja</th>
-                    <th className="py-3 px-4">Divisi / Sekbid</th>
-                    <th className="py-3 px-4">Target Pelaksanaan</th>
+                    <th className="py-3 px-4">Divisi Pelaksana</th>
+                    <th className="py-3 px-4">Target Waktu</th>
                     <th className="py-3 px-4 rounded-r-xl">Status</th>
                   </tr>
                 </thead>
@@ -1081,7 +1110,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                   {prokerList.length === 0 ? (
                     <tr>
                       <td colSpan="4" className="py-10 text-center text-slate-400 font-medium">
-                        Belum ada data program kerja.
+                        Belum ada data program kerja dari Ketua OSIS.
                       </td>
                     </tr>
                   ) : (
@@ -1144,28 +1173,31 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 6. KELOLA KEGIATAN (READ-ONLY + LIHAT PESERTA) */}
+        {/* 6. KELOLA KEGIATAN (SINKRON DENGAN SEKRETARIS) */}
         {activeMenu === 'kelola-kegiatan' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm space-y-4 animate-[fadeIn_0.3s_ease-out]">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base sm:text-lg font-black text-slate-800">Agenda & Peserta Kegiatan OSIS</h3>
-              <span className="px-3 py-1 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-full">Read-Only</span>
+              <h3 className="text-base sm:text-lg font-black text-slate-800">Daftar Kegiatan OSIS</h3>
+              <span className="px-3 py-1 bg-blue-50 text-[#2158B8] text-[11px] font-bold rounded-full border border-blue-200/80">
+                Sinkron Sekretaris
+              </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[550px]">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
                     <th className="py-3 px-4 rounded-l-xl">Nama Kegiatan</th>
-                    <th className="py-3 px-4">Tanggal</th>
+                    <th className="py-3 px-4">Tanggal Pelaksanaan</th>
+                    <th className="py-3 px-4">Penanggung Jawab</th>
                     <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4 text-center rounded-r-xl">Peserta</th>
+                    <th className="py-3 px-4 text-center rounded-r-xl">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {kegiatanList.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="py-10 text-center text-slate-400 font-medium">
-                        Belum ada data kegiatan OSIS.
+                      <td colSpan="5" className="py-10 text-center text-slate-400 font-medium">
+                        Belum ada data kegiatan dari Sekretaris.
                       </td>
                     </tr>
                   ) : (
@@ -1177,6 +1209,9 @@ export default function DashboardBendahara({ user, onLogout }) {
                             {k.nama_proker || k.namaKegiatan || k.nama}
                           </td>
                           <td className="py-3.5 px-4 text-slate-500">{formatTanggal(k.target || k.tanggal)}</td>
+                          <td className="py-3.5 px-4 text-slate-600">
+                            {k.penanggung_jawab || k.divisi || k.sekbid || 'Sekretaris'}
+                          </td>
                           <td className="py-3.5 px-4">
                             <span className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-blue-100 text-[#2158B8]">
                               {k.status || 'Mendatang'}
