@@ -212,8 +212,9 @@ export default function DashboardBendahara({ user, onLogout }) {
     () => localStorage.getItem('ositara_bendahara_avatar') || null
   );
 
-  // --- REF PENCEGAH TABRAKAN SYNC ---
+  // --- REF PENCEGAH TABRAKAN SYNC & DOUBLE SUBMIT ---
   const isFetchingRef = useRef(false);
+  const isSubmittingRef = useRef(false);
 
   // --- STATE NOTIFIKASI TOAST & MODAL KONFIRMASI CUSTOM ---
   const [toastNotif, setToastNotif] = useState(null);
@@ -251,27 +252,21 @@ export default function DashboardBendahara({ user, onLogout }) {
   const [keuanganList, setKeuanganList] = useState(() =>
     getInitialData(['ositara_keuangan', 'keuanganList'], [])
   );
-
   const [proposalList, setProposalList] = useState(() =>
     getInitialData(['ositara_proposal', 'proposals'], [])
   );
-
   const [prokerList, setProkerList] = useState(() =>
     filterOnlyProkerKetua(getInitialData(['ositara_proker', 'prokerList'], []))
   );
-
   const [anggotaList, setAnggotaList] = useState(() =>
     getInitialData(['ositara_anggota', 'anggotaList'], [])
   );
-
   const [kegiatanList, setKegiatanList] = useState(() =>
     filterOnlyKegiatanSekre(getInitialData(['ositara_kegiatan', 'kegiatanList'], []))
   );
-
   const [pendaftaranList, setPendaftaranList] = useState(() =>
     getInitialData(['ositara_pendaftaran', 'pendaftaranList'], [])
   );
-
   const [selectedKegiatanPeserta, setSelectedKegiatanPeserta] = useState(null);
 
   // --- FORM CATAT KAS ---
@@ -295,7 +290,6 @@ export default function DashboardBendahara({ user, onLogout }) {
     isFetchingRef.current = true;
     try {
       // 1. Fetch & Pisahkan Program Kerja (Ketua) vs Kegiatan OSIS (Sekretaris)
-      // Di database bersatu, di frontend dipisahkan dengan filter
       try {
         const [resProker, resKegiatan] = await Promise.all([
           fetch(`${API_BASE}/program-kerja`, { headers: getAuthHeaders() }).catch(() => null),
@@ -320,10 +314,8 @@ export default function DashboardBendahara({ user, onLogout }) {
             mergedMap.set(String(item.id), item);
           }
         });
-
         const allItems = Array.from(mergedMap.values());
 
-        // Pisahkan Program Kerja (Ketua)
         const onlyProker = filterOnlyProkerKetua(allItems).map((pk) => ({
           ...pk,
           id: pk.id,
@@ -333,7 +325,6 @@ export default function DashboardBendahara({ user, onLogout }) {
           status: pk.status || 'Direncanakan',
         }));
 
-        // Pisahkan Kegiatan OSIS (Sekretaris)
         const onlyKegiatan = filterOnlyKegiatanSekre(allItems).map((k) => ({
           ...k,
           id: k.id,
@@ -435,9 +426,17 @@ export default function DashboardBendahara({ user, onLogout }) {
         if (resKeuangan.ok) {
           const resultK = await resKeuangan.json();
           const dataK = Array.isArray(resultK) ? resultK : resultK.data || [];
-          setKeuanganList(dataK);
-          localStorage.setItem('ositara_keuangan', JSON.stringify(dataK));
-          localStorage.setItem('keuanganList', JSON.stringify(dataK));
+          // Deduplikasi berdasarkan ID agar tidak pernah muncul ganda
+          const uniqueMap = new Map();
+          dataK.forEach((item) => {
+            if (item && item.id !== undefined) {
+              uniqueMap.set(String(item.id), item);
+            }
+          });
+          const uniqueKeuangan = Array.from(uniqueMap.values());
+          setKeuanganList(uniqueKeuangan);
+          localStorage.setItem('ositara_keuangan', JSON.stringify(uniqueKeuangan));
+          localStorage.setItem('keuanganList', JSON.stringify(uniqueKeuangan));
         }
       } catch (e) {
         console.warn('Sync keuangan terlewati:', e);
@@ -527,16 +526,18 @@ export default function DashboardBendahara({ user, onLogout }) {
     };
   }, [handleSyncData]);
 
-  // --- HANDLER KAS (SIMPAN KE DATABASE MYSQL + BROADCAST KE SEMUA DASHBOARD) ---
+  // --- HANDLER KAS (ANTI DOUBLE SUBMIT + SIMPAN KE DATABASE MYSQL) ---
   const handleTambahKas = async (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
+    if (isSubmittingRef.current || isSubmitting) return;
     if (!keterangan.trim() || !nominal || Number(nominal) <= 0) {
       showToast('Silakan lengkapi keterangan dan nominal yang valid!', 'warning');
       return;
     }
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
+
     const todayStr = new Date().toISOString().split('T')[0];
     const nominalNum = Number(nominal);
     const payload = {
@@ -565,7 +566,6 @@ export default function DashboardBendahara({ user, onLogout }) {
           headers: getAuthHeaders(),
           body: JSON.stringify(payload),
         });
-
         if (res.ok) {
           const json = await res.json().catch(() => ({}));
           resData = json?.data || json;
@@ -590,20 +590,25 @@ export default function DashboardBendahara({ user, onLogout }) {
           ...payload,
           ...(resData && typeof resData === 'object' ? resData : {}),
         };
-        const updatedList = [recordBaru, ...keuanganList];
-        setKeuanganList(updatedList);
-        broadcastKeuanganUpdate(updatedList);
+
+        // Cegah duplikasi ID saat menambahkan ke list
+        setKeuanganList((prevList) => {
+          const filtered = prevList.filter((item) => String(item.id) !== String(recordBaru.id));
+          const updatedList = [recordBaru, ...filtered];
+          broadcastKeuanganUpdate(updatedList);
+          return updatedList;
+        });
 
         setKeterangan('');
         setNominal('');
         setSumber('Kas OSIS');
         showToast('Transaksi berhasil disimpan ke database!');
-        await handleSyncData();
       }
     } catch (err) {
       console.error('Gagal menyimpan kas:', err);
       showToast('Koneksi ke server Laravel terputus.', 'warning');
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -613,7 +618,6 @@ export default function DashboardBendahara({ user, onLogout }) {
     const cleanDate = item.tanggal
       ? String(item.tanggal).split('T')[0].split(' ')[0]
       : new Date().toISOString().split('T')[0];
-
     setEditKasModal({
       isOpen: true,
       id: item.id,
@@ -698,7 +702,6 @@ export default function DashboardBendahara({ user, onLogout }) {
             }
           : item
       );
-
       setKeuanganList(updatedList);
       broadcastKeuanganUpdate(updatedList);
       setEditKasModal({
@@ -713,7 +716,6 @@ export default function DashboardBendahara({ user, onLogout }) {
 
       if (isSuccess) {
         showToast('Catatan transaksi berhasil diperbarui!');
-        await handleSyncData();
       } else {
         showToast('Perubahan disimpan secara lokal.', 'warning');
       }
@@ -777,7 +779,6 @@ export default function DashboardBendahara({ user, onLogout }) {
       setKeuanganList(updated);
       broadcastKeuanganUpdate(updated);
       showToast('Catatan transaksi berhasil dihapus.');
-
       try {
         try {
           await api.delete(`/keuangan/${id}`);
@@ -787,7 +788,6 @@ export default function DashboardBendahara({ user, onLogout }) {
             headers: getAuthHeaders(),
           });
         }
-        await handleSyncData();
       } catch (err) {
         console.error('Gagal menghapus transaksi di server:', err);
       }
@@ -806,7 +806,6 @@ export default function DashboardBendahara({ user, onLogout }) {
     const targetName = (keg.nama_proker || keg.namaKegiatan || keg.nama || '')
       .toLowerCase()
       .trim();
-
     return pendaftaranList.filter((p) => {
       const pId = String(p.kegiatanId || p.kegiatan_id || '');
       const pName = (
@@ -823,7 +822,7 @@ export default function DashboardBendahara({ user, onLogout }) {
     });
   };
 
-  // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG (SUPPORT ANDROID, IOS & LAPTOP) ---
+  // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG ---
   const handleBukaUnduhProposal = async (item) => {
     const serverFile =
       item.file_url ||
@@ -851,7 +850,6 @@ export default function DashboardBendahara({ user, onLogout }) {
 
     const triggerDownloadAndOpenBlob = (blob) => {
       const blobUrl = URL.createObjectURL(blob);
-
       if (isMobileDevice) {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -864,7 +862,6 @@ export default function DashboardBendahara({ user, onLogout }) {
           document.body.removeChild(link);
         };
         reader.readAsDataURL(blob);
-
         window.open(blobUrl, '_blank', 'noopener,noreferrer');
       } else {
         window.open(blobUrl, '_blank', 'noopener,noreferrer');
@@ -911,7 +908,6 @@ export default function DashboardBendahara({ user, onLogout }) {
     try {
       const headers = getAuthHeaders();
       delete headers['Content-Type'];
-
       for (const url of candidateUrls) {
         try {
           const response = await fetch(url, { headers });
@@ -928,7 +924,6 @@ export default function DashboardBendahara({ user, onLogout }) {
           // Lanjut coba URL kandidat berikutnya
         }
       }
-
       showToast(
         'File fisik berkas tidak ada di server (terhapus saat deploy ulang, silakan unggah ulang proposal).',
         'warning'
@@ -938,22 +933,42 @@ export default function DashboardBendahara({ user, onLogout }) {
     }
   };
 
-  // --- HITUNG RINGKASAN SALDO ---
-  const totalPemasukan = keuanganList
-    .filter((k) => k.kategori === 'Pemasukan' || k.jenis === 'Pemasukan')
-    .reduce((acc, curr) => acc + (Number(curr.jumlah || curr.nominal) || 0), 0);
+  // --- HITUNG RINGKASAN SALDO & REKAP AGREGAT (SUM + COUNT) ---
+  const pemasukanItems = keuanganList.filter(
+    (k) => k.kategori === 'Pemasukan' || k.jenis === 'Pemasukan'
+  );
+  const pengeluaranItems = keuanganList.filter(
+    (k) => k.kategori === 'Pengeluaran' || k.jenis === 'Pengeluaran'
+  );
 
-  const totalPengeluaran = keuanganList
-    .filter((k) => k.kategori === 'Pengeluaran' || k.jenis === 'Pengeluaran')
-    .reduce((acc, curr) => acc + (Number(curr.jumlah || curr.nominal) || 0), 0);
-
+  const totalPemasukan = pemasukanItems.reduce(
+    (acc, curr) => acc + (Number(curr.jumlah || curr.nominal) || 0),
+    0
+  );
+  const totalPengeluaran = pengeluaranItems.reduce(
+    (acc, curr) => acc + (Number(curr.jumlah || curr.nominal) || 0),
+    0
+  );
   const saldoSaatIni = totalPemasukan - totalPengeluaran;
+
+  const rekapRingkasanRows = [
+    {
+      kategori: 'Pemasukan',
+      jumlahTransaksi: pemasukanItems.length,
+      totalNominal: totalPemasukan,
+    },
+    {
+      kategori: 'Pengeluaran',
+      jumlahTransaksi: pengeluaranItems.length,
+      totalNominal: totalPengeluaran,
+    },
+  ];
 
   const namaBendahara =
     user?.namaLengkap || user?.nama || user?.name || 'Shopia Widarti Noviani';
   const inisialNama = namaBendahara.charAt(0).toUpperCase();
 
-  // --- MENU SIDEBAR (LABEL & URUTAN DISAMAKAN DENGAN SEKRETARIS) ---
+  // --- MENU SIDEBAR ---
   const menuItems = [
     { id: 'beranda', label: 'Beranda Utama', icon: 'beranda' },
     { id: 'catat-kas', label: 'Catat Kas & Laporan', icon: 'keuangan' },
@@ -1024,7 +1039,7 @@ export default function DashboardBendahara({ user, onLogout }) {
         />
       )}
 
-      {/* SIDEBAR NAVIGATION (STICKY FULL-HEIGHT SEPERTI SEKRETARIS) */}
+      {/* SIDEBAR NAVIGATION */}
       <aside
         className={`fixed md:sticky top-0 inset-y-0 left-0 z-50 h-screen w-64 bg-gradient-to-b from-[#1B4694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col justify-between p-5 shrink-0 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ease-in-out overflow-y-auto ${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
@@ -1082,7 +1097,7 @@ export default function DashboardBendahara({ user, onLogout }) {
           </nav>
         </div>
 
-        {/* TOMBOL LOGOUT WARNA SOLID MERAH */}
+        {/* TOMBOL LOGOUT */}
         <button
           onClick={onLogout}
           className="group flex items-center space-x-3 px-4 py-3.5 text-white bg-[#E63946] hover:bg-[#D62828] border border-rose-500 rounded-2xl font-black text-sm transition-all duration-300 hover:-translate-y-0.5 active:scale-95 cursor-pointer text-left shadow-lg shadow-rose-600/40 mt-8 md:mt-0"
@@ -1092,7 +1107,7 @@ export default function DashboardBendahara({ user, onLogout }) {
         </button>
       </aside>
 
-      {/* MAIN CONTENT AREA (LAYOUT SERAGAM DENGAN SEKRETARIS) */}
+      {/* MAIN CONTENT AREA */}
       <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 w-full space-y-5 sm:space-y-6">
         {/* HEADER USER CARD */}
         <div className="relative overflow-hidden bg-white p-4 sm:p-6 rounded-3xl shadow-sm border border-slate-200/90 transition-all duration-300 hover:shadow-md">
@@ -1188,6 +1203,67 @@ export default function DashboardBendahara({ user, onLogout }) {
               </div>
             </div>
 
+            {/* TABEL RINGKASAN REKAP AGREGAT KAS (COUNT & SUM PER KATEGORI) */}
+            <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+                <h3 className="text-base sm:text-lg font-black text-slate-800 flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  Ringkasan Rekap Agregat Kas OSIS
+                </h3>
+                <span className="text-[11px] font-bold text-[#2158B8] bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                  Total: {keuanganList.length} Transaksi
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[450px]">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
+                      <th className="py-3 px-4 rounded-l-xl">Kategori Transaksi</th>
+                      <th className="py-3 px-4 text-center">Jumlah Transaksi (COUNT)</th>
+                      <th className="py-3 px-4 text-right rounded-r-xl">Total Nominal (SUM)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {rekapRingkasanRows.map((row) => (
+                      <tr key={row.kategori} className="hover:bg-blue-50/40 transition-colors">
+                        <td className="py-3.5 px-4 font-bold">
+                          <span
+                            className={`px-3 py-1 text-xs rounded-xl inline-block ${
+                              row.kategori === 'Pemasukan'
+                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                : 'bg-rose-100 text-rose-700 border border-rose-200'
+                            }`}
+                          >
+                            {row.kategori}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center font-bold text-slate-700">
+                          {row.jumlahTransaksi} transaksi
+                        </td>
+                        <td
+                          className={`py-3.5 px-4 text-right font-black ${
+                            row.kategori === 'Pemasukan' ? 'text-emerald-600' : 'text-rose-500'
+                          }`}
+                        >
+                          {row.kategori === 'Pemasukan' ? '+' : '-'}
+                          {formatRupiah(row.totalNominal)}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="bg-slate-50/90 font-black">
+                      <td className="py-3.5 px-4 text-slate-800 rounded-l-xl">Saldo Akhir Kas</td>
+                      <td className="py-3.5 px-4 text-center text-slate-600">
+                        {keuanganList.length} transaksi
+                      </td>
+                      <td className="py-3.5 px-4 text-right text-[#2158B8] rounded-r-xl">
+                        {formatRupiah(saldoSaatIni)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             {/* TWO COLUMN GRID */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Recent Kas */}
@@ -1204,7 +1280,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                     Lihat Semua &rarr;
                   </button>
                 </div>
-
                 <div className="space-y-3">
                   {keuanganList.length === 0 ? (
                     <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
@@ -1244,7 +1319,7 @@ export default function DashboardBendahara({ user, onLogout }) {
                 </div>
               </div>
 
-              {/* Agenda Kegiatan OSIS (Terpisah dari Program Kerja Ketua) */}
+              {/* Agenda Kegiatan OSIS */}
               <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-300">
                 <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
                   <h3 className="text-base sm:text-lg font-black text-slate-800 flex items-center gap-2">
@@ -1258,7 +1333,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                     Lihat Semua &rarr;
                   </button>
                 </div>
-
                 <div className="space-y-3">
                   {kegiatanList.length === 0 ? (
                     <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
@@ -1402,7 +1476,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                     className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/80 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Sumber Dana
@@ -1418,7 +1491,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                     <option value="Lainnya">Lainnya</option>
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Jenis Transaksi
@@ -1432,7 +1504,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                     <option value="Pengeluaran">Pengeluaran (-)</option>
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                     Nominal Transaksi (Rp)
@@ -1446,7 +1517,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                     className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/80 focus:bg-white transition-all shadow-xs"
                   />
                 </div>
-
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -1582,7 +1652,7 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 4. PROGRAM KERJA (SINKRON KHUSUS KETUA OSIS - TERPISAH DARI KEGIATAN) */}
+        {/* 4. PROGRAM KERJA */}
         {activeMenu === 'program-kerja' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
             <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
@@ -1672,7 +1742,7 @@ export default function DashboardBendahara({ user, onLogout }) {
           </div>
         )}
 
-        {/* 6. KEGIATAN OSIS (LAYOUT CARD GRID SAMA PERSIS DENGAN SEKRETARIS & TERPISAH DARI PROGRAM KERJA) */}
+        {/* 6. KEGIATAN OSIS */}
         {activeMenu === 'kegiatan-osis' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm w-full animate-[fadeIn_0.3s_ease-out]">
             <div className="flex items-center space-x-2.5 mb-5 pb-3 border-b border-slate-100">
@@ -1681,7 +1751,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                 Daftar Kegiatan Sekolah Tersedia
               </h3>
             </div>
-
             {kegiatanList.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                 <p className="text-xs sm:text-sm text-slate-400 font-medium">
@@ -1716,7 +1785,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                           {k.deskripsi || 'Tidak ada deskripsi kegiatan.'}
                         </p>
                       </div>
-
                       <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
                         <span className="text-xs font-semibold text-slate-600">
                           Jadwal: {formatTanggal(k.target || k.tanggal)}
@@ -1765,7 +1833,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                 ✕
               </button>
             </div>
-
             <form onSubmit={handleUpdateKas} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
@@ -1781,7 +1848,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                   className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/80 focus:bg-white transition-all shadow-xs"
                 />
               </div>
-
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                   Keterangan Transaksi
@@ -1797,7 +1863,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                   className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/80 focus:bg-white transition-all shadow-xs"
                 />
               </div>
-
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                   Sumber Dana
@@ -1815,7 +1880,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                   <option value="Lainnya">Lainnya</option>
                 </select>
               </div>
-
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                   Jenis Transaksi
@@ -1831,7 +1895,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                   <option value="Pengeluaran">Pengeluaran (-)</option>
                 </select>
               </div>
-
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                   Nominal Transaksi (Rp)
@@ -1847,7 +1910,6 @@ export default function DashboardBendahara({ user, onLogout }) {
                   className="w-full px-4 py-3 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/80 focus:bg-white transition-all shadow-xs"
                 />
               </div>
-
               <div className="flex items-center gap-3 pt-2">
                 <button
                   type="button"
