@@ -21,7 +21,7 @@ class EventController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Berhasil mengambil daftar kegiatan',
-            'data'    => $events
+            'data'    => $events,
         ], 200);
     }
 
@@ -41,7 +41,7 @@ class EventController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validasi gagal',
-                'errors'  => $validator->errors()
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
@@ -55,22 +55,28 @@ class EventController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Kegiatan berhasil disimpan!',
-            'data'    => $event
+            'data'    => $event,
         ], 201);
     }
 
     /**
      * Detail satu kegiatan
      */
-    public function show($id)
+    public function show(int|string $id)
     {
         $event = Event::find($id);
 
         if (!$event) {
-            return response()->json(['success' => false, 'message' => 'Kegiatan tidak ditemukan'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Kegiatan tidak ditemukan',
+            ], 404);
         }
 
-        return response()->json(['success' => true, 'data' => $event], 200);
+        return response()->json([
+            'success' => true,
+            'data'    => $event,
+        ], 200);
     }
 
     /**
@@ -89,7 +95,7 @@ class EventController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validasi gagal',
-                'errors'  => $validator->errors()
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
@@ -107,7 +113,7 @@ class EventController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Pendaftaran event berhasil disimpan!',
-            'data'    => $registration
+            'data'    => $registration,
         ], 201);
     }
 
@@ -121,37 +127,43 @@ class EventController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Daftar pendaftar event berhasil diambil',
-            'data'    => $registrations
+            'data'    => $registrations,
         ], 200);
     }
 
     /**
      * Ambil daftar peserta untuk 1 event tertentu (Modal Peserta)
      */
-    public function getPeserta($id)
+    public function getPeserta(int|string $id)
     {
         $peserta = EventRegist::where('event_id', $id)->latest()->get();
 
         return response()->json([
             'success' => true,
             'message' => 'Berhasil mengambil daftar peserta',
-            'data'    => $peserta
+            'data'    => $peserta,
         ], 200);
     }
 
     /**
      * Hapus Kegiatan
      */
-    public function destroy($id)
+    public function destroy(int|string $id)
     {
         $event = Event::find($id);
 
         if (!$event) {
-            return response()->json(['success' => false, 'message' => 'Kegiatan tidak ditemukan'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Kegiatan tidak ditemukan',
+            ], 404);
         }
 
         $event->delete();
 
-        return response()->json(['success' => true, 'message' => 'Kegiatan berhasil dihapus!'], 200);
+        return response()->json([
+            'success' => true,
+            'message' => 'Kegiatan berhasil dihapus!',
+        ], 200);
     }
 }

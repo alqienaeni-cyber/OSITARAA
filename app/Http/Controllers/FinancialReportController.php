@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\LaporanKeuangan;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Exception;
 
 class FinancialReportController extends Controller
@@ -18,12 +19,46 @@ class FinancialReportController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $laporan
+                'data'    => $laporan,
             ], 200);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil data: ' . $e->getMessage()
+                'message' => 'Gagal mengambil data: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Rekap Agregat Sederhana (SUM & COUNT dikelompokkan berdasarkan jenis: Pemasukan & Pengeluaran)
+     */
+    public function rekap()
+    {
+        try {
+            $agregat = LaporanKeuangan::select(
+                    'jenis',
+                    DB::raw('COUNT(*) as total_transaksi'),
+                    DB::raw('SUM(nominal) as total_nominal')
+                )
+                ->groupBy('jenis')
+                ->get();
+
+            $totalPemasukan = (int) ($agregat->where('jenis', 'Pemasukan')->first()->total_nominal ?? 0);
+            $totalPengeluaran = (int) ($agregat->where('jenis', 'Pengeluaran')->first()->total_nominal ?? 0);
+
+            return response()->json([
+                'success' => true,
+                'data'    => [
+                    'rincian_per_jenis' => $agregat,
+                    'total_pemasukan'   => $totalPemasukan,
+                    'total_pengeluaran' => $totalPengeluaran,
+                    'saldo_kas'         => $totalPemasukan - $totalPengeluaran,
+                ],
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil rekap: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -53,12 +88,12 @@ class FinancialReportController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Laporan keuangan berhasil ditambahkan',
-                'data'    => $laporan
+                'data'    => $laporan,
             ], 201);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menambahkan data: ' . $e->getMessage()
+                'message' => 'Gagal menambahkan data: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -66,7 +101,7 @@ class FinancialReportController extends Controller
     /**
      * Mengupdate data laporan keuangan
      */
-    public function update(Request $request,int|string $id)
+    public function update(Request $request, int|string $id)
     {
         try {
             $laporan = LaporanKeuangan::find($id);
@@ -74,7 +109,7 @@ class FinancialReportController extends Controller
             if (!$laporan) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Laporan keuangan tidak ditemukan'
+                    'message' => 'Laporan keuangan tidak ditemukan',
                 ], 404);
             }
 
@@ -91,12 +126,12 @@ class FinancialReportController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Laporan keuangan berhasil diperbarui',
-                'data'    => $laporan
+                'data'    => $laporan,
             ], 200);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -104,7 +139,7 @@ class FinancialReportController extends Controller
     /**
      * Menghapus data laporan keuangan
      */
-    public function destroy(int|string$id)
+    public function destroy(int|string $id)
     {
         try {
             $laporan = LaporanKeuangan::find($id);
@@ -112,7 +147,7 @@ class FinancialReportController extends Controller
             if (!$laporan) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Laporan keuangan tidak ditemukan'
+                    'message' => 'Laporan keuangan tidak ditemukan',
                 ], 404);
             }
 
@@ -120,12 +155,12 @@ class FinancialReportController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Laporan keuangan berhasil dihapus'
+                'message' => 'Laporan keuangan berhasil dihapus',
             ], 200);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menghapus: ' . $e->getMessage()
+                'message' => 'Gagal menghapus: ' . $e->getMessage(),
             ], 500);
         }
     }

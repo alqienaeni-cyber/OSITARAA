@@ -5,31 +5,31 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class EventRegistration extends Model
+class EventRegist extends Model
 {
     use HasFactory;
 
     /**
      * Nama tabel di database MySQL.
-     *
      * @var string
      */
     protected $table = 'pendaftaran_event';
 
     /**
-     * Jika id pada tabel MySQL berupa INT AUTO_INCREMENT
+     * Jika id pada tabel MySQL berupa INT AUTO INCREMENT
      */
     public $incrementing = true;
     protected $keyType = 'int';
 
     /**
      * Kolom yang dapat diisi secara masal (mass assignable).
-     *
      * @var array<int, string>
      */
     protected $fillable = [
         'id',
         'event_id',
+        'user_id',
+        'kode_pendaftaran',
         'kegiatan_id',
         'nama_kegiatan',
         'nama_siswa',
@@ -44,7 +44,6 @@ class EventRegistration extends Model
 
     /**
      * Atribut yang di-cast otomatis oleh Eloquent.
-     *
      * @var array<string, string>
      */
     protected $casts = [

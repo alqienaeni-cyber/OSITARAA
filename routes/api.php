@@ -79,6 +79,7 @@ Route::delete('/program-kerja/{id}', [ProgramKerjaController::class, 'destroy'])
 
 // 6. LAPORAN KEUANGAN OSIS
 Route::get('/keuangan', [FinancialReportController::class, 'index']);
+Route::get('/keuangan/rekap', [FinancialReportController::class, 'rekap']);
 Route::post('/keuangan', [FinancialReportController::class, 'store']);
 Route::put('/keuangan/{id}', [FinancialReportController::class, 'update']);
 Route::delete('/keuangan/{id}', [FinancialReportController::class, 'destroy']);
