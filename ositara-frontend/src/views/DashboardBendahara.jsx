@@ -600,7 +600,11 @@ export default function DashboardBendahara({ user, onLogout }) {
             // abaikan jika bukan JSON
           }
           console.error('Detail error server POST /keuangan:', errText);
-          showToast(`Gagal simpan ke database (${errMsg})`, 'warning');
+         if (res.status === 409) {
+            showToast(errMsg, 'warning');
+          } else {
+            showToast(`Maaf, transaksi belum dapat disimpan (${errMsg})`, 'warning');
+          }
         }
       }
 
