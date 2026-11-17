@@ -80,7 +80,7 @@ class FinancialReportController extends Controller
     }
 
     /**
-     * Menyimpan transaksi kas baru (dengan proteksi anti double-submit).
+     * Menyimpan transaksi kas baru (dengan proteksi anti double-submit & respons 409 jika duplikat).
      */
     public function store(Request $request)
     {
@@ -110,26 +110,27 @@ class FinancialReportController extends Controller
         }
 
         try {
+            $tanggalClean = $request->input('tanggal', now()->toDateString());
             $keteranganClean = trim($request->input('keterangan'));
             $nominalClean = (float) $nominalInput;
 
-            // Proteksi server: cegah data identik tersimpan ganda dalam 10 detik terakhir
-            $duplikat = LaporanKeuangan::where('keterangan', $keteranganClean)
+            // Cek apakah transaksi identik sudah tercatat pada tanggal yang sama
+            $duplikat = LaporanKeuangan::where('tanggal', $tanggalClean)
+                ->where('keterangan', $keteranganClean)
                 ->where('jenis', $jenisInput)
                 ->where('nominal', $nominalClean)
-                ->where('created_at', '>=', now()->subSeconds(10))
                 ->first();
 
             if ($duplikat) {
                 return response()->json([
-                    'success' => true,
-                    'message' => 'Laporan keuangan berhasil ditambahkan',
+                    'success' => false,
+                    'message' => 'Transaksi "' . $keteranganClean . '" sudah tercatat hari ini! Data duplikat tidak disimpan.',
                     'data'    => $duplikat,
-                ], 201);
+                ], 409);
             }
 
             $laporan = LaporanKeuangan::create([
-                'tanggal'    => $request->input('tanggal', now()->toDateString()),
+                'tanggal'    => $tanggalClean,
                 'keterangan' => $keteranganClean,
                 'sumber'     => $request->input('sumber') ?: 'Kas OSIS',
                 'jenis'      => $jenisInput,
@@ -152,7 +153,7 @@ class FinancialReportController extends Controller
     /**
      * Menampilkan detail satu transaksi keuangan.
      */
-    public function show(int|string $id)
+    public function show(int|string$id)
     {
         $laporan = LaporanKeuangan::find($id);
         if (!$laporan) {
