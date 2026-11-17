@@ -5,84 +5,135 @@ namespace App\Http\Controllers;
 use App\Models\LaporanKeuangan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Exception;
+use Illuminate\Support\Facades\Validator;
 
 class FinancialReportController extends Controller
 {
     /**
-     * Menampilkan semua data laporan keuangan
+     * Menampilkan seluruh daftar transaksi keuangan beserta ringkasan agregat.
      */
     public function index()
     {
         try {
-            $laporan = LaporanKeuangan::orderBy('created_at', 'desc')->get();
+            $data = LaporanKeuangan::orderBy('tanggal', 'desc')
+                ->orderBy('id', 'desc')
+                ->get();
 
             return response()->json([
                 'success' => true,
-                'data'    => $laporan,
+                'message' => 'Data laporan keuangan berhasil diambil',
+                'data'    => $data,
             ], 200);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil data: ' . $e->getMessage(),
+                'message' => 'Gagal mengambil data laporan keuangan: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Rekap Agregat Sederhana (SUM & COUNT dikelompokkan berdasarkan jenis: Pemasukan & Pengeluaran)
+     * Rekapitulasi agregat keuangan menggunakan SQL SUM dan COUNT (GROUP BY jenis & sumber).
      */
     public function rekap()
     {
         try {
-            $agregat = LaporanKeuangan::select(
-                    'jenis',
-                    DB::raw('COUNT(*) as total_transaksi'),
-                    DB::raw('SUM(nominal) as total_nominal')
-                )
+            $rekapPerJenis = LaporanKeuangan::select(
+                'jenis',
+                DB::raw('COUNT(*) as jumlah_transaksi'),
+                DB::raw('SUM(nominal) as total_nominal')
+            )
                 ->groupBy('jenis')
                 ->get();
 
-            $totalPemasukan = (int) ($agregat->where('jenis', 'Pemasukan')->first()->total_nominal ?? 0);
-            $totalPengeluaran = (int) ($agregat->where('jenis', 'Pengeluaran')->first()->total_nominal ?? 0);
+            $rekapPerSumber = LaporanKeuangan::select(
+                'sumber',
+                'jenis',
+                DB::raw('COUNT(*) as jumlah_transaksi'),
+                DB::raw('SUM(nominal) as total_nominal')
+            )
+                ->groupBy('sumber', 'jenis')
+                ->get();
+
+            $totalPemasukan = (float) LaporanKeuangan::where('jenis', 'Pemasukan')->sum('nominal');
+            $totalPengeluaran = (float) LaporanKeuangan::where('jenis', 'Pengeluaran')->sum('nominal');
+            $jumlahTransaksi = (int) LaporanKeuangan::count();
 
             return response()->json([
                 'success' => true,
+                'message' => 'Rekap agregat keuangan berhasil dihitung',
                 'data'    => [
-                    'rincian_per_jenis' => $agregat,
                     'total_pemasukan'   => $totalPemasukan,
                     'total_pengeluaran' => $totalPengeluaran,
-                    'saldo_kas'         => $totalPemasukan - $totalPengeluaran,
+                    'saldo_akhir'       => $totalPemasukan - $totalPengeluaran,
+                    'jumlah_transaksi'  => $jumlahTransaksi,
+                    'per_jenis'         => $rekapPerJenis,
+                    'per_sumber'        => $rekapPerSumber,
                 ],
             ], 200);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil rekap: ' . $e->getMessage(),
+                'message' => 'Gagal menghitung rekap keuangan: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Menyimpan data laporan keuangan baru
+     * Menyimpan transaksi kas baru (dengan proteksi anti double-submit).
      */
     public function store(Request $request)
     {
+        $nominalInput = $request->input('nominal', $request->input('jumlah'));
+        $jenisInput = $request->input('jenis', $request->input('kategori'));
+
+        $validator = Validator::make([
+            'tanggal'    => $request->input('tanggal', now()->toDateString()),
+            'keterangan' => $request->input('keterangan'),
+            'sumber'     => $request->input('sumber', 'Kas OSIS'),
+            'jenis'      => $jenisInput,
+            'nominal'    => $nominalInput,
+        ], [
+            'tanggal'    => 'required|date',
+            'keterangan' => 'required|string|max:255',
+            'sumber'     => 'nullable|string|max:100',
+            'jenis'      => 'required|in:Pemasukan,Pengeluaran',
+            'nominal'    => 'required|numeric|min:1',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi data keuangan gagal',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
         try {
-            $request->validate([
-                'sumber'     => 'required|string|max:255',
-                'jenis'      => 'required|string|in:Pemasukan,Pengeluaran',
-                'keterangan' => 'required|string',
-                'nominal'    => 'required|numeric',
-                'tanggal'    => 'nullable|date',
-            ]);
+            $keteranganClean = trim($request->input('keterangan'));
+            $nominalClean = (float) $nominalInput;
+
+            // Proteksi server: cegah data identik tersimpan ganda dalam 10 detik terakhir
+            $duplikat = LaporanKeuangan::where('keterangan', $keteranganClean)
+                ->where('jenis', $jenisInput)
+                ->where('nominal', $nominalClean)
+                ->where('created_at', '>=', now()->subSeconds(10))
+                ->first();
+
+            if ($duplikat) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Laporan keuangan berhasil ditambahkan',
+                    'data'    => $duplikat,
+                ], 201);
+            }
 
             $laporan = LaporanKeuangan::create([
-                'sumber'     => $request->sumber,
-                'jenis'      => $request->jenis,
-                'keterangan' => $request->keterangan,
-                'nominal'    => $request->nominal,
-                'tanggal'    => $request->tanggal ?? now()->toDateString(),
+                'tanggal'    => $request->input('tanggal', now()->toDateString()),
+                'keterangan' => $keteranganClean,
+                'sumber'     => $request->input('sumber') ?: 'Kas OSIS',
+                'jenis'      => $jenisInput,
+                'nominal'    => $nominalClean,
             ]);
 
             return response()->json([
@@ -90,77 +141,117 @@ class FinancialReportController extends Controller
                 'message' => 'Laporan keuangan berhasil ditambahkan',
                 'data'    => $laporan,
             ], 201);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menambahkan data: ' . $e->getMessage(),
+                'message' => 'Gagal menyimpan laporan keuangan: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Mengupdate data laporan keuangan
+     * Menampilkan detail satu transaksi keuangan.
+     */
+    public function show(int|string $id)
+    {
+        $laporan = LaporanKeuangan::find($id);
+        if (!$laporan) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data laporan keuangan tidak ditemukan',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => $laporan,
+        ], 200);
+    }
+
+    /**
+     * Memperbarui catatan transaksi keuangan.
      */
     public function update(Request $request, int|string $id)
     {
+        $laporan = LaporanKeuangan::find($id);
+        if (!$laporan) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data laporan keuangan tidak ditemukan',
+            ], 404);
+        }
+
+        $nominalInput = $request->input('nominal', $request->input('jumlah', $laporan->nominal));
+        $jenisInput = $request->input('jenis', $request->input('kategori', $laporan->jenis));
+
+        $validator = Validator::make([
+            'tanggal'    => $request->input('tanggal', $laporan->tanggal),
+            'keterangan' => $request->input('keterangan', $laporan->keterangan),
+            'sumber'     => $request->input('sumber', $laporan->sumber),
+            'jenis'      => $jenisInput,
+            'nominal'    => $nominalInput,
+        ], [
+            'tanggal'    => 'required|date',
+            'keterangan' => 'required|string|max:255',
+            'sumber'     => 'nullable|string|max:100',
+            'jenis'      => 'required|in:Pemasukan,Pengeluaran',
+            'nominal'    => 'required|numeric|min:1',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi pembaruan gagal',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
         try {
-            $laporan = LaporanKeuangan::find($id);
-
-            if (!$laporan) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Laporan keuangan tidak ditemukan',
-                ], 404);
-            }
-
-            $request->validate([
-                'sumber'     => 'sometimes|required|string|max:255',
-                'jenis'      => 'sometimes|required|string|in:Pemasukan,Pengeluaran',
-                'keterangan' => 'sometimes|required|string',
-                'nominal'    => 'sometimes|required|numeric',
-                'tanggal'    => 'sometimes|required|date',
+            $laporan->update([
+                'tanggal'    => $request->input('tanggal', $laporan->tanggal),
+                'keterangan' => trim($request->input('keterangan', $laporan->keterangan)),
+                'sumber'     => $request->input('sumber', $laporan->sumber) ?: 'Kas OSIS',
+                'jenis'      => $jenisInput,
+                'nominal'    => (float) $nominalInput,
             ]);
-
-            $laporan->update($request->all());
 
             return response()->json([
                 'success' => true,
                 'message' => 'Laporan keuangan berhasil diperbarui',
                 'data'    => $laporan,
             ], 200);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Gagal memperbarui laporan keuangan: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Menghapus data laporan keuangan
+     * Menghapus catatan transaksi keuangan.
      */
     public function destroy(int|string $id)
     {
+        $laporan = LaporanKeuangan::find($id);
+        if (!$laporan) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data laporan keuangan tidak ditemukan',
+            ], 404);
+        }
+
         try {
-            $laporan = LaporanKeuangan::find($id);
-
-            if (!$laporan) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Laporan keuangan tidak ditemukan',
-                ], 404);
-            }
-
             $laporan->delete();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Laporan keuangan berhasil dihapus',
             ], 200);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal menghapus: ' . $e->getMessage(),
+                'message' => 'Gagal menghapus laporan keuangan: ' . $e->getMessage(),
             ], 500);
         }
     }

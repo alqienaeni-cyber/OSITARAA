@@ -54,6 +54,33 @@ const getInitialData = (keys, fallback) => {
   return fallback;
 };
 
+// --- HELPER DEDUPLIKASI TRANSAKSI KAS (CEGAH ID KEMBAR & BARIS IDENTIK) ---
+const deduplicateKeuangan = (list) => {
+  if (!Array.isArray(list)) return [];
+  const seenIds = new Set();
+  const seenSignatures = new Set();
+  const result = [];
+
+  for (const item of list) {
+    if (!item) continue;
+    const idStr = item.id !== undefined && item.id !== null ? String(item.id) : null;
+    if (idStr && seenIds.has(idStr)) continue;
+
+    const cleanTgl = String(item.tanggal || '').split('T')[0].split(' ')[0];
+    const ket = String(item.keterangan || '').trim().toLowerCase();
+    const jenis = String(item.kategori || item.jenis || '').trim().toLowerCase();
+    const nom = Number(item.jumlah || item.nominal || 0);
+    const signature = `${cleanTgl}|${ket}|${jenis}|${nom}`;
+
+    if (seenSignatures.has(signature)) continue;
+
+    if (idStr) seenIds.add(idStr);
+    seenSignatures.add(signature);
+    result.push(item);
+  }
+  return result;
+};
+
 // --- PENENTU PEMISAHAN DATA SEKRETARIS VS KETUA (BERSATU DI DB, TERPISAH DI UI) ---
 const isItemKegiatanSekre = (item) => {
   if (!item) return false;
@@ -250,7 +277,7 @@ export default function DashboardBendahara({ user, onLogout }) {
 
   // --- STATE DATA MANAGEMENT ---
   const [keuanganList, setKeuanganList] = useState(() =>
-    getInitialData(['ositara_keuangan', 'keuanganList'], [])
+    deduplicateKeuangan(getInitialData(['ositara_keuangan', 'keuanganList'], []))
   );
   const [proposalList, setProposalList] = useState(() =>
     getInitialData(['ositara_proposal', 'proposals'], [])
@@ -413,7 +440,7 @@ export default function DashboardBendahara({ user, onLogout }) {
         console.warn('Sync proposal terlewati:', e);
       }
 
-      // 3. Fetch Keuangan
+      // 3. Fetch Keuangan (dengan deduplikasi ketat)
       try {
         let resKeuangan = await fetch(`${API_BASE}/keuangan`, {
           headers: getAuthHeaders(),
@@ -426,17 +453,10 @@ export default function DashboardBendahara({ user, onLogout }) {
         if (resKeuangan.ok) {
           const resultK = await resKeuangan.json();
           const dataK = Array.isArray(resultK) ? resultK : resultK.data || [];
-          // Deduplikasi berdasarkan ID agar tidak pernah muncul ganda
-          const uniqueMap = new Map();
-          dataK.forEach((item) => {
-            if (item && item.id !== undefined) {
-              uniqueMap.set(String(item.id), item);
-            }
-          });
-          const uniqueKeuangan = Array.from(uniqueMap.values());
-          setKeuanganList(uniqueKeuangan);
-          localStorage.setItem('ositara_keuangan', JSON.stringify(uniqueKeuangan));
-          localStorage.setItem('keuanganList', JSON.stringify(uniqueKeuangan));
+          const cleanKeuangan = deduplicateKeuangan(dataK);
+          setKeuanganList(cleanKeuangan);
+          localStorage.setItem('ositara_keuangan', JSON.stringify(cleanKeuangan));
+          localStorage.setItem('keuanganList', JSON.stringify(cleanKeuangan));
         }
       } catch (e) {
         console.warn('Sync keuangan terlewati:', e);
@@ -591,10 +611,8 @@ export default function DashboardBendahara({ user, onLogout }) {
           ...(resData && typeof resData === 'object' ? resData : {}),
         };
 
-        // Cegah duplikasi ID saat menambahkan ke list
         setKeuanganList((prevList) => {
-          const filtered = prevList.filter((item) => String(item.id) !== String(recordBaru.id));
-          const updatedList = [recordBaru, ...filtered];
+          const updatedList = deduplicateKeuangan([recordBaru, ...prevList]);
           broadcastKeuanganUpdate(updatedList);
           return updatedList;
         });
