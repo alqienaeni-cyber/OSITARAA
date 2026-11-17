@@ -10,6 +10,9 @@ use Exception;
 
 class ProposalKegiatanController extends Controller
 {
+    /**
+     * Menampilkan semua data proposal kegiatan.
+     */
     public function index()
     {
         try {
@@ -21,18 +24,26 @@ class ProposalKegiatanController extends Controller
                 }
                 return $item;
             });
+
             return response()->json($data, 200);
         } catch (Exception $e) {
-            return response()->json([], 200);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 
-    public function show($id)
+    /**
+     * Menampilkan detail proposal berdasarkan ID.
+     */
+    public function show(mixed $id)
     {
         try {
             $proposal = ProposalKegiatan::find($id);
+
             if (!$proposal) {
-                return response()->json(['success' => false, 'message' => 'Proposal tidak ditemukan'], 404);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Proposal tidak ditemukan'
+                ], 404);
             }
 
             if ($proposal->file_proposal && !str_starts_with($proposal->file_proposal, 'http')) {
@@ -41,19 +52,29 @@ class ProposalKegiatanController extends Controller
                 $proposal->file_url = $proposal->file_proposal;
             }
 
-            return response()->json(['success' => true, 'data' => $proposal], 200);
+            return response()->json([
+                'success' => true,
+                'data' => $proposal
+            ], 200);
+
         } catch (Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 
+    /**
+     * Menyimpan proposal kegiatan baru.
+     */
     public function store(Request $request)
     {
         try {
             $judul = $request->input('judul_proposal', $request->input('judul', 'Proposal Baru'));
             $pengaju = $request->input('pengaju', $request->input('sekbid', 'Sekretaris OSIS'));
-
             $fileName = null;
+
             if ($request->hasFile('file_proposal')) {
                 $file = $request->file('file_proposal');
                 // Menggunakan nama asli bawaan file tanpa tambahan timestamp angka
@@ -75,15 +96,19 @@ class ProposalKegiatanController extends Controller
             if (Schema::hasColumn('proposal_kegiatan', 'kategori')) {
                 $payload['kategori'] = $request->input('kategori', 'Kegiatan');
             }
+
             if (Schema::hasColumn('proposal_kegiatan', 'anggaran')) {
                 $payload['anggaran'] = $request->input('anggaran', 0);
             }
+
             if (Schema::hasColumn('proposal_kegiatan', 'deskripsi')) {
                 $payload['deskripsi'] = $deskripsiVal;
             }
+
             if (Schema::hasColumn('proposal_kegiatan', 'file_proposal')) {
                 $payload['file_proposal'] = $fileName;
             }
+
             if (Schema::hasColumn('proposal_kegiatan', 'catatan_pembina')) {
                 $payload['catatan_pembina'] = '-';
             }
@@ -99,6 +124,7 @@ class ProposalKegiatanController extends Controller
                 'message' => 'Proposal berhasil diajukan',
                 'data'    => $proposal
             ], 201);
+
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -107,12 +133,19 @@ class ProposalKegiatanController extends Controller
         }
     }
 
-    public function update(Request $request, $id)
+    /**
+     * Memperbarui data proposal.
+     */
+    public function update(Request $request, mixed $id)
     {
         try {
             $proposal = ProposalKegiatan::find($id);
+
             if (!$proposal) {
-                return response()->json(['success' => false, 'message' => 'Proposal tidak ditemukan'], 404);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Proposal tidak ditemukan'
+                ], 404);
             }
 
             $payload = [];
@@ -134,6 +167,7 @@ class ProposalKegiatanController extends Controller
             }
 
             $catatanVal = $request->input('catatan_pembina', $request->input('catatan_revisi', $request->input('catatan')));
+
             if ($catatanVal !== null) {
                 if (Schema::hasColumn('proposal_kegiatan', 'catatan_pembina')) {
                     $payload['catatan_pembina'] = $catatanVal;
@@ -171,44 +205,76 @@ class ProposalKegiatanController extends Controller
                 'message' => 'Proposal revisi berhasil diperbarui!',
                 'data'    => $proposal
             ], 200);
-        } catch (Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
-        }
-    }
 
-    public function updateStatus(Request $request, $id)
-    {
-        return $this->update($request, $id);
-    }
-
-    public function destroy($id)
-    {
-        try {
-            $proposal = ProposalKegiatan::find($id);
-            if ($proposal) {
-                if ($proposal->file_proposal && Storage::exists('public/proposals/' . $proposal->file_proposal)) {
-                    Storage::delete('public/proposals/' . $proposal->file_proposal);
-                }
-                $proposal->delete();
-            }
-            return response()->json(['success' => true, 'message' => 'Proposal berhasil dihapus'], 200);
         } catch (Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 
     /**
-     * Route khusus pengunduhan berkas PDF tanpa melewati symlink storage (Bebas 403 Forbidden)
+     * Memperbarui status proposal saja.
      */
-    public function downloadFile($filename)
+    public function updateStatus(Request $request, mixed $id)
     {
-        $decodedFilename = urldecode($filename);
-        $path = 'public/proposals/' . $decodedFilename;
+        return $this->update($request, $id);
+    }
 
-        if (!Storage::exists($path)) {
-            return response()->json(['message' => 'Berkas tidak ditemukan'], 404);
+    /**
+     * Menghapus proposal kegiatan.
+     */
+    public function destroy(mixed $id)
+    {
+        try {
+            $proposal = ProposalKegiatan::find($id);
+
+            if (!$proposal) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Proposal tidak ditemukan'
+                ], 404);
+            }
+
+            if ($proposal->file_proposal && Storage::exists('public/proposals/' . $proposal->file_proposal)) {
+                Storage::delete('public/proposals/' . $proposal->file_proposal);
+            }
+
+            $proposal->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Proposal berhasil dihapus'
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
         }
+    }
 
-        return Storage::download($path, $decodedFilename);
+    /**
+     * Route khusus pengunduhan berkas PDF tanpa melewati symlink storage (Bebas 403 Forbidden).
+     */
+    public function downloadFile(string $filename)
+    {
+        try {
+            $decodedFilename = urldecode($filename);
+            $path = 'public/proposals/' . $decodedFilename;
+
+            if (!Storage::exists($path)) {
+                return response()->json(['message' => 'Berkas tidak ditemukan'], 404);
+            }
+
+            return Storage::download($path, $decodedFilename);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 }

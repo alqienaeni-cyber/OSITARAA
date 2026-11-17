@@ -66,7 +66,7 @@ class FinancialReportController extends Controller
     /**
      * Mengupdate data laporan keuangan
      */
-    public function update(Request $request, $id)
+    public function update(Request $request,int|string $id)
     {
         try {
             $laporan = LaporanKeuangan::find($id);
@@ -104,7 +104,7 @@ class FinancialReportController extends Controller
     /**
      * Menghapus data laporan keuangan
      */
-    public function destroy($id)
+    public function destroy(int|string$id)
     {
         try {
             $laporan = LaporanKeuangan::find($id);

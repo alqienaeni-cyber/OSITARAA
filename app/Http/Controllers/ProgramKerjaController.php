@@ -25,7 +25,7 @@ class ProgramKerjaController extends Controller
     /**
      * Tampilkan detail data berdasarkan ID
      */
-    public function show($id)
+    public function show(mixed $id)
     {
         try {
             $proker = ProgramKerja::find($id);
@@ -118,7 +118,7 @@ class ProgramKerjaController extends Controller
     /**
      * Perbarui data kegiatan / program kerja
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, mixed $id)
     {
         try {
             $proker = ProgramKerja::find($id);
@@ -196,7 +196,7 @@ class ProgramKerjaController extends Controller
     /**
      * Hapus data
      */
-    public function destroy($id)
+    public function destroy(mixed $id)
     {
         try {
             $proker = ProgramKerja::find($id);
