@@ -139,7 +139,7 @@ const saveNotaToCache = (item, dataUrl) => {
 const normalizeBuktiNota = (item) => {
   if (!item || typeof item !== 'object') return '';
   const direct = item.bukti_nota || item.foto_nota || item.nota || item.bukti || '';
-  if (direct && typeof direct === 'string') {
+  if (direct && typeof direct === 'string' && direct !== 'data:,') {
     if (direct.startsWith('data:image') || direct.startsWith('http')) return direct;
     return `${getStorageBaseUrl()}/${direct.replace(/^\/+/, '')}`;
   }
@@ -738,20 +738,32 @@ export default function DashboardBendahara({
     };
   }, []);
 
+  // Tempelkan stream kamera secara reaktif saat elemen <video> sudah ter-render
+  useEffect(() => {
+    if (cameraTarget && !capturedPreview && videoRef.current && streamRef.current) {
+      const videoEl = videoRef.current;
+      if (videoEl.srcObject !== streamRef.current) {
+        videoEl.srcObject = streamRef.current;
+      }
+      videoEl.play().catch(() => {});
+    }
+  }, [cameraTarget, capturedPreview]);
+
   const startCamera = async (target) => {
     setCameraError('');
     setCapturedPreview('');
     stopCamera();
-    setCameraTarget(target);
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      setCameraError('Browser tidak mendukung akses kamera langsung. Gunakan Pilih dari Galeri.');
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
+        video: { facingMode: { ideal: 'environment' } },
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      setCameraTarget(target);
     } catch {
       setCameraTarget(null);
       setCameraError('Izin kamera ditolak atau perangkat kamera tidak tersedia.');
@@ -760,8 +772,11 @@ export default function DashboardBendahara({
 
   const handleTakePhoto = () => {
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      showToast('Kamera sedang memuat tampilan, coba klik Ambil Foto sekali lagi.', 'warning');
+      return;
+    }
+    const canvas = canvasRef.current || document.createElement('canvas');
     const maxW = 850;
     const scale = video.videoWidth > maxW ? maxW / video.videoWidth : 1;
     canvas.width = Math.round(video.videoWidth * scale);
@@ -769,7 +784,16 @@ export default function DashboardBendahara({
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+    if (!dataUrl || dataUrl === 'data:,') {
+      showToast('Gagal menangkap gambar dari kamera, silakan coba lagi.', 'warning');
+      return;
+    }
     setCapturedPreview(dataUrl);
+    if (cameraTarget === 'tambah') {
+      setBuktiNota(dataUrl);
+    } else if (cameraTarget === 'edit') {
+      setEditKasModal((prev) => ({ ...prev, buktiNota: dataUrl }));
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -779,6 +803,11 @@ export default function DashboardBendahara({
   const handleRetakePhoto = () => {
     const currentTarget = cameraTarget;
     setCapturedPreview('');
+    if (currentTarget === 'tambah') {
+      setBuktiNota('');
+    } else if (currentTarget === 'edit') {
+      setEditKasModal((prev) => ({ ...prev, buktiNota: '' }));
+    }
     if (currentTarget) startCamera(currentTarget);
   };
 
@@ -936,7 +965,9 @@ export default function DashboardBendahara({
         ? judulSumberCustom.trim() || 'Lainnya'
         : kategoriSumberFix;
     const jenisFix = jenisTransaksi === 'Pengeluaran' ? 'Pengeluaran' : 'Pemasukan';
-    const notaFix = jenisFix === 'Pengeluaran' ? buktiNota : '';
+    const notaKandidat =
+      buktiNota || (cameraTarget === 'tambah' && capturedPreview ? capturedPreview : '');
+    const notaFix = jenisFix === 'Pengeluaran' ? notaKandidat : '';
 
     const payload = {
       tanggal: tglFix,
@@ -1060,6 +1091,7 @@ export default function DashboardBendahara({
       );
     }
   };
+
   const handleOpenEditKas = (item) => {
     stopCamera();
     setCapturedPreview('');
@@ -1098,7 +1130,9 @@ export default function DashboardBendahara({
         ? editKasModal.judulSumberCustom.trim() || 'Lainnya'
         : kategoriSumberFix;
     const jenisFix = editKasModal.jenis === 'Pengeluaran' ? 'Pengeluaran' : 'Pemasukan';
-    const notaFix = jenisFix === 'Pengeluaran' ? editKasModal.buktiNota : '';
+    const notaKandidatEdit =
+      editKasModal.buktiNota || (cameraTarget === 'edit' && capturedPreview ? capturedPreview : '');
+    const notaFix = jenisFix === 'Pengeluaran' ? notaKandidatEdit : '';
 
     const updatedRecord = {
       id: editKasModal.id,
@@ -1145,7 +1179,6 @@ export default function DashboardBendahara({
     setEditKasModal((prev) => ({ ...prev, isOpen: false }));
     showToast('Perubahan transaksi berhasil disimpan & disinkronkan ke database!');
   };
-
   const handleHapusKas = (item) => {
     setConfirmModal({
       isOpen: true,
