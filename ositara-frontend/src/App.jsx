@@ -178,6 +178,39 @@ export default function App() {
     ];
   });
 
+  // 5. STATE PROGRAM KERJA OSIS
+  const [prokerList, setProkerList] = useState(() => {
+    const saved =
+      localStorage.getItem('ositara_proker') ||
+      localStorage.getItem('prokerList');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error('Gagal membaca proker dari localStorage:', e);
+      }
+    }
+    return [];
+  });
+
+  // 6. STATE KEUANGAN OSIS (SINGLE SOURCE OF TRUTH UNTUK BENDAHARA & DASHBOARD LAIN)
+  const [keuanganList, setKeuanganList] = useState(() => {
+    const saved =
+      localStorage.getItem('ositara_keuangan_list') ||
+      localStorage.getItem('ositara_keuangan') ||
+      localStorage.getItem('keuanganList');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.error('Gagal membaca keuangan dari localStorage:', e);
+      }
+    }
+    return [];
+  });
+
   // SINKRONISASI REAL-TIME ANTAR DASHBOARD
   const handleGlobalSync = useCallback(() => {
     try {
@@ -200,6 +233,17 @@ export default function App() {
         localStorage.getItem('ositara_pendaftaran') ||
         localStorage.getItem('pendaftaranList');
       if (savedPendaftaran) setPendaftaranList(JSON.parse(savedPendaftaran));
+
+      const savedProker =
+        localStorage.getItem('ositara_proker') ||
+        localStorage.getItem('prokerList');
+      if (savedProker) setProkerList(JSON.parse(savedProker));
+
+      const savedKeuangan =
+        localStorage.getItem('ositara_keuangan_list') ||
+        localStorage.getItem('ositara_keuangan') ||
+        localStorage.getItem('keuanganList');
+      if (savedKeuangan) setKeuanganList(JSON.parse(savedKeuangan));
     } catch (e) {
       console.error('Gagal merefresh state global:', e);
     }
@@ -210,6 +254,7 @@ export default function App() {
     window.addEventListener('ositara_proposal_updated', handleGlobalSync);
     window.addEventListener('ositara_proker_updated', handleGlobalSync);
     window.addEventListener('ositara_keuangan_updated', handleGlobalSync);
+    window.addEventListener('ositara-keuangan-updated', handleGlobalSync);
     window.addEventListener('ositara_pendaftaran_updated', handleGlobalSync);
     const interval = setInterval(handleGlobalSync, 1000);
     return () => {
@@ -217,6 +262,7 @@ export default function App() {
       window.removeEventListener('ositara_proposal_updated', handleGlobalSync);
       window.removeEventListener('ositara_proker_updated', handleGlobalSync);
       window.removeEventListener('ositara_keuangan_updated', handleGlobalSync);
+      window.removeEventListener('ositara-keuangan-updated', handleGlobalSync);
       window.removeEventListener('ositara_pendaftaran_updated', handleGlobalSync);
       clearInterval(interval);
     };
@@ -258,6 +304,25 @@ export default function App() {
     fetchProposals();
   }, []);
 
+  // FETCH BACKEND KEUANGAN
+  useEffect(() => {
+    const fetchKeuangan = async () => {
+      try {
+        const res = await api.get('/keuangan');
+        const data = res.data?.data || res.data;
+        if (Array.isArray(data) && data.length > 0) {
+          setKeuanganList(data);
+          localStorage.setItem('ositara_keuangan_list', JSON.stringify(data));
+          localStorage.setItem('ositara_keuangan', JSON.stringify(data));
+          localStorage.setItem('keuanganList', JSON.stringify(data));
+        }
+      } catch {
+        console.warn('Backend API /keuangan tidak merespons. Menggunakan LocalStorage.');
+      }
+    };
+    fetchKeuangan();
+  }, []);
+
   // SIMPAN OTOMATIS SAAT STATE BERUBAH
   useEffect(() => {
     if (kegiatanList && kegiatanList.length > 0) {
@@ -284,6 +349,24 @@ export default function App() {
       localStorage.setItem('proposals', JSON.stringify(proposals));
     }
   }, [proposals]);
+
+  useEffect(() => {
+    localStorage.setItem('ositara_keuangan_list', JSON.stringify(keuanganList));
+    localStorage.setItem('ositara_keuangan', JSON.stringify(keuanganList));
+    localStorage.setItem('keuanganList', JSON.stringify(keuanganList));
+  }, [keuanganList]);
+
+  // HANDLER UPDATE KEUANGAN DARI DASHBOARD BENDAHARA -> SINKRON KE SEMUA DASHBOARD
+  const handleUpdateKeuangan = (updatedList) => {
+    setKeuanganList(updatedList);
+    localStorage.setItem('ositara_keuangan_list', JSON.stringify(updatedList));
+    localStorage.setItem('ositara_keuangan', JSON.stringify(updatedList));
+    localStorage.setItem('keuanganList', JSON.stringify(updatedList));
+    window.dispatchEvent(new Event('ositara_keuangan_updated'));
+    window.dispatchEvent(
+      new CustomEvent('ositara-keuangan-updated', { detail: { keuanganList: updatedList } })
+    );
+  };
 
   const handleDaftarKegiatan = (dataPendaftaran) => {
     setPendaftaranList((prev) => {
@@ -370,6 +453,7 @@ export default function App() {
           initialKegiatan={kegiatanList}
           initialPendaftaran={pendaftaranList}
           initialProposal={proposals}
+          keuanganList={keuanganList}
         />
       )}
 
@@ -381,6 +465,7 @@ export default function App() {
           kegiatanList={kegiatanList}
           pendaftaranList={pendaftaranList}
           proposals={proposals}
+          keuanganList={keuanganList}
         />
       )}
 
@@ -388,6 +473,13 @@ export default function App() {
         <DashboardBendahara
           user={currentUser}
           onLogout={handleLogout}
+          keuanganList={keuanganList}
+          onUpdateKeuangan={handleUpdateKeuangan}
+          proposalList={proposals}
+          prokerList={prokerList}
+          anggotaList={anggotaList}
+          kegiatanList={kegiatanList}
+          pesertaList={pendaftaranList}
         />
       )}
 
@@ -399,6 +491,7 @@ export default function App() {
           kegiatanList={kegiatanList}
           pendaftaranList={pendaftaranList}
           proposals={proposals}
+          keuanganList={keuanganList}
           onUpdateProposalStatus={handleUpdateStatusProposal}
         />
       )}

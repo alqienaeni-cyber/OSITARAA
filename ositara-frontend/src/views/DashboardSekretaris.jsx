@@ -195,7 +195,7 @@ const SvgSend = () => (
 );
 
 const SvgUsersGroup = () => (
-  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -330,6 +330,18 @@ export default function DashboardSekretaris({
   const namaDisplay =
     user?.namaLengkap || user?.nama || user?.name || user?.username || 'Salfa Alena Eka Putri';
   const inisialNama = namaDisplay.charAt(0).toUpperCase();
+
+  // --- KUNCI SCROLL BODY SAAT SIDEBAR MOBILE TERBUKA ---
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMobileMenuOpen]);
 
   // --- SINKRONISASI SEMUA DATA DARI BACKEND MYSQL & LOCAL STORAGE ---
   const syncAllDataFromBackend = useCallback(async () => {
@@ -527,7 +539,7 @@ export default function DashboardSekretaris({
     };
   }, [syncAllDataFromBackend]);
 
-  // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG (SUPPORT ANDROID, IOS & LAPTOP) ---
+  // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG ---
   const handleBukaUnduhProposal = async (item) => {
     const serverFile =
       item.file_url ||
@@ -557,9 +569,7 @@ export default function DashboardSekretaris({
 
     const triggerDownloadAndOpenBlob = (blob) => {
       const blobUrl = URL.createObjectURL(blob);
-
       if (isMobileDevice) {
-        // Konversi Blob ke Data URL agar Android Download Manager bisa menyimpan file tanpa gagal
         const reader = new FileReader();
         reader.onloadend = () => {
           const dataUrl = reader.result;
@@ -571,10 +581,8 @@ export default function DashboardSekretaris({
           document.body.removeChild(link);
         };
         reader.readAsDataURL(blob);
-
         window.open(blobUrl, '_blank', 'noopener,noreferrer');
       } else {
-        // Untuk Laptop / Desktop
         window.open(blobUrl, '_blank', 'noopener,noreferrer');
         const link = document.createElement('a');
         link.href = blobUrl;
@@ -585,7 +593,6 @@ export default function DashboardSekretaris({
       }
     };
 
-    // 1. Jika berkas berupa Base64 Data URL
     if (String(serverFile).startsWith('data:')) {
       try {
         const res = await fetch(serverFile);
@@ -599,7 +606,6 @@ export default function DashboardSekretaris({
       }
     }
 
-    // 2. Kumpulkan kandidat URL file di server Laravel (Prioritaskan API endpoint dulu)
     const rawStr = String(serverFile)
       .replace(/^https?:\/\/[^/]+/, '')
       .replace(/^\/+/, '');
@@ -622,7 +628,6 @@ export default function DashboardSekretaris({
     setDownloadingId(item.id || cleanFilename);
     try {
       const headers = getAuthHeaders();
-
       for (const url of candidateUrls) {
         try {
           const response = await fetch(url, { headers });
@@ -639,7 +644,6 @@ export default function DashboardSekretaris({
           // Lanjut coba URL kandidat berikutnya
         }
       }
-
       showToast(
         'File fisik berkas tidak ada di server (terhapus saat deploy ulang, silakan unggah ulang proposal).',
         'warning'
@@ -678,7 +682,7 @@ export default function DashboardSekretaris({
     });
   };
 
-  // --- HANDLER SUBMIT & EDIT PROPOSAL (OPTIMISTIC UI + SYNC MYSQL) ---
+  // --- HANDLER SUBMIT & EDIT PROPOSAL ---
   const [editingProposalId, setEditingProposalId] = useState(null);
   const [judulProposal, setJudulProposal] = useState('');
   const [kategoriProposal, setKategoriProposal] = useState('Kegiatan');
@@ -713,7 +717,6 @@ export default function DashboardSekretaris({
       formData.append('file', fileProposal.name);
     }
 
-    // 1. OPTIMISTIC UI UPDATE (0 DETIK)
     if (currentEditId) {
       const updated = proposalList.map((item) =>
         String(item.id) === String(currentEditId)
@@ -752,7 +755,6 @@ export default function DashboardSekretaris({
       localStorage.setItem('ositara_proposal', JSON.stringify(updated));
     }
 
-    // Reset Form Langsung
     setEditingProposalId(null);
     setJudulProposal('');
     setAnggaranProposal('');
@@ -763,7 +765,6 @@ export default function DashboardSekretaris({
         : 'Proposal baru berhasil diajukan!'
     );
 
-    // 2. KIRIM KE DATABASE MYSQL DI LATAR BELAKANG
     try {
       let response;
       if (currentEditId) {
@@ -818,7 +819,7 @@ export default function DashboardSekretaris({
     });
   };
 
-  // --- HANDLER KELOLA KEGIATAN (OPTIMISTIC UI + SYNC MYSQL) ---
+  // --- HANDLER KELOLA KEGIATAN ---
   const [editingKegiatanId, setEditingKegiatanId] = useState(null);
   const [namaKegiatan, setNamaKegiatan] = useState('');
   const [tanggalKegiatan, setTanggalKegiatan] = useState('');
@@ -847,11 +848,15 @@ export default function DashboardSekretaris({
       is_event: 1,
     };
 
-    // 1. OPTIMISTIC UI UPDATE (0 DETIK)
     if (currentEditId) {
       const updated = kegiatanList.map((item) =>
         String(item.id) === String(currentEditId)
-          ? { ...item, ...payload, nama: payload.nama_proker, namaKegiatan: payload.nama_proker }
+          ? {
+              ...item,
+              ...payload,
+              nama: payload.nama_proker,
+              namaKegiatan: payload.nama_proker,
+            }
           : item
       );
       setKegiatanList(updated);
@@ -868,7 +873,6 @@ export default function DashboardSekretaris({
       localStorage.setItem('ositara_kegiatan', JSON.stringify(updated));
     }
 
-    // Reset Form Langsung
     setEditingKegiatanId(null);
     setNamaKegiatan('');
     setTanggalKegiatan('');
@@ -880,7 +884,6 @@ export default function DashboardSekretaris({
         : 'Agenda kegiatan baru berhasil ditambahkan!'
     );
 
-    // 2. KIRIM KE DATABASE MYSQL DI LATAR BELAKANG
     try {
       let res;
       if (currentEditId) {
@@ -926,7 +929,7 @@ export default function DashboardSekretaris({
     });
   };
 
-  // --- EKSEKUSI KONFIRMASI HAPUS (MODAL CUSTOM) ---
+  // --- EKSEKUSI KONFIRMASI HAPUS ---
   const handleExecuteConfirm = async () => {
     const { type, targetId } = confirmModal;
     setConfirmModal({ isOpen: false, type: null, targetId: null, title: '', message: '' });
@@ -987,7 +990,6 @@ export default function DashboardSekretaris({
     const targetName = (keg.nama_proker || keg.namaKegiatan || keg.nama || '')
       .toLowerCase()
       .trim();
-
     return pendaftaranList.filter((p) => {
       const pId = String(p.kegiatanId || p.kegiatan_id || '');
       const pName = (
@@ -1004,7 +1006,7 @@ export default function DashboardSekretaris({
     });
   };
 
-  // --- KALKULASI KEUANGAN (UNTUK KARTU RINGKASAN LAPORAN KEUANGAN) ---
+  // --- KALKULASI KEUANGAN ---
   const totalPemasukan = keuanganList
     .filter((k) => (k.jenis || k.kategori) === 'Pemasukan')
     .reduce((acc, cur) => acc + Number(cur.jumlah || cur.nominal || 0), 0);
@@ -1026,10 +1028,10 @@ export default function DashboardSekretaris({
   ];
 
   return (
-    <div className="flex flex-col md:flex-row h-screen w-full bg-slate-100/90 font-sans text-slate-800 overflow-hidden selection:bg-[#2158B8] selection:text-white">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-100/90 font-sans text-slate-800 selection:bg-[#2158B8] selection:text-white">
       {/* NOTIFIKASI TOAST MELAYANG */}
       {toastNotif && (
-        <div className="fixed top-4 right-4 left-4 sm:left-auto z-[60] flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-white shadow-2xl border border-slate-200/80 animate-[fadeIn_0.2s_ease-out] sm:max-w-sm">
+        <div className="fixed top-4 right-3 left-3 sm:left-auto z-[60] flex items-center gap-3 px-4 py-3 rounded-2xl bg-white shadow-2xl border border-slate-200/80 animate-[fadeIn_0.2s_ease-out] sm:max-w-sm">
           <div
             className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-white font-black text-sm ${
               toastNotif.type === 'warning'
@@ -1039,35 +1041,35 @@ export default function DashboardSekretaris({
           >
             {toastNotif.type === 'warning' ? '!' : '✓'}
           </div>
-          <p className="text-xs sm:text-sm font-bold text-slate-700 leading-snug">
+          <p className="text-xs sm:text-sm font-bold text-slate-700 leading-snug break-words">
             {toastNotif.message}
           </p>
         </div>
       )}
 
-      {/* HEADER NAVBAR MOBILE - MATCH DENGAN KETUA, BENDAHARA & PEMBINA */}
-      <div className="md:hidden bg-gradient-to-b from-[#184694] to-[#2158B8] text-white px-4 py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-md w-full shrink-0 border-b border-blue-800/30">
-        <div className="flex items-center space-x-3">
-          <div className="p-1">
-            <img
-              src={logoOsitara}
-              alt="Logo OSITARA"
-              className="w-7 h-7 object-contain cursor-pointer hover:scale-110 transition-transform duration-300 drop-shadow"
-              onError={(e) => (e.target.style.display = 'none')}
-            />
-          </div>
-          <div>
-            <h1 className="text-base font-black tracking-widest leading-none drop-shadow-sm">
+      {/* HEADER NAVBAR MOBILE (DIOPTIMALKAN UNTUK 390PX) */}
+      <header className="md:hidden bg-gradient-to-r from-[#184694] to-[#2158B8] text-white px-3.5 py-3 flex items-center justify-between sticky top-0 z-30 shadow-md w-full border-b border-blue-800/30">
+        <div className="flex items-center space-x-2.5 min-w-0">
+          <img
+            src={logoOsitara}
+            alt="Logo OSITARA"
+            className="w-7 h-7 object-contain shrink-0 drop-shadow"
+            onError={(e) => (e.target.style.display = 'none')}
+          />
+          <div className="min-w-0">
+            <h1 className="text-sm font-black tracking-widest leading-none drop-shadow-sm truncate">
               OSITARA
             </h1>
-            <p className="text-[9px] text-[#FFD43B] font-extrabold tracking-wider uppercase mt-0.5">
+            <p className="text-[9px] text-[#FFD43B] font-extrabold tracking-wider uppercase mt-0.5 truncate">
               SEKRETARIS OSIS
             </p>
           </div>
         </div>
         <button
+          type="button"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 transition-all border border-white/15 focus:outline-none cursor-pointer"
+          className="p-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 transition-all border border-white/15 focus:outline-none cursor-pointer shrink-0"
+          aria-label="Buka Menu Navigasi"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -1078,7 +1080,7 @@ export default function DashboardSekretaris({
             />
           </svg>
         </button>
-      </div>
+      </header>
 
       {/* OVERLAY MOBILE BACKDROP */}
       {isMobileMenuOpen && (
@@ -1088,74 +1090,90 @@ export default function DashboardSekretaris({
         />
       )}
 
-      {/* SIDEBAR NAVIGATION - MATCH DENGAN KETUA, BENDAHARA & PEMBINA */}
+      {/* SIDEBAR NAVIGATION - DIKUNCI KE TINGGI LAYAR & LOGOUT DI ATAS TOOLBAR BROWSER MOBILE */}
       <aside
-        className={`fixed md:relative inset-y-0 left-0 z-50 h-screen w-64 bg-gradient-to-b from-[#184694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col justify-between p-5 shrink-0 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ease-in-out overflow-y-auto ${
+        style={{ height: '100dvh', maxHeight: '100vh' }}
+        className={`fixed top-0 left-0 z-50 w-64 max-w-[78vw] bg-gradient-to-b from-[#184694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col px-3.5 pt-3.5 pb-24 md:p-5 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ease-in-out overflow-hidden ${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <div>
-          <div className="hidden md:flex items-center space-x-3.5 mb-8 p-1">
-            <div className="relative group cursor-pointer transition-transform duration-300 hover:rotate-6">
-              <img
-                src={logoOsitara}
-                alt="Logo OSITARA"
-                className="w-10 h-10 object-contain shrink-0 animate-bounce transition-transform duration-300 drop-shadow-md"
-                onError={(e) => (e.target.style.display = 'none')}
-              />
-            </div>
-            <div>
-              <h1 className="text-xl font-black tracking-widest leading-none drop-shadow-md">
+        {/* 1. BAGIAN ATAS: LOGO */}
+        <div className="flex items-center justify-between mb-3 sm:mb-5 p-1 shrink-0">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <img
+              src={logoOsitara}
+              alt="Logo OSITARA"
+              className="w-8 h-8 sm:w-10 sm:h-10 object-contain shrink-0 drop-shadow-md"
+              onError={(e) => (e.target.style.display = 'none')}
+            />
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-xl font-black tracking-widest leading-none drop-shadow-md truncate">
                 OSITARA
               </h1>
-              <p className="text-[10px] text-[#FFD43B] font-extrabold tracking-wider mt-1 uppercase drop-shadow-xs">
+              <p className="text-[9px] sm:text-[10px] text-[#FFD43B] font-extrabold tracking-wider mt-1 uppercase truncate">
                 SEKRETARIS OSIS
               </p>
             </div>
           </div>
 
-          <nav className="space-y-2 mt-4 md:mt-0">
-            {menuList.map((menu) => {
-              const IconComp = menu.IconComponent;
-              const isActive = activeMenu === menu.id;
-              return (
-                <button
-                  key={menu.id}
-                  onClick={() => {
-                    setActiveMenu(menu.id);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`group w-full flex items-center space-x-3.5 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 active:scale-95 cursor-pointer text-left ${
-                    isActive
-                      ? 'bg-gradient-to-r from-[#f4d875] to-[#f4d875] text-[#184694] shadow-lg shadow-amber-400/40 font-black translate-x-1'
-                      : 'hover:bg-white/15 text-blue-50 hover:text-white hover:translate-x-1'
-                  }`}
-                >
-                  <IconComp />
-                  <span className="truncate tracking-wide">{menu.label}</span>
-                </button>
-              );
-            })}
-          </nav>
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="md:hidden p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer shrink-0"
+            aria-label="Tutup Menu"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        {/* TOMBOL LOGOUT SOLID MERAH MATCH */}
-        <button
-          onClick={onLogout}
-          className="group flex items-center space-x-3 px-4 py-3.5 text-white bg-[#E63946] hover:bg-[#D62828] border border-rose-500 rounded-2xl font-black text-sm transition-all duration-300 hover:-translate-y-0.5 active:scale-95 cursor-pointer text-left shadow-lg shadow-rose-600/40 mt-8 md:mt-0"
-        >
-          <SvgLogout />
-          <span className="tracking-wide">Logout</span>
-        </button>
+        {/* 2. BAGIAN TENGAH: LIST MENU (SCROLLABLE JIKA LAYAR PENDEK) */}
+        <nav className="flex-1 min-h-0 overflow-y-auto space-y-1 sm:space-y-1.5 pr-0.5">
+          {menuList.map((menu) => {
+            const IconComp = menu.IconComponent;
+            const isActive = activeMenu === menu.id;
+            return (
+              <button
+                key={menu.id}
+                type="button"
+                onClick={() => {
+                  setActiveMenu(menu.id);
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`group w-full flex items-center space-x-3 px-3.5 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl font-bold text-xs sm:text-sm transition-all duration-200 active:scale-95 cursor-pointer text-left ${
+                  isActive
+                    ? 'bg-[#f4d875] text-[#184694] shadow-md font-black'
+                    : 'hover:bg-white/15 text-blue-50 hover:text-white'
+                }`}
+              >
+                <IconComp />
+                <span className="truncate tracking-wide">{menu.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* 3. BAGIAN BAWAH: TOMBOL LOGOUT */}
+        <div className="pt-2.5 mt-2 shrink-0 border-t border-white/15">
+          <button
+            type="button"
+            onClick={onLogout}
+            className="w-full group flex items-center space-x-3 px-3.5 py-2.5 text-white bg-[#E63946] hover:bg-[#D62828] border border-rose-500 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm transition-all duration-200 active:scale-95 cursor-pointer text-left shadow-lg shadow-rose-600/40"
+          >
+            <SvgLogout />
+            <span className="tracking-wide">Logout</span>
+          </button>
+        </div>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
-      <main className="flex-1 h-screen overflow-y-auto p-3.5 sm:p-6 lg:p-8 min-w-0 w-full space-y-4 sm:space-y-6">
+      {/* MAIN CONTENT AREA (BEBAS HORIZONTAL SCROLL DI LAYAR 390PX & TIDAK KETUTUP BILAH BAWAH) */}
+      <main className="md:ml-64 w-full md:w-auto max-w-full overflow-x-hidden px-3 pt-3 pb-24 sm:p-6 lg:p-8 min-w-0 space-y-3.5 sm:space-y-6">
         {/* HEADER PROFIL SEKRETARIS */}
-        <div className="relative overflow-hidden bg-white p-4 sm:p-6 rounded-3xl shadow-sm border border-slate-200/90 transition-all duration-300 hover:shadow-md">
+        <div className="relative overflow-hidden bg-white p-3.5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200/90 transition-all duration-300 hover:shadow-md">
           <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-[#2158B8]/15 rounded-full blur-2xl pointer-events-none" />
           <div className="flex items-center justify-between min-w-0 w-full relative z-10">
-            <div className="flex items-center space-x-3.5 sm:space-x-4 min-w-0 flex-1">
+            <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
               <div
                 onClick={() => setShowAvatarModal(true)}
                 className="relative group cursor-pointer shrink-0"
@@ -1165,24 +1183,24 @@ export default function DashboardSekretaris({
                   <img
                     src={avatarUrl}
                     alt="Profil"
-                    className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-white shadow-md ring-2 ring-blue-500/40 group-hover:scale-105 transition-all duration-300"
+                    className="w-11 h-11 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-white shadow-md ring-2 ring-blue-500/40 group-hover:scale-105 transition-all duration-300"
                   />
                 ) : (
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-tr from-[#184694] to-[#3A86EF] flex items-center justify-center text-white border-2 border-white shadow-md ring-2 ring-blue-500/30 rounded-2xl font-black text-lg sm:text-2xl group-hover:scale-105 transition-all duration-300">
+                  <div className="w-11 h-11 sm:w-16 sm:h-16 bg-gradient-to-tr from-[#184694] to-[#3A86EF] flex items-center justify-center text-white border-2 border-white shadow-md ring-2 ring-blue-500/30 rounded-2xl font-black text-base sm:text-2xl group-hover:scale-105 transition-all duration-300">
                     {inisialNama}
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[11px] font-bold transition-all duration-300 shadow-inner">
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition-all duration-300 shadow-inner">
                   Ubah
                 </div>
               </div>
               <div className="min-w-0 flex-1">
-                <h2 className="text-base sm:text-2xl font-black text-slate-800 leading-snug break-words">
+                <h2 className="text-sm sm:text-2xl font-black text-slate-800 leading-snug break-words">
                   Selamat Datang, <span className="text-[#2158B8]">{namaDisplay}</span>!
                 </h2>
-                <p className="text-xs font-semibold text-slate-500 mt-1 flex flex-wrap items-center gap-2">
+                <p className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-1 flex flex-wrap items-center gap-1.5">
                   <span>Jabatan:</span>
-                  <span className="bg-blue-100/80 text-[#2158B8] font-black px-3 py-0.5 rounded-full text-[10px] uppercase tracking-wider border border-blue-300">
+                  <span className="bg-blue-100/80 text-[#2158B8] font-black px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] uppercase tracking-wider border border-blue-300">
                     SEKRETARIS OSIS
                   </span>
                 </p>
@@ -1193,93 +1211,89 @@ export default function DashboardSekretaris({
 
         {/* 1. BERANDA UTAMA */}
         {activeMenu === 'beranda' && (
-          <div className="space-y-4 sm:space-y-6 animate-[fadeIn_0.3s_ease-out]">
-            {/* STATS CARDS - SEJAJAR 4 KOLOM DI MOBILE & DESKTOP */}
-            <div className="grid grid-cols-4 gap-1.5 sm:gap-5">
-              {/* Kartu 1: Total Kegiatan (Biru Pastel) */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-2 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
-                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
-                <div className="min-w-0">
-                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
+          <div className="space-y-3.5 sm:space-y-6 animate-[fadeIn_0.3s_ease-out] min-w-0">
+            {/* STATS CARDS - 2 KOLOM RAPI DI 390PX, 4 KOLOM DI LAYAR LEBAR */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-5">
+              {/* Kartu 1: Total Kegiatan */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#3b72b5]/25 hover:-translate-y-0.5 transition-all duration-300 text-white group flex items-center justify-between gap-2 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wide leading-tight truncate">
                     Total Kegiatan
                   </p>
-                  <h3 className="text-sm sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
+                  <h3 className="text-lg sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 truncate">
                     {kegiatanList.length}
                   </h3>
                 </div>
-                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="flex w-8 h-8 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 border border-white/30">
                   <SvgKegiatan />
                 </div>
               </div>
 
-              {/* Kartu 2: Total Anggota (Coral / Merah Muda Pastel) */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#e05263] via-[#f27482] to-[#fca5b0] p-2 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#e05263]/30 hover:shadow-2xl hover:shadow-[#e05263]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
-                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
-                <div className="min-w-0">
-                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
+              {/* Kartu 2: Total Anggota */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#e05263] via-[#f27482] to-[#fca5b0] p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#e05263]/25 hover:-translate-y-0.5 transition-all duration-300 text-white group flex items-center justify-between gap-2 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wide leading-tight truncate">
                     Total Anggota
                   </p>
-                  <h3 className="text-sm sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
+                  <h3 className="text-lg sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 truncate">
                     {anggotaList.length}
                   </h3>
                 </div>
-                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="flex w-8 h-8 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 border border-white/30">
                   <SvgAnggota />
                 </div>
               </div>
 
-              {/* Kartu 3: Proposal Diajukan (Emas / Amber Pastel) */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#c7852e] via-[#ebaa46] to-[#ffd27d] p-2 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#c7852e]/30 hover:shadow-2xl hover:shadow-[#c7852e]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
-                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
-                <div className="min-w-0">
-                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
-                    Proposal Diajukan
+              {/* Kartu 3: Proposal Diajukan */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#c7852e] via-[#ebaa46] to-[#ffd27d] p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#c7852e]/25 hover:-translate-y-0.5 transition-all duration-300 text-white group flex items-center justify-between gap-2 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wide leading-tight truncate">
+                    Proposal
                   </p>
-                  <h3 className="text-sm sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
+                  <h3 className="text-lg sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 truncate">
                     {proposalList.length}
                   </h3>
                 </div>
-                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="flex w-8 h-8 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 border border-white/30">
                   <SvgProposal />
                 </div>
               </div>
 
-              {/* Kartu 4: Pendaftar Siswa (Hijau Toska / Cyan Pastel) */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-2 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#249ea0]/30 hover:shadow-2xl hover:shadow-[#249ea0]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
-                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
-                <div className="min-w-0">
-                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
-                    Pendaftar Siswa
+              {/* Kartu 4: Pendaftar Siswa */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#249ea0]/25 hover:-translate-y-0.5 transition-all duration-300 text-white group flex items-center justify-between gap-2 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wide leading-tight truncate">
+                    Pendaftar
                   </p>
-                  <h3 className="text-sm sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
+                  <h3 className="text-lg sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 truncate">
                     {pendaftaranList.length}
                   </h3>
                 </div>
-                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="flex w-8 h-8 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 border border-white/30">
                   <SvgUsersGroup />
                 </div>
               </div>
             </div>
 
             {/* RINGKASAN AKTIVITAS TERBARU */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-300">
-                <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
-                  <h3 className="text-base sm:text-lg font-black text-slate-800 flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#2158B8]" />
-                    Agenda Kegiatan Terbaru
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-6 min-w-0">
+              <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0">
+                <div className="flex justify-between items-center gap-2 mb-4 pb-2.5 border-b border-slate-100">
+                  <h3 className="text-sm sm:text-lg font-black text-slate-800 flex items-center gap-2 min-w-0 truncate">
+                    <span className="w-2 h-2 rounded-full bg-[#2158B8] shrink-0" />
+                    <span className="truncate">Agenda Kegiatan Terbaru</span>
                   </h3>
                   <button
+                    type="button"
                     onClick={() => setActiveMenu('kelola-kegiatan')}
-                    className="text-xs font-bold text-[#2158B8] hover:text-amber-500 transition-colors duration-200 cursor-pointer hover:underline"
+                    className="text-[11px] sm:text-xs font-bold text-[#2158B8] hover:text-amber-500 transition-colors cursor-pointer shrink-0"
                   >
-                    Lihat Semua &rarr;
+                    Semua &rarr;
                   </button>
                 </div>
-
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {kegiatanList.length === 0 ? (
-                    <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    <div className="text-center py-7 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                       <p className="text-xs text-slate-400 font-medium">
                         Belum ada agenda kegiatan.
                       </p>
@@ -1288,9 +1302,9 @@ export default function DashboardSekretaris({
                     kegiatanList.slice(0, 4).map((k) => (
                       <div
                         key={k.id}
-                        className="p-3.5 bg-slate-50/90 hover:bg-slate-100 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-2 transition-all duration-200 hover:translate-x-1"
+                        className="p-3 bg-slate-50/90 hover:bg-slate-100 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-2 min-w-0"
                       >
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">
                             {k.nama_proker || k.namaKegiatan || k.nama}
                           </p>
@@ -1299,7 +1313,7 @@ export default function DashboardSekretaris({
                           </p>
                         </div>
                         <span
-                          className={`px-3 py-1 text-[10px] font-extrabold rounded-xl shrink-0 uppercase tracking-wider ${
+                          className={`px-2.5 py-1 text-[9px] sm:text-[10px] font-extrabold rounded-xl shrink-0 uppercase tracking-wider ${
                             k.status === 'Selesai'
                               ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                               : 'bg-blue-100 text-[#2158B8] border border-blue-200'
@@ -1313,23 +1327,23 @@ export default function DashboardSekretaris({
                 </div>
               </div>
 
-              <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-300">
-                <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
-                  <h3 className="text-base sm:text-lg font-black text-slate-800 flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                    Status Pengajuan Proposal
+              <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0">
+                <div className="flex justify-between items-center gap-2 mb-4 pb-2.5 border-b border-slate-100">
+                  <h3 className="text-sm sm:text-lg font-black text-slate-800 flex items-center gap-2 min-w-0 truncate">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                    <span className="truncate">Status Pengajuan Proposal</span>
                   </h3>
                   <button
+                    type="button"
                     onClick={() => setActiveMenu('pengajuan-proposal')}
-                    className="text-xs font-bold text-[#2158B8] hover:text-amber-500 transition-colors duration-200 cursor-pointer hover:underline"
+                    className="text-[11px] sm:text-xs font-bold text-[#2158B8] hover:text-amber-500 transition-colors cursor-pointer shrink-0"
                   >
-                    Lihat Semua &rarr;
+                    Semua &rarr;
                   </button>
                 </div>
-
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {proposalList.length === 0 ? (
-                    <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    <div className="text-center py-7 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                       <p className="text-xs text-slate-400 font-medium">
                         Belum ada proposal diajukan.
                       </p>
@@ -1338,18 +1352,18 @@ export default function DashboardSekretaris({
                     proposalList.slice(0, 4).map((p) => (
                       <div
                         key={p.id}
-                        className="p-3.5 bg-slate-50/90 hover:bg-slate-100 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-2 transition-all duration-200 hover:translate-x-1"
+                        className="p-3 bg-slate-50/90 hover:bg-slate-100 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-2 min-w-0"
                       >
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">
                             {p.judul_proposal || p.judul}
                           </p>
-                          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                          <p className="text-[11px] text-slate-500 font-medium mt-0.5 truncate">
                             {formatRupiah(p.anggaran)}
                           </p>
                         </div>
                         <span
-                          className={`px-3 py-1 text-[10px] font-extrabold rounded-xl shrink-0 uppercase tracking-wider ${
+                          className={`px-2.5 py-1 text-[9px] sm:text-[10px] font-extrabold rounded-xl shrink-0 uppercase tracking-wider ${
                             p.status === 'Disetujui' || p.status === 'Diterima'
                               ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                               : p.status === 'Ditolak'
@@ -1368,30 +1382,34 @@ export default function DashboardSekretaris({
           </div>
         )}
 
-        {/* 2. PENGAJUAN PROPOSAL & REVISI - MOBILE DI ATAS (order-1), DESKTOP DI KANAN (lg:col-span-4 lg:order-2) */}
+        {/* 2. PENGAJUAN PROPOSAL & REVISI */}
         {activeMenu === 'pengajuan-proposal' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-[fadeIn_0.3s_ease-out]">
-            {/* DAFTAR PENGAJUAN PROPOSAL (MOBILE: ORDER-2, DESKTOP: KIRI 8 KOLOM) */}
-            <div className="order-2 lg:order-1 lg:col-span-8 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full">
-              <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
-                Daftar Pengajuan Proposal
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[650px]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start animate-[fadeIn_0.3s_ease-out] min-w-0">
+            <div className="order-2 lg:order-1 lg:col-span-8 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0 w-full">
+              <div className="flex items-center justify-between gap-2 mb-3.5 pb-2.5 border-b border-slate-100">
+                <h3 className="text-sm sm:text-lg font-black text-slate-800">
+                  Daftar Pengajuan Proposal
+                </h3>
+                <span className="md:hidden text-[10px] text-slate-400 font-semibold">
+                  Geser tabel &rarr;
+                </span>
+              </div>
+              <div className="w-full overflow-x-auto pb-1">
+                <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[620px]">
                   <thead>
-                    <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
-                      <th className="py-3 px-4 rounded-l-xl">Judul</th>
-                      <th className="py-3 px-4">Anggaran</th>
-                      <th className="py-3 px-4">Berkas</th>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4">Catatan Revisi</th>
-                      <th className="py-3 px-4 text-center rounded-r-xl">Aksi</th>
+                    <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[10px] sm:text-[11px] bg-slate-100/70">
+                      <th className="py-2.5 px-3 sm:px-4 rounded-l-xl">Judul</th>
+                      <th className="py-2.5 px-3 sm:px-4">Anggaran</th>
+                      <th className="py-2.5 px-3 sm:px-4">Berkas</th>
+                      <th className="py-2.5 px-3 sm:px-4">Status</th>
+                      <th className="py-2.5 px-3 sm:px-4">Catatan Revisi</th>
+                      <th className="py-2.5 px-3 sm:px-4 text-center rounded-r-xl">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {proposalList.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="py-12 text-center text-slate-400 font-medium">
+                        <td colSpan="6" className="py-10 text-center text-slate-400 font-medium">
                           Belum ada proposal yang diajukan.
                         </td>
                       </tr>
@@ -1421,20 +1439,20 @@ export default function DashboardSekretaris({
 
                         return (
                           <tr key={p.id || idx} className="hover:bg-blue-50/40 transition-colors">
-                            <td className="py-3.5 px-4 font-bold text-slate-800">
+                            <td className="py-3 px-3 sm:px-4 font-bold text-slate-800">
                               {p.judul_proposal || p.judul || '-'}
                             </td>
-                            <td className="py-3.5 px-4 text-slate-600 font-semibold whitespace-nowrap">
+                            <td className="py-3 px-3 sm:px-4 text-slate-600 font-semibold whitespace-nowrap">
                               {formatRupiah(p.anggaran)}
                             </td>
-                            <td className="py-3.5 px-4">
+                            <td className="py-3 px-3 sm:px-4">
                               {hasFile && fileDisplayName !== 'Tidak ada berkas' ? (
                                 <button
                                   type="button"
                                   onClick={() => handleBukaUnduhProposal(p)}
                                   disabled={isDownloadingThis}
-                                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 bg-blue-50 text-[#2158B8] hover:bg-blue-100 font-bold text-xs rounded-xl border border-blue-200 transition-all duration-200 active:scale-95 shadow-xs cursor-pointer max-w-[155px]"
                                   title={`Klik untuk membuka & mengunduh ${fileDisplayName}`}
+                                  className="inline-flex items-center space-x-1.5 px-2.5 py-1.5 bg-blue-50 text-[#2158B8] hover:bg-blue-100 font-bold text-xs rounded-xl border border-blue-200 transition-all active:scale-95 cursor-pointer max-w-[145px]"
                                 >
                                   <SvgDownload />
                                   <span className="truncate">
@@ -1447,9 +1465,9 @@ export default function DashboardSekretaris({
                                 </span>
                               )}
                             </td>
-                            <td className="py-3.5 px-4">
+                            <td className="py-3 px-3 sm:px-4">
                               <span
-                                className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block uppercase tracking-wider ${
+                                className={`px-2.5 py-1 font-bold text-[10px] rounded-xl inline-block uppercase tracking-wider whitespace-nowrap ${
                                   p.status === 'Diterima' || p.status === 'Disetujui'
                                     ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                                     : p.status === 'Ditolak'
@@ -1460,12 +1478,13 @@ export default function DashboardSekretaris({
                                 {p.status}
                               </span>
                             </td>
-                            <td className="py-3.5 px-4 text-slate-600 text-xs italic">
+                            <td className="py-3 px-3 sm:px-4 text-slate-600 text-xs italic">
                               {p.catatan_revisi || p.catatan_pembina || '-'}
                             </td>
-                            <td className="py-3.5 px-4 text-center space-x-1.5 whitespace-nowrap">
+                            <td className="py-3 px-3 sm:px-4 text-center space-x-1.5 whitespace-nowrap">
                               {isRevisi && (
                                 <button
+                                  type="button"
                                   title="Kirim Ulang Revisi"
                                   onClick={() => {
                                     setEditingProposalId(p.id);
@@ -1473,12 +1492,13 @@ export default function DashboardSekretaris({
                                     setAnggaranProposal(p.anggaran);
                                     setKategoriProposal(p.kategori || 'Kegiatan');
                                   }}
-                                  className="p-2 bg-[#2158B8] hover:bg-[#184694] text-white rounded-xl transition-all duration-200 active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
+                                  className="p-2 bg-[#2158B8] hover:bg-[#184694] text-white rounded-xl transition-all active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
                                 >
                                   <SvgSend />
                                 </button>
                               )}
                               <button
+                                type="button"
                                 title="Edit Proposal"
                                 onClick={() => {
                                   setEditingProposalId(p.id);
@@ -1486,14 +1506,15 @@ export default function DashboardSekretaris({
                                   setJudulProposal(p.judul_proposal || p.judul);
                                   setAnggaranProposal(p.anggaran);
                                 }}
-                                className="p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all duration-200 active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
+                                className="p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
                               >
                                 <SvgEdit />
                               </button>
                               <button
+                                type="button"
                                 title="Hapus Proposal"
                                 onClick={() => handleHapusProposal(p.id)}
-                                className="p-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-all duration-200 active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
+                                className="p-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-all active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
                               >
                                 <SvgTrash />
                               </button>
@@ -1507,14 +1528,14 @@ export default function DashboardSekretaris({
               </div>
             </div>
 
-            {/* FORM FORMULIR PROPOSAL & REVISI (MOBILE: ORDER-1 DI ATAS, DESKTOP: KANAN 4 KOLOM) */}
-            <div className="order-1 lg:order-2 lg:col-span-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm">
-              <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
-                <h3 className="text-base sm:text-lg font-black text-slate-800">
+            <div className="order-1 lg:order-2 lg:col-span-4 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0 w-full">
+              <div className="flex justify-between items-center mb-4 pb-2.5 border-b border-slate-100">
+                <h3 className="text-sm sm:text-lg font-black text-slate-800">
                   {editingProposalId ? 'Revisi / Edit Proposal' : 'Ajukan Proposal Baru'}
                 </h3>
                 {editingProposalId && (
                   <button
+                    type="button"
                     onClick={() => {
                       setEditingProposalId(null);
                       setJudulProposal('');
@@ -1527,10 +1548,9 @@ export default function DashboardSekretaris({
                   </button>
                 )}
               </div>
-
-              <form onSubmit={handleSubmitProposal} className="space-y-4">
+              <form onSubmit={handleSubmitProposal} className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
                     Judul Proposal
                   </label>
                   <input
@@ -1539,11 +1559,11 @@ export default function DashboardSekretaris({
                     placeholder="Contoh: Proposal Lomba 17 Agustus"
                     value={judulProposal}
                     onChange={(e) => setJudulProposal(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
+                    className="w-full px-3.5 py-2.5 rounded-xl sm:rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
                     Estimasi Anggaran (Rp)
                   </label>
                   <input
@@ -1552,24 +1572,24 @@ export default function DashboardSekretaris({
                     placeholder="Contoh: 1500000"
                     value={anggaranProposal}
                     onChange={(e) => setAnggaranProposal(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
+                    className="w-full px-3.5 py-2.5 rounded-xl sm:rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
                     Unggah Berkas PDF
                   </label>
                   <input
                     type="file"
                     accept="application/pdf"
                     onChange={(e) => setFileProposal(e.target.files?.[0])}
-                    className="w-full text-xs text-slate-500 cursor-pointer file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-[#2158B8] hover:file:bg-blue-100 transition-all"
+                    className="w-full max-w-full text-xs text-slate-500 cursor-pointer file:mr-2.5 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-[#2158B8] hover:file:bg-blue-100 transition-all"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={isSubmittingProposal}
-                  className="w-full py-3 bg-[#2158B8] hover:bg-[#1B4694] disabled:opacity-60 text-white font-black text-xs sm:text-sm rounded-2xl shadow-lg shadow-blue-600/25 hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-95 flex items-center justify-center space-x-2 cursor-pointer mt-4"
+                  className="w-full py-2.5 sm:py-3 bg-[#2158B8] hover:bg-[#1B4694] disabled:opacity-60 text-white font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg shadow-blue-600/25 transition-all active:scale-95 flex items-center justify-center space-x-2 cursor-pointer mt-2"
                 >
                   <SvgSend />
                   <span>
@@ -1581,38 +1601,43 @@ export default function DashboardSekretaris({
           </div>
         )}
 
-        {/* 3. PROGRAM KERJA (READ ONLY DISINKRONKAN DENGAN KETUA OSIS) */}
+        {/* 3. PROGRAM KERJA */}
         {activeMenu === 'program-kerja' && (
-          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
-            <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
-              Program Kerja OSIS
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[500px]">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0 w-full animate-[fadeIn_0.3s_ease-out]">
+            <div className="flex items-center justify-between gap-2 mb-3.5 pb-2.5 border-b border-slate-100">
+              <h3 className="text-sm sm:text-lg font-black text-slate-800">
+                Program Kerja OSIS
+              </h3>
+              <span className="md:hidden text-[10px] text-slate-400 font-semibold">
+                Geser tabel &rarr;
+              </span>
+            </div>
+            <div className="w-full overflow-x-auto pb-1">
+              <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[460px]">
                 <thead>
-                  <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
-                    <th className="py-3 px-4 rounded-l-xl">Program Kerja</th>
-                    <th className="py-3 px-4">Divisi / Sekbid</th>
-                    <th className="py-3 px-4 rounded-r-xl">Target Pelaksanaan</th>
+                  <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[10px] sm:text-[11px] bg-slate-100/70">
+                    <th className="py-2.5 px-3 sm:px-4 rounded-l-xl">Program Kerja</th>
+                    <th className="py-2.5 px-3 sm:px-4">Divisi / Sekbid</th>
+                    <th className="py-2.5 px-3 sm:px-4 rounded-r-xl">Target Pelaksanaan</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {prokerList.length === 0 ? (
                     <tr>
-                      <td colSpan="3" className="py-12 text-center text-slate-400 font-medium">
+                      <td colSpan="3" className="py-10 text-center text-slate-400 font-medium">
                         Belum ada data program kerja dari Ketua OSIS.
                       </td>
                     </tr>
                   ) : (
                     prokerList.map((pk) => (
                       <tr key={pk.id} className="hover:bg-blue-50/40 transition-colors">
-                        <td className="py-3.5 px-4 font-bold text-slate-800">
+                        <td className="py-3 px-3 sm:px-4 font-bold text-slate-800">
                           {pk.nama_proker || pk.nama}
                         </td>
-                        <td className="py-3.5 px-4 font-semibold text-[#2158B8]">
+                        <td className="py-3 px-3 sm:px-4 font-semibold text-[#2158B8]">
                           {pk.divisi || pk.sekbid || 'Umum'}
                         </td>
-                        <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap">
+                        <td className="py-3 px-3 sm:px-4 text-slate-500 font-medium whitespace-nowrap">
                           {formatTanggal(pk.target || pk.tanggal)}
                         </td>
                       </tr>
@@ -1624,40 +1649,45 @@ export default function DashboardSekretaris({
           </div>
         )}
 
-        {/* 4. ANGGOTA OSIS (SINKRON DARI DATABASE MYSQL/KETUA) */}
+        {/* 4. ANGGOTA OSIS */}
         {activeMenu === 'anggota-osis' && (
-          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
-            <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
-              Daftar Anggota OSIS
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[500px]">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0 w-full animate-[fadeIn_0.3s_ease-out]">
+            <div className="flex items-center justify-between gap-2 mb-3.5 pb-2.5 border-b border-slate-100">
+              <h3 className="text-sm sm:text-lg font-black text-slate-800">
+                Daftar Anggota OSIS
+              </h3>
+              <span className="md:hidden text-[10px] text-slate-400 font-semibold">
+                Geser tabel &rarr;
+              </span>
+            </div>
+            <div className="w-full overflow-x-auto pb-1">
+              <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[480px]">
                 <thead>
-                  <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
-                    <th className="py-3 px-4 rounded-l-xl">NIS</th>
-                    <th className="py-3 px-4">Nama Anggota</th>
-                    <th className="py-3 px-4">Jabatan</th>
-                    <th className="py-3 px-4 rounded-r-xl">Divisi / Sekbid</th>
+                  <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[10px] sm:text-[11px] bg-slate-100/70">
+                    <th className="py-2.5 px-3 sm:px-4 rounded-l-xl">NIS</th>
+                    <th className="py-2.5 px-3 sm:px-4">Nama Anggota</th>
+                    <th className="py-2.5 px-3 sm:px-4">Jabatan</th>
+                    <th className="py-2.5 px-3 sm:px-4 rounded-r-xl">Divisi / Sekbid</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {anggotaList.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="py-12 text-center text-slate-400 font-medium">
+                      <td colSpan="4" className="py-10 text-center text-slate-400 font-medium">
                         Belum ada data anggota terdaftar.
                       </td>
                     </tr>
                   ) : (
                     anggotaList.map((a) => (
                       <tr key={a.id} className="hover:bg-blue-50/40 transition-colors">
-                        <td className="py-3.5 px-4 text-slate-500 font-mono">
+                        <td className="py-3 px-3 sm:px-4 text-slate-500 font-mono whitespace-nowrap">
                           {a.nis || '-'}
                         </td>
-                        <td className="py-3.5 px-4 font-bold text-slate-800">{a.nama}</td>
-                        <td className="py-3.5 px-4 text-slate-700 font-semibold">
+                        <td className="py-3 px-3 sm:px-4 font-bold text-slate-800">{a.nama}</td>
+                        <td className="py-3 px-3 sm:px-4 text-slate-700 font-semibold">
                           {a.jabatan || '-'}
                         </td>
-                        <td className="py-3.5 px-4 text-slate-600 font-medium">
+                        <td className="py-3 px-3 sm:px-4 text-slate-600 font-medium">
                           {a.sekbid || a.divisi || '-'}
                         </td>
                       </tr>
@@ -1669,35 +1699,39 @@ export default function DashboardSekretaris({
           </div>
         )}
 
-        {/* 5. KELOLA KEGIATAN - MOBILE DI ATAS (order-1), DESKTOP DI KANAN (lg:col-span-4 lg:order-2) */}
+        {/* 5. KELOLA KEGIATAN */}
         {activeMenu === 'kelola-kegiatan' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-[fadeIn_0.3s_ease-out]">
-            {/* DAFTAR AGENDA KEGIATAN (MOBILE: ORDER-2, DESKTOP: KIRI 8 KOLOM) */}
-            <div className="order-2 lg:order-1 lg:col-span-8 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full">
-              <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
-                Daftar Agenda Kegiatan OSIS
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[520px]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start animate-[fadeIn_0.3s_ease-out] min-w-0">
+            <div className="order-2 lg:order-1 lg:col-span-8 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0 w-full">
+              <div className="flex items-center justify-between gap-2 mb-3.5 pb-2.5 border-b border-slate-100">
+                <h3 className="text-sm sm:text-lg font-black text-slate-800">
+                  Daftar Agenda Kegiatan OSIS
+                </h3>
+                <span className="md:hidden text-[10px] text-slate-400 font-semibold">
+                  Geser tabel &rarr;
+                </span>
+              </div>
+              <div className="w-full overflow-x-auto pb-1">
+                <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[490px]">
                   <thead>
-                    <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
-                      <th className="py-3 px-4 rounded-l-xl">Nama Kegiatan</th>
-                      <th className="py-3 px-4 text-center">Tanggal</th>
-                      <th className="py-3 px-4 text-center">Status</th>
-                      <th className="py-3 px-4 text-center rounded-r-xl">Aksi</th>
+                    <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[10px] sm:text-[11px] bg-slate-100/70">
+                      <th className="py-2.5 px-3 sm:px-4 rounded-l-xl">Nama Kegiatan</th>
+                      <th className="py-2.5 px-3 sm:px-4 text-center">Tanggal</th>
+                      <th className="py-2.5 px-3 sm:px-4 text-center">Status</th>
+                      <th className="py-2.5 px-3 sm:px-4 text-center rounded-r-xl">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {kegiatanList.length === 0 ? (
                       <tr>
-                        <td colSpan="4" className="text-center py-12 text-slate-400 font-medium">
+                        <td colSpan="4" className="text-center py-10 text-slate-400 font-medium">
                           Belum ada data kegiatan yang ditambahkan.
                         </td>
                       </tr>
                     ) : (
                       kegiatanList.map((k) => (
                         <tr key={k.id} className="hover:bg-blue-50/40 transition-colors">
-                          <td className="py-3.5 px-4">
+                          <td className="py-3 px-3 sm:px-4">
                             <p className="font-bold text-slate-800">
                               {k.nama_proker || k.namaKegiatan || k.nama}
                             </p>
@@ -1707,12 +1741,12 @@ export default function DashboardSekretaris({
                               </p>
                             )}
                           </td>
-                          <td className="py-3.5 px-4 text-center text-slate-600 font-medium whitespace-nowrap">
+                          <td className="py-3 px-3 sm:px-4 text-center text-slate-600 font-medium whitespace-nowrap">
                             {formatTanggal(k.target || k.tanggal)}
                           </td>
-                          <td className="py-3.5 px-4 text-center">
+                          <td className="py-3 px-3 sm:px-4 text-center">
                             <span
-                              className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-full inline-block uppercase tracking-wider ${
+                              className={`px-2.5 py-1 font-bold text-[10px] rounded-full inline-block uppercase tracking-wider whitespace-nowrap ${
                                 k.status === 'Selesai'
                                   ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                                   : 'bg-blue-100 text-[#2158B8] border border-blue-200'
@@ -1721,8 +1755,9 @@ export default function DashboardSekretaris({
                               {k.status || 'Mendatang'}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 text-center space-x-1.5 whitespace-nowrap">
+                          <td className="py-3 px-3 sm:px-4 text-center space-x-1.5 whitespace-nowrap">
                             <button
+                              type="button"
                               title="Edit Kegiatan"
                               onClick={() => {
                                 const rawDate = String(k.target || k.tanggal || '').split('T')[0];
@@ -1732,14 +1767,15 @@ export default function DashboardSekretaris({
                                 setStatusKegiatan(k.status || 'Mendatang');
                                 setDeskripsiKegiatan(k.deskripsi || '');
                               }}
-                              className="p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all duration-200 active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
+                              className="p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
                             >
                               <SvgEdit />
                             </button>
                             <button
+                              type="button"
                               title="Hapus Kegiatan"
                               onClick={() => handleHapusKegiatan(k.id)}
-                              className="p-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-all duration-200 active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
+                              className="p-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-all active:scale-95 shadow-sm inline-flex items-center cursor-pointer"
                             >
                               <SvgTrash />
                             </button>
@@ -1752,10 +1788,9 @@ export default function DashboardSekretaris({
               </div>
             </div>
 
-            {/* PANEL FORM TAMBAH/EDIT KEGIATAN (MOBILE: ORDER-1 DI ATAS, DESKTOP: KANAN 4 KOLOM) */}
-            <div className="order-1 lg:order-2 lg:col-span-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm">
-              <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
-                <h3 className="text-base sm:text-lg font-black text-slate-800">
+            <div className="order-1 lg:order-2 lg:col-span-4 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0 w-full">
+              <div className="flex justify-between items-center mb-4 pb-2.5 border-b border-slate-100">
+                <h3 className="text-sm sm:text-lg font-black text-slate-800">
                   {editingKegiatanId ? 'Edit Agenda Kegiatan' : 'Tambah Kegiatan Baru'}
                 </h3>
                 {editingKegiatanId && (
@@ -1774,10 +1809,9 @@ export default function DashboardSekretaris({
                   </button>
                 )}
               </div>
-
-              <form onSubmit={handleSubmitKegiatan} className="space-y-4">
+              <form onSubmit={handleSubmitKegiatan} className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
                     Nama Kegiatan
                   </label>
                   <input
@@ -1786,11 +1820,11 @@ export default function DashboardSekretaris({
                     placeholder="Contoh: Peringatan Maulid Nabi"
                     value={namaKegiatan}
                     onChange={(e) => setNamaKegiatan(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
+                    className="w-full px-3.5 py-2.5 rounded-xl sm:rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
                     Tanggal Pelaksanaan
                   </label>
                   <input
@@ -1798,24 +1832,24 @@ export default function DashboardSekretaris({
                     required
                     value={tanggalKegiatan}
                     onChange={(e) => setTanggalKegiatan(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
+                    className="w-full px-3.5 py-2.5 rounded-xl sm:rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
                     Status Kegiatan
                   </label>
                   <select
                     value={statusKegiatan}
                     onChange={(e) => setStatusKegiatan(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent transition-all shadow-xs"
+                    className="w-full px-3.5 py-2.5 rounded-xl sm:rounded-2xl border border-slate-200 text-xs sm:text-sm bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent transition-all"
                   >
                     <option value="Mendatang">Mendatang</option>
                     <option value="Selesai">Selesai</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
                     Deskripsi Kegiatan
                   </label>
                   <textarea
@@ -1823,13 +1857,13 @@ export default function DashboardSekretaris({
                     placeholder="Jelaskan detail kegiatan secara singkat..."
                     value={deskripsiKegiatan}
                     onChange={(e) => setDeskripsiKegiatan(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all shadow-xs"
+                    className="w-full px-3.5 py-2.5 rounded-xl sm:rounded-2xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#2158B8] focus:border-transparent bg-slate-50/70 focus:bg-white transition-all"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={isSubmittingKegiatan}
-                  className="w-full py-3 bg-[#2158B8] hover:bg-[#1B4694] disabled:opacity-60 text-white font-black text-xs sm:text-sm rounded-2xl shadow-lg shadow-blue-600/25 hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-95 flex items-center justify-center space-x-2 cursor-pointer mt-2"
+                  className="w-full py-2.5 sm:py-3 bg-[#2158B8] hover:bg-[#1B4694] disabled:opacity-60 text-white font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg shadow-blue-600/25 transition-all active:scale-95 flex items-center justify-center space-x-2 cursor-pointer mt-2"
                 >
                   <SvgPlus />
                   <span>
@@ -1841,38 +1875,37 @@ export default function DashboardSekretaris({
           </div>
         )}
 
-        {/* 6. MENU KEGIATAN OSIS - TAMPILAN KARTU KOTAK SEPERTI DASHBOARD SISWA */}
+        {/* 6. MENU KEGIATAN OSIS */}
         {activeMenu === 'kegiatan' && (
-          <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm w-full animate-[fadeIn_0.3s_ease-out]">
-            <div className="flex items-center space-x-2.5 mb-5 pb-3 border-b border-slate-100">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#2158B8]" />
-              <h3 className="text-base sm:text-lg font-black text-slate-800">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0 w-full animate-[fadeIn_0.3s_ease-out]">
+            <div className="flex items-center space-x-2 mb-4 pb-2.5 border-b border-slate-100">
+              <span className="w-2 h-2 rounded-full bg-[#2158B8] shrink-0" />
+              <h3 className="text-sm sm:text-lg font-black text-slate-800 truncate">
                 Daftar Kegiatan Sekolah Tersedia
               </h3>
             </div>
-
             {kegiatanList.length === 0 ? (
-              <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+              <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                 <p className="text-xs sm:text-sm text-slate-400 font-medium">
                   Belum ada agenda kegiatan yang ditambahkan.
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-5">
                 {kegiatanList.map((k) => {
                   const pesertaKegiatan = getPesertaByKegiatan(k);
                   return (
                     <div
                       key={k.id}
-                      className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between space-y-4"
+                      className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between space-y-3.5 min-w-0"
                     >
-                      <div>
-                        <div className="flex items-start justify-between gap-2.5 mb-2">
-                          <h4 className="font-black text-slate-800 text-base sm:text-lg leading-snug">
+                      <div className="min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <h4 className="font-black text-slate-800 text-sm sm:text-lg leading-snug break-words min-w-0">
                             {k.nama_proker || k.namaKegiatan || k.nama}
                           </h4>
                           <span
-                            className={`px-3 py-0.5 font-extrabold text-[10px] rounded-full shrink-0 uppercase tracking-wider border ${
+                            className={`px-2.5 py-0.5 font-extrabold text-[9px] sm:text-[10px] rounded-full shrink-0 uppercase tracking-wider border ${
                               k.status === 'Selesai'
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                 : 'bg-blue-50 text-[#2158B8] border-blue-200'
@@ -1881,19 +1914,19 @@ export default function DashboardSekretaris({
                             {k.status || 'KEGIATAN'}
                           </span>
                         </div>
-                        <p className="text-xs sm:text-sm text-slate-500 leading-relaxed line-clamp-2">
+                        <p className="text-xs sm:text-sm text-slate-500 leading-relaxed line-clamp-2 break-words">
                           {k.deskripsi || 'Tidak ada deskripsi kegiatan.'}
                         </p>
                       </div>
-
-                      <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold text-slate-600">
-                          Jadwal: {formatTanggal(k.target || k.tanggal)}
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <span className="text-[11px] sm:text-xs font-semibold text-slate-600 truncate">
+                          {formatTanggal(k.target || k.tanggal)}
                         </span>
                         <button
+                          type="button"
                           title="Lihat Daftar Peserta"
                           onClick={() => setSelectedKegiatanPeserta(k)}
-                          className="px-4 py-2 bg-[#2158B8] hover:bg-[#184694] text-white rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 shadow-sm shadow-blue-600/20 inline-flex items-center space-x-1.5 cursor-pointer shrink-0"
+                          className="px-3 py-1.5 sm:px-4 sm:py-2 bg-[#2158B8] hover:bg-[#184694] text-white rounded-xl text-[11px] sm:text-xs font-bold transition-all active:scale-95 shadow-sm inline-flex items-center space-x-1.5 cursor-pointer shrink-0"
                         >
                           <SvgUsersGroup />
                           <span>Peserta ({pesertaKegiatan.length})</span>
@@ -1907,88 +1940,90 @@ export default function DashboardSekretaris({
           </div>
         )}
 
-        {/* 7. LAPORAN KEUANGAN (WARNA KARTU GRADASI SEPERTI BENDAHARA) */}
+        {/* 7. LAPORAN KEUANGAN */}
         {activeMenu === 'laporan-keuangan' && (
-          <div className="space-y-5 animate-[fadeIn_0.3s_ease-out]">
-            <div className="grid grid-cols-3 gap-2 sm:gap-5">
-              {/* Kartu 1: Total Pemasukan (Hijau Toska) */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-2.5 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#249ea0]/30 hover:shadow-2xl hover:shadow-[#249ea0]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
-                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
-                <div className="min-w-0">
-                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
+          <div className="space-y-4 sm:space-y-5 animate-[fadeIn_0.3s_ease-out] min-w-0">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-5">
+              {/* Kartu 1: Total Pemasukan */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#249ea0]/25 text-white flex items-center justify-between gap-2 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wider leading-tight truncate">
                     Total Pemasukan
                   </p>
-                  <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
+                  <h3 className="text-base sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 truncate">
                     {formatRupiah(totalPemasukan)}
                   </h3>
                 </div>
-                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="flex w-9 h-9 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 border border-white/30">
                   <SvgArrowUp />
                 </div>
               </div>
 
-              {/* Kartu 2: Total Pengeluaran (Merah Muda / Coral) */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#e05263] via-[#f27482] to-[#fca5b0] p-2.5 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#e05263]/30 hover:shadow-2xl hover:shadow-[#e05263]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
-                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
-                <div className="min-w-0">
-                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
+              {/* Kartu 2: Total Pengeluaran */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#e05263] via-[#f27482] to-[#fca5b0] p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#e05263]/25 text-white flex items-center justify-between gap-2 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wider leading-tight truncate">
                     Total Pengeluaran
                   </p>
-                  <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
+                  <h3 className="text-base sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 truncate">
                     {formatRupiah(totalPengeluaran)}
                   </h3>
                 </div>
-                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="flex w-9 h-9 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 border border-white/30">
                   <SvgArrowDown />
                 </div>
               </div>
 
-              {/* Kartu 3: Saldo Kas Saat Ini (Biru Langit) */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-2.5 sm:p-5 rounded-xl sm:rounded-3xl shadow-lg shadow-[#3b72b5]/30 hover:shadow-2xl hover:shadow-[#3b72b5]/40 hover:-translate-y-1 transition-all duration-300 text-white group flex items-center justify-between gap-1 sm:gap-2 min-w-0">
-                <div className="absolute -right-4 -top-4 w-20 h-20 sm:w-24 sm:h-24 bg-white/15 rounded-full blur-xl group-hover:scale-150 transition-transform" />
-                <div className="min-w-0">
-                  <p className="text-[8px] sm:text-xs font-bold text-white/90 uppercase tracking-wider leading-tight truncate">
+              {/* Kartu 3: Saldo Kas Saat Ini */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#3b72b5]/25 text-white flex items-center justify-between gap-2 min-w-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wider leading-tight truncate">
                     Saldo Kas Saat Ini
                   </p>
-                  <h3 className="text-xs sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 sm:mt-1 truncate">
+                  <h3 className="text-base sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 truncate">
                     {formatRupiah(saldoKas)}
                   </h3>
                 </div>
-                <div className="hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 shadow-inner border border-white/30">
+                <div className="flex w-9 h-9 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 border border-white/30">
                   <SvgKeuangan />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full">
-              <h3 className="text-base sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
-                Laporan Keuangan OSIS
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[500px]">
+            <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0 w-full">
+              <div className="flex items-center justify-between gap-2 mb-3.5 pb-2.5 border-b border-slate-100">
+                <h3 className="text-sm sm:text-lg font-black text-slate-800">
+                  Laporan Keuangan OSIS
+                </h3>
+                <span className="md:hidden text-[10px] text-slate-400 font-semibold">
+                  Geser tabel &rarr;
+                </span>
+              </div>
+              <div className="w-full overflow-x-auto pb-1">
+                <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[440px]">
                   <thead>
-                    <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
-                      <th className="py-3 px-4 rounded-l-xl">Keterangan</th>
-                      <th className="py-3 px-4">Jenis</th>
-                      <th className="py-3 px-4 text-right rounded-r-xl">Jumlah</th>
+                    <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[10px] sm:text-[11px] bg-slate-100/70">
+                      <th className="py-2.5 px-3 sm:px-4 rounded-l-xl">Keterangan</th>
+                      <th className="py-2.5 px-3 sm:px-4">Jenis</th>
+                      <th className="py-2.5 px-3 sm:px-4 text-right rounded-r-xl">Jumlah</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {keuanganList.length === 0 ? (
                       <tr>
-                        <td colSpan="3" className="py-12 text-center text-slate-400 font-medium">
+                        <td colSpan="3" className="py-10 text-center text-slate-400 font-medium">
                           Belum ada data keuangan.
                         </td>
                       </tr>
                     ) : (
                       keuanganList.map((kq) => (
                         <tr key={kq.id} className="hover:bg-blue-50/40 transition-colors">
-                          <td className="py-3.5 px-4 text-slate-700 font-bold">
+                          <td className="py-3 px-3 sm:px-4 text-slate-700 font-bold">
                             {kq.keterangan}
                           </td>
-                          <td className="py-3.5 px-4">
+                          <td className="py-3 px-3 sm:px-4">
                             <span
-                              className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block uppercase tracking-wider ${
+                              className={`px-2.5 py-1 font-bold text-[10px] rounded-xl inline-block uppercase tracking-wider whitespace-nowrap ${
                                 kq.jenis === 'Pemasukan' || kq.kategori === 'Pemasukan'
                                   ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                                   : 'bg-rose-100 text-rose-700 border border-rose-200'
@@ -1998,7 +2033,7 @@ export default function DashboardSekretaris({
                             </span>
                           </td>
                           <td
-                            className={`py-3.5 px-4 text-right font-black whitespace-nowrap ${
+                            className={`py-3 px-3 sm:px-4 text-right font-black whitespace-nowrap ${
                               kq.jenis === 'Pemasukan' || kq.kategori === 'Pemasukan'
                                 ? 'text-emerald-600'
                                 : 'text-rose-500'
@@ -2021,10 +2056,10 @@ export default function DashboardSekretaris({
       {/* MODAL KONFIRMASI CUSTOM */}
       {confirmModal.isOpen && (
         <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-100 text-center animate-[scaleIn_0.2s_ease-out]">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-rose-500 to-rose-600 text-white flex items-center justify-center shadow-lg shadow-rose-500/30">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-5 sm:p-6 shadow-2xl border border-slate-100 text-center animate-[scaleIn_0.2s_ease-out]">
+            <div className="w-14 h-14 mx-auto mb-3.5 rounded-2xl bg-gradient-to-br from-rose-500 to-rose-600 text-white flex items-center justify-center shadow-lg shadow-rose-500/30">
               <svg
-                className="w-8 h-8"
+                className="w-7 h-7"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2.2"
@@ -2043,7 +2078,7 @@ export default function DashboardSekretaris({
             <p className="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed">
               {confirmModal.message}
             </p>
-            <div className="flex items-center gap-3 mt-6">
+            <div className="flex items-center gap-2.5 mt-5">
               <button
                 type="button"
                 onClick={() =>
@@ -2055,14 +2090,14 @@ export default function DashboardSekretaris({
                     message: '',
                   })
                 }
-                className="flex-1 py-2.5 px-4 rounded-2xl font-bold text-xs sm:text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all active:scale-95 cursor-pointer"
+                className="flex-1 py-2.5 px-3 rounded-2xl font-bold text-xs sm:text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all active:scale-95 cursor-pointer"
               >
                 Batal
               </button>
               <button
                 type="button"
                 onClick={handleExecuteConfirm}
-                className="flex-1 py-2.5 px-4 rounded-2xl font-bold text-xs sm:text-sm text-white bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-600/30 transition-all active:scale-95 cursor-pointer"
+                className="flex-1 py-2.5 px-3 rounded-2xl font-bold text-xs sm:text-sm text-white bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-600/30 transition-all active:scale-95 cursor-pointer"
               >
                 Ya, Hapus
               </button>
@@ -2073,11 +2108,11 @@ export default function DashboardSekretaris({
 
       {/* MODAL PESERTA KEGIATAN */}
       {selectedKegiatanPeserta && (
-        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 z-50 animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl space-y-4 border border-blue-100 animate-[scaleIn_0.2s_ease-out]">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h3 className="text-base sm:text-lg font-black text-slate-800 truncate pr-2">
-                Daftar Peserta:{' '}
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-3.5 sm:p-6 z-50 animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-4 sm:p-6 shadow-2xl space-y-3.5 border border-blue-100 animate-[scaleIn_0.2s_ease-out]">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3 gap-2">
+              <h3 className="text-sm sm:text-lg font-black text-slate-800 truncate">
+                Peserta:{' '}
                 <span className="text-[#2158B8]">
                   {selectedKegiatanPeserta.nama_proker ||
                     selectedKegiatanPeserta.namaKegiatan ||
@@ -2085,8 +2120,9 @@ export default function DashboardSekretaris({
                 </span>
               </h3>
               <button
+                type="button"
                 onClick={() => setSelectedKegiatanPeserta(null)}
-                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-black flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-black flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0"
               >
                 ✕
               </button>
@@ -2102,19 +2138,21 @@ export default function DashboardSekretaris({
                 getPesertaByKegiatan(selectedKegiatanPeserta).map((p, idx) => (
                   <div
                     key={idx}
-                    className="p-3.5 bg-slate-50/80 hover:bg-slate-100/80 rounded-2xl text-xs border border-slate-100 flex justify-between items-start transition-all gap-2"
+                    className="p-3 bg-slate-50/80 rounded-2xl text-xs border border-slate-100 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="font-bold text-slate-800">{p.namaSiswa || p.nama}</p>
+                      <p className="font-bold text-slate-800 break-words">
+                        {p.namaSiswa || p.nama}
+                      </p>
                       <p className="text-slate-400 text-[11px] mt-0.5">
                         {p.kelas} | NIS: {p.nis || p.nisn || '-'}
                       </p>
-                      <p className="text-slate-600 text-xs mt-1.5 font-medium bg-white p-2 rounded-xl border border-slate-100">
-                        <span className="font-bold text-slate-500">Catatan/Alasan: </span>
+                      <p className="text-slate-600 text-xs mt-1.5 font-medium bg-white p-2 rounded-xl border border-slate-100 break-words">
+                        <span className="font-bold text-slate-500">Catatan: </span>
                         {p.catatan || p.alasan || p.alasan_mengikuti || '-'}
                       </p>
                     </div>
-                    <span className="text-slate-400 text-[10px] bg-white px-2.5 py-1 rounded-lg font-medium border border-slate-200/60 shrink-0">
+                    <span className="text-slate-400 text-[10px] bg-white px-2 py-1 rounded-lg font-medium border border-slate-200/60 self-start shrink-0">
                       {formatTanggal(p.tanggalDaftar)}
                     </span>
                   </div>
@@ -2128,12 +2166,13 @@ export default function DashboardSekretaris({
       {/* MODAL FOTO PROFIL */}
       {showAvatarModal && (
         <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-4 border border-blue-100 animate-[scaleIn_0.2s_ease-out]">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 border border-blue-100 animate-[scaleIn_0.2s_ease-out]">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h3 className="text-base sm:text-lg font-black text-slate-800">
+              <h3 className="text-sm sm:text-lg font-black text-slate-800">
                 Kelola Foto Profil
               </h3>
               <button
+                type="button"
                 onClick={() => setShowAvatarModal(false)}
                 className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-black flex items-center justify-center transition-all active:scale-95 cursor-pointer"
               >
@@ -2153,10 +2192,10 @@ export default function DashboardSekretaris({
                 </div>
               )}
             </div>
-            <div className="space-y-3 pt-2">
+            <div className="space-y-2.5 pt-1">
               <label
                 htmlFor="avatar-input-sekretaris"
-                className="w-full py-3 bg-[#2158B8] hover:bg-[#1B4694] text-white rounded-2xl font-bold text-xs flex items-center justify-center cursor-pointer shadow-lg shadow-blue-600/30 active:scale-95 transition-all"
+                className="w-full py-2.5 bg-[#2158B8] hover:bg-[#1B4694] text-white rounded-2xl font-bold text-xs flex items-center justify-center cursor-pointer shadow-lg shadow-blue-600/30 active:scale-95 transition-all"
               >
                 Ganti / Unggah Foto Baru
               </label>
@@ -2171,7 +2210,7 @@ export default function DashboardSekretaris({
                 <button
                   type="button"
                   onClick={handleHapusAvatar}
-                  className="w-full py-3 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl font-bold text-xs flex items-center justify-center cursor-pointer border border-rose-200 active:scale-95 transition-all"
+                  className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl font-bold text-xs flex items-center justify-center cursor-pointer border border-rose-200 active:scale-95 transition-all"
                 >
                   Hapus Foto Profil
                 </button>
