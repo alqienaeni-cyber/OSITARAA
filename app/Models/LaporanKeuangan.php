@@ -17,16 +17,19 @@ class LaporanKeuangan extends Model
     protected $table = 'laporan_keuangan';
 
     /**
-     * Kolom-kolom yang dapat diisi secara masal (mass assignable).
+     * Kolom-kolom yang dapat diisi secara massal (mass assignable).
      *
      * @var array<int, string>
      */
     protected $fillable = [
         'sumber',
+        'kategori_sumber',
         'jenis',
         'keterangan',
         'nominal',
         'tanggal',
+        'bukti_nota',
+        'created_by',
     ];
 
     /**

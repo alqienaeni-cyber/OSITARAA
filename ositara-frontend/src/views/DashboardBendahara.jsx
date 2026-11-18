@@ -1,16 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import api from '../api';
 import logoOsitara from '../assets/LOGO OSITARA.png';
 
-const API_BASE = 'http://localhost:8000/api';
-
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token') || localStorage.getItem('auth_token') || '';
-  return {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+// --- RESOLVER BASE URL STORAGE UNTUK DEPLOY ---
+const getStorageBaseUrl = () => {
+  const base = String(api?.defaults?.baseURL || '').trim();
+  if (!base || base.startsWith('/')) {
+    return typeof window !== 'undefined' ? `${window.location.origin}/storage` : '/storage';
+  }
+  return `${base.replace(/\/api\/?$/, '')}/storage`;
 };
 
 // --- FORMAT RUPIAH & TANGGAL ---
@@ -56,13 +54,13 @@ const formatTanggalFormal = () => {
 };
 
 // --- NORMALISASI & CACHE TRANSAKSI KEUANGAN ---
-const SEPARATED_CACHE_KEY = 'ositara_keuangan_separated_v1';
-const OVERRIDE_CACHE_KEY = 'ositara_keuangan_overrides_v1';
-const NOTA_CACHE_KEY = 'ositara_keuangan_nota_cache_v1';
+const SEPARATED_CACHE_KEY = 'ositara_keuangan_separated_v2';
+const OVERRIDE_CACHE_KEY = 'ositara_keuangan_overrides_v2';
+const NOTA_CACHE_KEY = 'ositara_keuangan_nota_cache_v2';
 
 const normalizeNominal = (item) => {
   if (!item || typeof item !== 'object') return 0;
-  const raw = item.jumlah ?? item.nominal ?? item.amount ?? 0;
+  const raw = item.nominal ?? item.jumlah ?? item.amount ?? 0;
   if (typeof raw === 'number') return Number.isNaN(raw) ? 0 : raw;
   const parsed = Number(String(raw).replace(/[^0-9.-]/g, ''));
   return Number.isNaN(parsed) ? 0 : parsed;
@@ -91,11 +89,11 @@ const normalizeJenis = (item) => {
 const normalizeKategoriSumber = (item) => {
   if (!item || typeof item !== 'object') return 'Kas OSIS';
   const raw = String(
-    item.kategori_sumber ?? item.sumber ?? item.sumber_dana ?? item.judul_sumber ?? 'Kas OSIS'
+    item.kategori_sumber || item.sumber || item.sumber_dana || item.judul_sumber || 'Kas OSIS'
   ).trim();
   const low = raw.toLowerCase();
   if (low === 'kas osis' || low === 'kas' || low === '') return 'Kas OSIS';
-  if (low === 'dana sekolah' || low === 'sekolah') return 'Dana Sekolah';
+  if (low === 'dana sekolah' || low === 'sekolah' || low === 'anggaran sekolah') return 'Dana Sekolah';
   if (low === 'sponsor' || low === 'sponsorship') return 'Sponsor';
   return 'Lainnya';
 };
@@ -103,7 +101,7 @@ const normalizeKategoriSumber = (item) => {
 const normalizeSumberLabel = (item) => {
   if (!item || typeof item !== 'object') return 'Kas OSIS';
   const raw = String(
-    item.sumber ?? item.sumber_dana ?? item.judul_sumber ?? item.kategori_sumber ?? 'Kas OSIS'
+    item.sumber || item.sumber_dana || item.judul_sumber || item.kategori_sumber || 'Kas OSIS'
   ).trim();
   return raw || 'Kas OSIS';
 };
@@ -134,7 +132,7 @@ const saveNotaToCache = (item, dataUrl) => {
     map[`fp:${getFingerprint(item)}`] = dataUrl;
     localStorage.setItem(NOTA_CACHE_KEY, JSON.stringify(map));
   } catch {
-    // Abaikan jika penuh
+    // Abaikan jika storage penuh
   }
 };
 
@@ -143,7 +141,7 @@ const normalizeBuktiNota = (item) => {
   const direct = item.bukti_nota || item.foto_nota || item.nota || item.bukti || '';
   if (direct && typeof direct === 'string') {
     if (direct.startsWith('data:image') || direct.startsWith('http')) return direct;
-    return `http://localhost:8000/storage/${direct.replace(/^\/+/, '')}`;
+    return `${getStorageBaseUrl()}/${direct.replace(/^\/+/, '')}`;
   }
   const map = getNotaCacheMap();
   if (item.id !== undefined && item.id !== null && map[`id:${item.id}`]) {
@@ -201,7 +199,15 @@ const sanitizeKeuanganList = (list) => {
       (item.id !== undefined && item.id !== null && overrides[`id:${item.id}`]) ||
       overrides[`fp:${getFingerprint(item)}`] ||
       null;
-    const merged = ov ? { ...item, ...ov, id: item.id ?? ov.id } : item;
+    const merged = ov
+      ? {
+          ...item,
+          ...ov,
+          id: item.id ?? ov.id,
+          bukti_nota: item.bukti_nota || ov.bukti_nota || '',
+        }
+      : item;
+
     const idKey = merged.id !== undefined && merged.id !== null ? `id:${merged.id}` : null;
     const fpKey = `fp:${getFingerprint(merged)}`;
 
@@ -212,12 +218,14 @@ const sanitizeKeuanganList = (list) => {
 
     const jenisFix = normalizeJenis(merged);
     const nomFix = normalizeNominal(merged);
+    const sumberFix = normalizeSumberLabel(merged);
+    const katSumberFix = normalizeKategoriSumber(merged);
 
     result.push({
       ...merged,
       id: merged.id ?? `row-${result.length}-${Date.now()}`,
-      tanggal: merged.tanggal || new Date().toISOString().split('T')[0],
-      keterangan: merged.keterangan || '-',
+      tanggal: String(merged.tanggal || new Date().toISOString().split('T')[0]).split('T')[0],
+      keterangan: String(merged.keterangan || '-').trim() || '-',
       jenis: jenisFix,
       jenis_transaksi: jenisFix,
       kategori: jenisFix,
@@ -225,19 +233,17 @@ const sanitizeKeuanganList = (list) => {
       type: jenisFix,
       nominal: nomFix,
       jumlah: nomFix,
-      sumber: normalizeSumberLabel(merged),
-      sumber_dana: normalizeSumberLabel(merged),
-      kategori_sumber: normalizeKategoriSumber(merged),
-      bukti_nota: normalizeBuktiNota(merged),
+      sumber: sumberFix,
+      sumber_dana: sumberFix,
+      kategori_sumber: katSumberFix,
+      bukti_nota: jenisFix === 'Pengeluaran' ? normalizeBuktiNota(merged) : '',
     });
   }
   return result;
 };
 
-// SINKRONISASI KE STORAGE GLOBAL & APP.JSX AGAR PEMASUKAN & PENGELUARAN TERUPDATE DI SEMUA DASHBOARD
 const syncGlobalKeuanganStorage = (gabunganList, onUpdateKeuanganCallback) => {
   const cleanAll = sanitizeKeuanganList(gabunganList);
-  // Versi ringan tanpa base64 gambar besar agar tidak pernah gagal karena limit 5MB localStorage
   const ringan = cleanAll.map((item) => ({
     ...item,
     bukti_nota:
@@ -257,7 +263,7 @@ const syncGlobalKeuanganStorage = (gabunganList, onUpdateKeuanganCallback) => {
       localStorage.setItem('ositara_keuangan', JSON.stringify(ringan));
       localStorage.setItem('keuanganList', JSON.stringify(ringan));
     } catch {
-      // Tetap lanjutkan broadcast via callback & CustomEvent
+      // Tetap lanjutkan broadcast via callback & event
     }
   }
 
@@ -309,23 +315,12 @@ const loadInitialSeparatedKeuangan = (fallbackList = []) => {
         const masuk = sanitizeKeuanganList(parsed.pemasukan || []).map((i) => ({
           ...i,
           jenis: 'Pemasukan',
-          jenis_transaksi: 'Pemasukan',
-          kategori: 'Pemasukan',
-          tipe: 'Pemasukan',
-          type: 'Pemasukan',
         }));
         const keluar = sanitizeKeuanganList(parsed.pengeluaran || []).map((i) => ({
           ...i,
           jenis: 'Pengeluaran',
-          jenis_transaksi: 'Pengeluaran',
-          kategori: 'Pengeluaran',
-          tipe: 'Pengeluaran',
-          type: 'Pengeluaran',
         }));
-        return {
-          pemasukan: masuk,
-          pengeluaran: keluar,
-        };
+        return { pemasukan: masuk, pengeluaran: keluar };
       }
     }
   } catch {
@@ -356,7 +351,7 @@ const loadInitialSeparatedKeuangan = (fallbackList = []) => {
 };
 
 // --- KOMPRESI GAMBAR NOTA ---
-const compressImageToDataUrl = (file, maxWidth = 900, quality = 0.72) =>
+const compressImageToDataUrl = (file, maxWidth = 850, quality = 0.72) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('Gagal membaca file gambar'));
@@ -562,18 +557,34 @@ export default function DashboardBendahara({
   );
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
-  const initialSeparated = loadInitialSeparatedKeuangan(propKeuangan);
+  // Simpan referensi callback di ref agar TIDAK memicu infinite loop useEffect
+  const onUpdateKeuanganRef = useRef(onUpdateKeuangan);
+  useEffect(() => {
+    onUpdateKeuanganRef.current = onUpdateKeuangan;
+  }, [onUpdateKeuangan]);
+
+  const initialSeparated = useMemo(
+    () => loadInitialSeparatedKeuangan(propKeuangan),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
   const [pemasukanList, setPemasukanList] = useState(initialSeparated.pemasukan);
   const [pengeluaranList, setPengeluaranList] = useState(initialSeparated.pengeluaran);
 
-  const keuanganList = [...pemasukanList, ...pengeluaranList].sort((a, b) =>
-    String(b.tanggal || '').localeCompare(String(a.tanggal || ''))
+  const keuanganList = useMemo(
+    () =>
+      [...pemasukanList, ...pengeluaranList].sort((a, b) => {
+        const cmpTgl = String(b.tanggal || '').localeCompare(String(a.tanggal || ''));
+        if (cmpTgl !== 0) return cmpTgl;
+        return Number(b.id || 0) - Number(a.id || 0);
+      }),
+    [pemasukanList, pengeluaranList]
   );
 
-  // SINKRONKAN SETIAP PERUBAHAN PEMASUKAN & PENGELUARAN KE GLOBAL STORAGE & DASHBOARD LAIN
+  // Sinkronkan hanya saat pemasukanList / pengeluaranList berubah (bebas infinite loop)
   useEffect(() => {
-    persistSeparatedKeuangan(pemasukanList, pengeluaranList, onUpdateKeuangan);
-  }, [pemasukanList, pengeluaranList, onUpdateKeuangan]);
+    persistSeparatedKeuangan(pemasukanList, pengeluaranList, onUpdateKeuanganRef.current);
+  }, [pemasukanList, pengeluaranList]);
 
   const [proposalList, setProposalList] = useState(Array.isArray(propProposal) ? propProposal : []);
   const [prokerList, setProkerList] = useState(
@@ -652,6 +663,8 @@ export default function DashboardBendahara({
   });
 
   const [isLaporanModalOpen, setIsLaporanModalOpen] = useState(false);
+  const [isLaporanEditMode, setIsLaporanEditMode] = useState(false);
+  const [isSavingDraftToDb, setIsSavingDraftToDb] = useState(false);
   const [laporanSumberFilter, setLaporanSumberFilter] = useState('Semua');
   const [laporanJenisFilter, setLaporanJenisFilter] = useState('Semua');
   const [laporanPeriodeFilter, setLaporanPeriodeFilter] = useState('semua');
@@ -668,12 +681,12 @@ export default function DashboardBendahara({
   const [downloadingId, setDownloadingId] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
-  const showToast = (message, type = 'success') => {
+  const showToast = useCallback((message, type = 'success') => {
     setToast({ show: true, message, type });
     setTimeout(() => {
       setToast({ show: false, message: '', type: 'success' });
-    }, 3200);
-  };
+    }, 3400);
+  }, []);
 
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
@@ -749,7 +762,7 @@ export default function DashboardBendahara({
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
-    const maxW = 900;
+    const maxW = 850;
     const scale = video.videoWidth > maxW ? maxW / video.videoWidth : 1;
     canvas.width = Math.round(video.videoWidth * scale);
     canvas.height = Math.round(video.videoHeight * scale);
@@ -784,7 +797,7 @@ export default function DashboardBendahara({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const compressed = await compressImageToDataUrl(file, 900, 0.72);
+      const compressed = await compressImageToDataUrl(file, 850, 0.72);
       if (target === 'tambah') {
         setBuktiNota(compressed);
       } else {
@@ -798,53 +811,64 @@ export default function DashboardBendahara({
     e.target.value = '';
   };
 
-  const syncAllFromServer = useCallback(async () => {
-    try {
-      const [resKeu, resProp, resProk, resAng, resPend] = await Promise.allSettled([
-        api.get('/keuangan'),
-        api.get('/proposal'),
-        api.get('/program-kerja'),
-        api.get('/pengurus'),
-        api.get('/pendaftaran'),
-      ]);
-      if (resKeu.status === 'fulfilled') {
-        const rawKeu = resKeu.value?.data?.data || resKeu.value?.data || [];
-        if (Array.isArray(rawKeu) && rawKeu.length > 0) {
-          const clean = sanitizeKeuanganList(rawKeu);
-          const masuk = clean.filter((i) => normalizeJenis(i) === 'Pemasukan');
-          const keluar = clean.filter((i) => normalizeJenis(i) === 'Pengeluaran');
-          setPemasukanList(masuk);
-          setPengeluaranList(keluar);
-          persistSeparatedKeuangan(masuk, keluar, onUpdateKeuangan);
-        }
-      }
-      if (resProp.status === 'fulfilled') {
-        const rawProp = resProp.value?.data?.data || resProp.value?.data || [];
-        if (Array.isArray(rawProp)) setProposalList(rawProp);
-      }
-      if (resProk.status === 'fulfilled') {
-        const rawProk = resProk.value?.data?.data || resProk.value?.data || [];
-        if (Array.isArray(rawProk)) {
-          setProkerList(rawProk.filter((p) => !isItemKegiatanSekre(p)));
-          setKegiatanList(rawProk.filter((p) => isItemKegiatanSekre(p)));
-        }
-      }
-      if (resAng.status === 'fulfilled') {
-        const rawAng = resAng.value?.data?.data || resAng.value?.data || [];
-        if (Array.isArray(rawAng)) setAnggotaList(rawAng);
-      }
-      if (resPend.status === 'fulfilled') {
-        const rawPend = resPend.value?.data?.data || resPend.value?.data || [];
-        if (Array.isArray(rawPend)) setPendaftaranList(rawPend);
-      }
-    } catch {
-      // Tetap gunakan state lokal jika offline
-    }
-  }, [onUpdateKeuangan]);
-
+  // Fetch data server HANYA 1 KALI saat komponen dimount (tidak akan loop)
+  const hasFetchedServerRef = useRef(false);
   useEffect(() => {
-    syncAllFromServer();
-  }, [syncAllFromServer]);
+    if (hasFetchedServerRef.current) return;
+    hasFetchedServerRef.current = true;
+
+    let isMounted = true;
+    const fetchInitialData = async () => {
+      try {
+        const [resKeu, resProp, resProk, resAng, resPend] = await Promise.allSettled([
+          api.get('/keuangan'),
+          api.get('/proposal'),
+          api.get('/program-kerja'),
+          api.get('/pengurus'),
+          api.get('/pendaftaran'),
+        ]);
+
+        if (!isMounted) return;
+
+        if (resKeu.status === 'fulfilled') {
+          const rawKeu = resKeu.value?.data?.data || resKeu.value?.data || [];
+          if (Array.isArray(rawKeu)) {
+            const clean = sanitizeKeuanganList(rawKeu);
+            const masuk = clean.filter((i) => normalizeJenis(i) === 'Pemasukan');
+            const keluar = clean.filter((i) => normalizeJenis(i) === 'Pengeluaran');
+            setPemasukanList(masuk);
+            setPengeluaranList(keluar);
+          }
+        }
+        if (resProp.status === 'fulfilled') {
+          const rawProp = resProp.value?.data?.data || resProp.value?.data || [];
+          if (Array.isArray(rawProp)) setProposalList(rawProp);
+        }
+        if (resProk.status === 'fulfilled') {
+          const rawProk = resProk.value?.data?.data || resProk.value?.data || [];
+          if (Array.isArray(rawProk)) {
+            setProkerList(rawProk.filter((p) => !isItemKegiatanSekre(p)));
+            setKegiatanList(rawProk.filter((p) => isItemKegiatanSekre(p)));
+          }
+        }
+        if (resAng.status === 'fulfilled') {
+          const rawAng = resAng.value?.data?.data || resAng.value?.data || [];
+          if (Array.isArray(rawAng)) setAnggotaList(rawAng);
+        }
+        if (resPend.status === 'fulfilled') {
+          const rawPend = resPend.value?.data?.data || resPend.value?.data || [];
+          if (Array.isArray(rawPend)) setPendaftaranList(rawPend);
+        }
+      } catch {
+        // Tetap gunakan state lokal jika offline
+      }
+    };
+
+    fetchInitialData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleBukaDetailSumber = (sumberNama, kategoriAwal = 'Pemasukan') => {
     setSelectedSumberDetail(sumberNama);
@@ -872,23 +896,26 @@ export default function DashboardBendahara({
     setIsTambahKasModalOpen(true);
   };
 
-  const getRingkasanBySumber = (sumberKategori) => {
-    const masuk = pemasukanList.filter(
-      (i) => normalizeKategoriSumber(i).toLowerCase() === sumberKategori.toLowerCase()
-    );
-    const keluar = pengeluaranList.filter(
-      (i) => normalizeKategoriSumber(i).toLowerCase() === sumberKategori.toLowerCase()
-    );
-    const totalMasuk = masuk.reduce((acc, c) => acc + normalizeNominal(c), 0);
-    const totalKeluar = keluar.reduce((acc, c) => acc + normalizeNominal(c), 0);
-    return {
-      pemasukanList: masuk,
-      pengeluaranList: keluar,
-      totalMasuk,
-      totalKeluar,
-      saldo: totalMasuk - totalKeluar,
-    };
-  };
+  const getRingkasanBySumber = useCallback(
+    (sumberKategori) => {
+      const masuk = pemasukanList.filter(
+        (i) => normalizeKategoriSumber(i).toLowerCase() === sumberKategori.toLowerCase()
+      );
+      const keluar = pengeluaranList.filter(
+        (i) => normalizeKategoriSumber(i).toLowerCase() === sumberKategori.toLowerCase()
+      );
+      const totalMasuk = masuk.reduce((acc, c) => acc + normalizeNominal(c), 0);
+      const totalKeluar = keluar.reduce((acc, c) => acc + normalizeNominal(c), 0);
+      return {
+        pemasukanList: masuk,
+        pengeluaranList: keluar,
+        totalMasuk,
+        totalKeluar,
+        saldo: totalMasuk - totalKeluar,
+      };
+    },
+    [pemasukanList, pengeluaranList]
+  );
 
   const handleTambahKas = async (e) => {
     e.preventDefault();
@@ -917,22 +944,18 @@ export default function DashboardBendahara({
       kategori_sumber: kategoriSumberFix,
       sumber: sumberLabelFix,
       sumber_dana: sumberLabelFix,
-      judul_sumber: sumberLabelFix,
       jenis: jenisFix,
-      jenis_transaksi: jenisFix,
-      kategori: jenisFix,
       tipe: jenisFix,
-      type: jenisFix,
-      jumlah: nominalNum,
       nominal: nominalNum,
-      bukti_nota: notaFix,
-      foto_nota: notaFix,
+      jumlah: nominalNum,
+      bukti_nota: notaFix || null,
     };
 
     const tempLocalId = `local-${Date.now()}`;
     const recordLokalAwal = {
       id: tempLocalId,
       ...payload,
+      bukti_nota: notaFix,
     };
 
     saveLocalOverride(recordLokalAwal);
@@ -944,46 +967,42 @@ export default function DashboardBendahara({
     if (jenisFix === 'Pengeluaran') {
       currentKeluar = sanitizeKeuanganList([recordLokalAwal, ...pengeluaranList]);
       setPengeluaranList(currentKeluar);
-      persistSeparatedKeuangan(currentMasuk, currentKeluar, onUpdateKeuangan);
       if (kasSubView === 'detail-sumber' && activeTabelKategori !== 'Saldo') {
         setActiveTabelKategori('Pengeluaran');
       }
     } else {
       currentMasuk = sanitizeKeuanganList([recordLokalAwal, ...pemasukanList]);
       setPemasukanList(currentMasuk);
-      persistSeparatedKeuangan(currentMasuk, currentKeluar, onUpdateKeuangan);
       if (kasSubView === 'detail-sumber' && activeTabelKategori !== 'Saldo') {
         setActiveTabelKategori('Pemasukan');
       }
     }
 
     let resData = null;
-    const payloadTanpaFoto = { ...payload, bukti_nota: '', foto_nota: '' };
+    let dbSaved = false;
+    let serverErrorMsg = '';
 
     try {
       const axiosRes = await api.post('/keuangan', payload);
       if (axiosRes && axiosRes.status >= 200 && axiosRes.status < 300) {
         resData = axiosRes.data?.data || axiosRes.data;
+        dbSaved = true;
       }
-    } catch {
-      try {
-        const axiosResLight = await api.post('/keuangan', payloadTanpaFoto);
-        if (axiosResLight && axiosResLight.status >= 200 && axiosResLight.status < 300) {
-          resData = axiosResLight.data?.data || axiosResLight.data;
-        }
-      } catch {
+    } catch (err) {
+      serverErrorMsg =
+        err?.response?.data?.message ||
+        (err?.response?.data?.errors
+          ? Object.values(err.response.data.errors).flat().join(', ')
+          : '');
+      if (notaFix) {
         try {
-          const res = await fetch(`${API_BASE}/keuangan`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(payloadTanpaFoto),
-          });
-          if (res.ok) {
-            const json = await res.json().catch(() => ({}));
-            resData = json?.data || json;
+          const axiosResLight = await api.post('/keuangan', { ...payload, bukti_nota: null });
+          if (axiosResLight && axiosResLight.status >= 200 && axiosResLight.status < 300) {
+            resData = axiosResLight.data?.data || axiosResLight.data;
+            dbSaved = true;
           }
         } catch {
-          // Tetap aman tersimpan di localStorage & global state
+          // Tetap tersimpan di state lokal
         }
       }
     }
@@ -998,15 +1017,10 @@ export default function DashboardBendahara({
         keterangan: keterangan.trim(),
         kategori_sumber: kategoriSumberFix,
         sumber: sumberLabelFix,
-        sumber_dana: sumberLabelFix,
         jenis: jenisFix,
-        jenis_transaksi: jenisFix,
-        kategori: jenisFix,
-        tipe: jenisFix,
-        type: jenisFix,
         nominal: nominalNum,
         jumlah: nominalNum,
-        bukti_nota: notaFix,
+        bukti_nota: notaFix || resData.bukti_nota || '',
       };
       saveLocalOverride(recordSynced);
       if (notaFix) saveNotaToCache(recordSynced, notaFix);
@@ -1016,13 +1030,11 @@ export default function DashboardBendahara({
           currentKeluar.map((it) => (it.id === tempLocalId ? recordSynced : it))
         );
         setPengeluaranList(updatedKeluar);
-        persistSeparatedKeuangan(currentMasuk, updatedKeluar, onUpdateKeuangan);
       } else {
         const updatedMasuk = sanitizeKeuanganList(
           currentMasuk.map((it) => (it.id === tempLocalId ? recordSynced : it))
         );
         setPemasukanList(updatedMasuk);
-        persistSeparatedKeuangan(updatedMasuk, currentKeluar, onUpdateKeuangan);
       }
     }
 
@@ -1036,9 +1048,18 @@ export default function DashboardBendahara({
     setIsTambahKasModalOpen(false);
     isSubmittingRef.current = false;
     setIsSubmitting(false);
-    showToast(`Transaksi ${jenisFix} (${sumberLabelFix}) berhasil disimpan & disinkronkan!`);
-  };
 
+    if (dbSaved) {
+      showToast(`Transaksi ${jenisFix} (${sumberLabelFix}) berhasil tersimpan ke database!`);
+    } else {
+      showToast(
+        serverErrorMsg
+          ? `Tersimpan lokal, namun server menolak: ${serverErrorMsg}`
+          : 'Tersimpan sementara di perangkat (pastikan php artisan serve aktif).',
+        'warning'
+      );
+    }
+  };
   const handleOpenEditKas = (item) => {
     stopCamera();
     setCapturedPreview('');
@@ -1087,40 +1108,31 @@ export default function DashboardBendahara({
       sumber: sumberLabelFix,
       sumber_dana: sumberLabelFix,
       jenis: jenisFix,
-      jenis_transaksi: jenisFix,
-      kategori: jenisFix,
       tipe: jenisFix,
-      type: jenisFix,
       nominal: nominalNum,
       jumlah: nominalNum,
-      bukti_nota: notaFix,
-      foto_nota: notaFix,
+      bukti_nota: notaFix || null,
     };
 
-    saveLocalOverride(updatedRecord);
+    saveLocalOverride({ ...updatedRecord, bukti_nota: notaFix });
     if (notaFix) saveNotaToCache(updatedRecord, notaFix);
 
     const tanpaId = [...pemasukanList, ...pengeluaranList].filter(
       (i) => i.id !== editKasModal.id
     );
-    const nextAll = sanitizeKeuanganList([updatedRecord, ...tanpaId]);
+    const nextAll = sanitizeKeuanganList([{ ...updatedRecord, bukti_nota: notaFix }, ...tanpaId]);
     const nextMasuk = nextAll.filter((i) => normalizeJenis(i) === 'Pemasukan');
     const nextKeluar = nextAll.filter((i) => normalizeJenis(i) === 'Pengeluaran');
 
     setPemasukanList(nextMasuk);
     setPengeluaranList(nextKeluar);
-    persistSeparatedKeuangan(nextMasuk, nextKeluar, onUpdateKeuangan);
 
     if (!String(editKasModal.id).startsWith('local-')) {
       try {
         await api.put(`/keuangan/${editKasModal.id}`, updatedRecord);
       } catch {
         try {
-          await api.put(`/keuangan/${editKasModal.id}`, {
-            ...updatedRecord,
-            bukti_nota: '',
-            foto_nota: '',
-          });
+          await api.put(`/keuangan/${editKasModal.id}`, { ...updatedRecord, bukti_nota: null });
         } catch {
           // Sudah tersimpan di state lokal & global
         }
@@ -1131,7 +1143,7 @@ export default function DashboardBendahara({
     setCapturedPreview('');
     setIsUpdatingKas(false);
     setEditKasModal((prev) => ({ ...prev, isOpen: false }));
-    showToast('Perubahan transaksi berhasil disimpan & disinkronkan!');
+    showToast('Perubahan transaksi berhasil disimpan & disinkronkan ke database!');
   };
 
   const handleHapusKas = (item) => {
@@ -1147,7 +1159,6 @@ export default function DashboardBendahara({
         const nextKeluar = pengeluaranList.filter((i) => i.id !== item.id);
         setPemasukanList(nextMasuk);
         setPengeluaranList(nextKeluar);
-        persistSeparatedKeuangan(nextMasuk, nextKeluar, onUpdateKeuangan);
 
         if (!String(item.id).startsWith('local-')) {
           try {
@@ -1157,7 +1168,7 @@ export default function DashboardBendahara({
           }
         }
         setConfirmModal({ isOpen: false, title: '', message: '', onConfirm: null });
-        showToast('Transaksi berhasil dihapus & disinkronkan.');
+        showToast('Transaksi berhasil dihapus dari database.');
       },
     });
   };
@@ -1190,7 +1201,7 @@ export default function DashboardBendahara({
     try {
       const fullUrl = String(rawFile).startsWith('http')
         ? rawFile
-        : `http://localhost:8000/storage/${String(rawFile).replace(/^\/+/, '')}`;
+        : `${getStorageBaseUrl()}/${String(rawFile).replace(/^\/+/, '')}`;
       window.open(fullUrl, '_blank', 'noopener,noreferrer');
     } finally {
       setDownloadingId(null);
@@ -1213,27 +1224,34 @@ export default function DashboardBendahara({
     };
   });
 
+  // --- FILTER & LAPORAN FORMAL ---
   const filterTransaksiLaporan = useCallback(
     (sumberF, jenisF, periodeF) => {
       const now = new Date();
-      return keuanganList.filter((item) => {
-        if (sumberF !== 'Semua' && normalizeKategoriSumber(item) !== sumberF) {
-          return false;
-        }
-        if (jenisF !== 'Semua' && normalizeJenis(item) !== jenisF) {
-          return false;
-        }
-        if (periodeF !== 'semua' && item.tanggal) {
-          const itemDate = new Date(String(item.tanggal).split('T')[0]);
-          if (!Number.isNaN(itemDate.getTime())) {
-            const diffDays = (now - itemDate) / (1000 * 60 * 60 * 24);
-            if (periodeF === 'minggu' && diffDays > 7) return false;
-            if (periodeF === 'bulan' && diffDays > 30) return false;
-            if (periodeF === 'tahun' && diffDays > 365) return false;
+      return keuanganList
+        .filter((item) => {
+          if (sumberF !== 'Semua' && normalizeKategoriSumber(item) !== sumberF) {
+            return false;
           }
-        }
-        return true;
-      });
+          if (jenisF !== 'Semua' && normalizeJenis(item) !== jenisF) {
+            return false;
+          }
+          if (periodeF !== 'semua' && item.tanggal) {
+            const itemDate = new Date(String(item.tanggal).split('T')[0]);
+            if (!Number.isNaN(itemDate.getTime())) {
+              const diffDays = (now - itemDate) / (1000 * 60 * 60 * 24);
+              if (periodeF === 'minggu' && diffDays > 7) return false;
+              if (periodeF === 'bulan' && diffDays > 30) return false;
+              if (periodeF === 'tahun' && diffDays > 365) return false;
+            }
+          }
+          return true;
+        })
+        .sort((a, b) => {
+          const cmpTgl = String(a.tanggal || '').localeCompare(String(b.tanggal || ''));
+          if (cmpTgl !== 0) return cmpTgl;
+          return Number(a.id || 0) - Number(b.id || 0);
+        });
     },
     [keuanganList]
   );
@@ -1242,6 +1260,7 @@ export default function DashboardBendahara({
     setLaporanSumberFilter(sumberAwal);
     setLaporanJenisFilter(jenisAwal);
     setLaporanPeriodeFilter('semua');
+    setIsLaporanEditMode(false);
     const filtered = filterTransaksiLaporan(sumberAwal, jenisAwal, 'semua').map((item, idx) => ({
       ...item,
       bukti_nota: normalizeBuktiNota(item),
@@ -1251,25 +1270,17 @@ export default function DashboardBendahara({
     setIsLaporanModalOpen(true);
   };
 
-  useEffect(() => {
-    if (!isLaporanModalOpen) return;
-    const filtered = filterTransaksiLaporan(
-      laporanSumberFilter,
-      laporanJenisFilter,
-      laporanPeriodeFilter
-    ).map((item, idx) => ({
+  const handleChangeLaporanFilter = (nextSumber, nextJenis, nextPeriode) => {
+    setLaporanSumberFilter(nextSumber);
+    setLaporanJenisFilter(nextJenis);
+    setLaporanPeriodeFilter(nextPeriode);
+    const filtered = filterTransaksiLaporan(nextSumber, nextJenis, nextPeriode).map((item, idx) => ({
       ...item,
       bukti_nota: normalizeBuktiNota(item),
       _draftId: `draft-${item.id || idx}-${Date.now()}`,
     }));
     setLaporanDraftList(filtered);
-  }, [
-    isLaporanModalOpen,
-    laporanSumberFilter,
-    laporanJenisFilter,
-    laporanPeriodeFilter,
-    filterTransaksiLaporan,
-  ]);
+  };
 
   const updateLaporanDraft = (draftId, field, value) => {
     setLaporanDraftList((prev) =>
@@ -1278,20 +1289,21 @@ export default function DashboardBendahara({
   };
 
   const tambahBarisLaporan = () => {
+    setIsLaporanEditMode(true);
+    const defaultKat = laporanSumberFilter !== 'Semua' ? laporanSumberFilter : 'Kas OSIS';
+    const defaultJns = laporanJenisFilter !== 'Semua' ? laporanJenisFilter : 'Pemasukan';
     setLaporanDraftList((prev) => [
       ...prev,
       {
         _draftId: `draft-new-${Date.now()}`,
         id: `local-${Date.now()}`,
         tanggal: new Date().toISOString().split('T')[0],
-        kategori_sumber: 'Kas OSIS',
-        sumber: 'Kas OSIS',
+        kategori_sumber: defaultKat,
+        sumber: defaultKat,
         keterangan: '',
-        jenis: 'Pemasukan',
-        jenis_transaksi: 'Pemasukan',
-        kategori: 'Pemasukan',
-        jumlah: 0,
+        jenis: defaultJns,
         nominal: 0,
+        jumlah: 0,
         bukti_nota: '',
       },
     ]);
@@ -1301,14 +1313,78 @@ export default function DashboardBendahara({
     setLaporanDraftList((prev) => prev.filter((row) => row._draftId !== draftId));
   };
 
-  const terapkanDraftKeDataKas = () => {
-    const cleanedDraft = sanitizeKeuanganList(laporanDraftList);
-    const nextMasuk = cleanedDraft.filter((i) => normalizeJenis(i) === 'Pemasukan');
-    const nextKeluar = cleanedDraft.filter((i) => normalizeJenis(i) === 'Pengeluaran');
+  const terapkanDraftKeDataKas = async () => {
+    const validRows = laporanDraftList.filter(
+      (r) => String(r.keterangan || '').trim() !== '' && normalizeNominal(r) > 0
+    );
+    if (validRows.length === 0 && laporanDraftList.length > 0) {
+      showToast('Isi uraian dan nominal lebih dari 0 pada baris draf!', 'warning');
+      return;
+    }
+
+    setIsSavingDraftToDb(true);
+    const cleanedDraft = sanitizeKeuanganList(validRows);
+
+    const luarFilter = keuanganList.filter((item) => {
+      if (laporanSumberFilter !== 'Semua' && normalizeKategoriSumber(item) !== laporanSumberFilter) {
+        return true;
+      }
+      if (laporanJenisFilter !== 'Semua' && normalizeJenis(item) !== laporanJenisFilter) {
+        return true;
+      }
+      return false;
+    });
+
+    const syncedDraftRows = [];
+    for (const row of cleanedDraft) {
+      const payloadRow = {
+        tanggal: row.tanggal,
+        keterangan: row.keterangan,
+        sumber: normalizeSumberLabel(row),
+        kategori_sumber: normalizeKategoriSumber(row),
+        jenis: normalizeJenis(row),
+        nominal: normalizeNominal(row),
+        bukti_nota: normalizeJenis(row) === 'Pengeluaran' ? row.bukti_nota || null : null,
+      };
+      if (String(row.id).startsWith('local-')) {
+        try {
+          const res = await api.post('/keuangan', payloadRow);
+          const created = res?.data?.data || res?.data;
+          syncedDraftRows.push(created?.id ? { ...row, ...created, id: created.id } : row);
+        } catch {
+          syncedDraftRows.push(row);
+        }
+      } else {
+        try {
+          await api.put(`/keuangan/${row.id}`, payloadRow);
+        } catch {
+          // Abaikan jika offline
+        }
+        syncedDraftRows.push(row);
+      }
+    }
+
+    const draftIds = new Set(syncedDraftRows.map((r) => String(r.id)));
+    const dalamFilterSebelumnya = keuanganList.filter((item) => !luarFilter.includes(item));
+    for (const oldItem of dalamFilterSebelumnya) {
+      if (!draftIds.has(String(oldItem.id)) && !String(oldItem.id).startsWith('local-')) {
+        try {
+          await api.delete(`/keuangan/${oldItem.id}`);
+        } catch {
+          // Abaikan jika offline
+        }
+      }
+    }
+
+    const gabunganBaru = sanitizeKeuanganList([...syncedDraftRows, ...luarFilter]);
+    const nextMasuk = gabunganBaru.filter((i) => normalizeJenis(i) === 'Pemasukan');
+    const nextKeluar = gabunganBaru.filter((i) => normalizeJenis(i) === 'Pengeluaran');
+
     setPemasukanList(nextMasuk);
     setPengeluaranList(nextKeluar);
-    persistSeparatedKeuangan(nextMasuk, nextKeluar, onUpdateKeuangan);
-    showToast('Perubahan draf laporan berhasil diterapkan ke daftar kas & semua dashboard!');
+    setIsSavingDraftToDb(false);
+    setIsLaporanEditMode(false);
+    showToast('Perubahan laporan berhasil disimpan & disinkronkan ke database!');
   };
 
   const getLabelPeriode = () => {
@@ -1318,24 +1394,49 @@ export default function DashboardBendahara({
     return 'Seluruh Periode Berjalan';
   };
 
-  const laporanTotalMasuk = laporanDraftList
-    .filter((i) => String(i.jenis || i.jenis_transaksi || 'Pemasukan') === 'Pemasukan')
-    .reduce((acc, c) => acc + Number(c.jumlah ?? c.nominal ?? 0), 0);
+  const laporanRowsWithSaldo = useMemo(() => {
+    let running = 0;
+    return laporanDraftList.map((item) => {
+      const isMasuk = normalizeJenis(item) === 'Pemasukan';
+      const nom = normalizeNominal(item);
+      running += isMasuk ? nom : -nom;
+      return {
+        ...item,
+        _isMasuk: isMasuk,
+        _nom: nom,
+        _saldoBaris: running,
+        _notaSrc: !isMasuk ? normalizeBuktiNota(item) : '',
+      };
+    });
+  }, [laporanDraftList]);
 
-  const laporanTotalKeluar = laporanDraftList
-    .filter((i) => String(i.jenis || i.jenis_transaksi || 'Pemasukan') !== 'Pemasukan')
-    .reduce((acc, c) => acc + Number(c.jumlah ?? c.nominal ?? 0), 0);
+  const laporanTotalMasuk = laporanRowsWithSaldo
+    .filter((i) => i._isMasuk)
+    .reduce((acc, c) => acc + c._nom, 0);
+
+  const laporanTotalKeluar = laporanRowsWithSaldo
+    .filter((i) => !i._isMasuk)
+    .reduce((acc, c) => acc + c._nom, 0);
 
   const laporanSaldoAkhir = laporanTotalMasuk - laporanTotalKeluar;
 
-  const laporanNotaList = laporanDraftList.filter(
-    (item) =>
-      String(item.jenis || item.jenis_transaksi || 'Pemasukan') !== 'Pemasukan' &&
-      Boolean(normalizeBuktiNota(item))
+  const laporanNotaList = laporanRowsWithSaldo.filter(
+    (item) => !item._isMasuk && Boolean(item._notaSrc)
   );
 
+  const nomorSuratLaporan = useMemo(() => {
+    const now = new Date();
+    const blnRomawi = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][
+      now.getMonth()
+    ];
+    return `014/LPJ-KEU/OSIS/${blnRomawi}/${now.getFullYear()}`;
+  }, []);
+
   const handlePrintPdfLaporan = () => {
-    window.print();
+    setIsLaporanEditMode(false);
+    setTimeout(() => {
+      window.print();
+    }, 150);
   };
 
   const handleExportLaporanImage = async (ext = 'png') => {
@@ -1351,25 +1452,25 @@ export default function DashboardBendahara({
     const loadedNotas = await Promise.all(
       laporanNotaList.map(async (item) => ({
         item,
-        img: await loadImage(normalizeBuktiNota(item)),
+        img: await loadImage(item._notaSrc),
       }))
     );
     const validNotas = loadedNotas.filter((n) => n.img !== null);
 
     const canvas = document.createElement('canvas');
     const rowHeight = 36;
-    const headerHeight = 250;
-    const footerHeight = 140;
+    const headerHeight = 290;
+    const signatureHeight = 165;
     const notaCols = 3;
-    const notaCardH = 230;
+    const notaCardH = 240;
     const notaRows = Math.ceil(validNotas.length / notaCols);
-    const notaSectionHeight = validNotas.length > 0 ? 70 + notaRows * notaCardH : 0;
+    const notaSectionHeight = validNotas.length > 0 ? 75 + notaRows * notaCardH : 0;
 
-    const width = 1000;
+    const width = 1120;
     const height =
       headerHeight +
-      Math.max(1, laporanDraftList.length) * rowHeight +
-      footerHeight +
+      Math.max(1, laporanRowsWithSaldo.length) * rowHeight +
+      signatureHeight +
       notaSectionHeight;
 
     canvas.width = width;
@@ -1380,97 +1481,164 @@ export default function DashboardBendahara({
     ctx.fillRect(0, 0, width, height);
 
     ctx.fillStyle = '#0f172a';
-    ctx.font = 'bold 20px sans-serif';
+    ctx.font = 'bold 20px Georgia, serif';
     ctx.textAlign = 'center';
-    ctx.fillText('ORGANISASI SISWA INTRA SEKOLAH (OSIS)', width / 2, 48);
+    ctx.fillText('ORGANISASI SISWA INTRA SEKOLAH (OSIS)', width / 2, 46);
 
-    ctx.font = 'bold 24px sans-serif';
-    ctx.fillText('LAPORAN PERTANGGUNGJAWABAN KEUANGAN', width / 2, 80);
+    ctx.font = 'bold 23px Georgia, serif';
+    ctx.fillText('LAPORAN PERTANGGUNGJAWABAN KEUANGAN', width / 2, 76);
 
-    ctx.font = '14px sans-serif';
-    ctx.fillStyle = '#475569';
-    ctx.fillText(`Periode: ${getLabelPeriode()} | Dicetak: ${formatTanggalFormal()}`, width / 2, 108);
+    ctx.font = '13px sans-serif';
+    ctx.fillStyle = '#334155';
+    ctx.fillText(`Nomor: ${nomorSuratLaporan}`, width / 2, 100);
+
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(50, 114);
+    ctx.lineTo(width - 50, 114);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(50, 118);
+    ctx.lineTo(width - 50, 118);
+    ctx.stroke();
 
     ctx.textAlign = 'left';
     ctx.fillStyle = '#0f172a';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.fillText(`Total Pemasukan: ${formatRupiah(laporanTotalMasuk)}`, 50, 155);
-    ctx.fillText(`Total Pengeluaran: ${formatRupiah(laporanTotalKeluar)}`, 360, 155);
-    ctx.fillText(`Saldo Akhir: ${formatRupiah(laporanSaldoAkhir)}`, 680, 155);
+    ctx.font = '13px sans-serif';
+    ctx.fillText(
+      `Sumber Dana: ${laporanSumberFilter === 'Semua' ? 'Semua Sumber Dana' : laporanSumberFilter}`,
+      50,
+      144
+    );
+    ctx.fillText(`Periode: ${getLabelPeriode()}`, 50, 164);
 
-    let y = 205;
+    ctx.textAlign = 'right';
+    ctx.fillText(`Tanggal Cetak: ${formatTanggalFormal()}`, width - 50, 144);
+    ctx.fillText(
+      `Total Data: ${laporanRowsWithSaldo.length} Transaksi (${validNotas.length} Bukti Nota)`,
+      width - 50,
+      164
+    );
+
+    ctx.textAlign = 'left';
+    ctx.strokeStyle = '#64748b';
+    ctx.strokeRect(50, 182, width - 100, 44);
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(51, 183, width - 102, 42);
+
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillStyle = '#065f46';
+    ctx.fillText(`Total Pemasukan: +${formatRupiah(laporanTotalMasuk)}`, 68, 209);
+    ctx.fillStyle = '#9f1239';
+    ctx.fillText(`Total Pengeluaran: -${formatRupiah(laporanTotalKeluar)}`, 400, 209);
+    ctx.fillStyle = '#1e3a8a';
+    ctx.fillText(`Saldo Akhir: ${formatRupiah(laporanSaldoAkhir)}`, 755, 209);
+
+    let y = 262;
     ctx.fillStyle = '#e2e8f0';
-    ctx.fillRect(40, y - 22, width - 80, 32);
+    ctx.fillRect(50, y - 22, width - 100, 32);
+    ctx.strokeStyle = '#475569';
+    ctx.strokeRect(50, y - 22, width - 100, 32);
 
     ctx.fillStyle = '#0f172a';
-    ctx.font = 'bold 13px sans-serif';
-    ctx.fillText('No', 55, y);
-    ctx.fillText('Tanggal', 100, y);
-    ctx.fillText('Sumber', 210, y);
-    ctx.fillText('Keterangan', 330, y);
-    ctx.fillText('Nota', 625, y);
-    ctx.fillText('Jenis', 705, y);
-    ctx.fillText('Nominal', 825, y);
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('No', 62, y);
+    ctx.fillText('Tanggal', 102, y);
+    ctx.fillText('Sumber Dana', 195, y);
+    ctx.fillText('Uraian / Keterangan', 315, y);
+    ctx.fillText('Nota', 595, y);
+    ctx.fillText('Pemasukan (+)', 660, y);
+    ctx.fillText('Pengeluaran (-)', 805, y);
+    ctx.fillText('Saldo', 955, y);
 
-    y += 34;
-    ctx.font = '13px sans-serif';
+    y += 32;
+    ctx.font = '12px sans-serif';
 
-    if (laporanDraftList.length === 0) {
+    if (laporanRowsWithSaldo.length === 0) {
       ctx.fillStyle = '#64748b';
-      ctx.fillText('Tidak ada data transaksi pada filter yang dipilih.', 55, y);
+      ctx.fillText('Tidak ada data transaksi pada filter laporan yang dipilih.', 62, y);
+      y += rowHeight;
     } else {
-      laporanDraftList.forEach((row, idx) => {
-        const isMasuk =
-          String(row.jenis || row.jenis_transaksi || 'Pemasukan') === 'Pemasukan';
-        const hasNota = !isMasuk && Boolean(normalizeBuktiNota(row));
+      laporanRowsWithSaldo.forEach((row, idx) => {
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.strokeRect(50, y - 22, width - 100, rowHeight);
 
-        ctx.fillStyle = '#1e293b';
-        ctx.fillText(String(idx + 1), 55, y);
-        ctx.fillText(formatTanggal(row.tanggal), 100, y);
-        ctx.fillText(String(row.sumber || row.kategori_sumber || 'Kas OSIS').slice(0, 14), 210, y);
-        ctx.fillText(String(row.keterangan || '-').slice(0, 34), 330, y);
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText(String(idx + 1), 62, y);
+        ctx.fillText(formatTanggal(row.tanggal), 102, y);
+        ctx.fillText(normalizeSumberLabel(row).slice(0, 15), 195, y);
+        ctx.fillText(String(row.keterangan || '-').slice(0, 34), 315, y);
 
-        ctx.fillStyle = hasNota ? '#1d4ed8' : '#94a3b8';
-        ctx.fillText(hasNota ? 'Ada Nota' : '-', 625, y);
+        ctx.fillStyle = row._notaSrc ? '#1d4ed8' : '#94a3b8';
+        ctx.fillText(row._notaSrc ? 'Terlampir' : '-', 595, y);
 
-        ctx.fillStyle = isMasuk ? '#047857' : '#be123c';
-        ctx.fillText(isMasuk ? 'Pemasukan' : 'Pengeluaran', 705, y);
-        ctx.fillText(formatRupiah(Number(row.jumlah ?? row.nominal ?? 0)), 825, y);
+        ctx.fillStyle = row._isMasuk ? '#047857' : '#94a3b8';
+        ctx.fillText(row._isMasuk ? `+${formatRupiah(row._nom)}` : '-', 660, y);
+
+        ctx.fillStyle = !row._isMasuk ? '#be123c' : '#94a3b8';
+        ctx.fillText(!row._isMasuk ? `-${formatRupiah(row._nom)}` : '-', 805, y);
+
+        ctx.fillStyle = '#1e3a8a';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(formatRupiah(row._saldoBaris), 955, y);
+        ctx.font = '12px sans-serif';
+
         y += rowHeight;
       });
     }
 
-    y += 14;
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(50, y - 22, width - 100, 34);
+    ctx.strokeStyle = '#475569';
+    ctx.strokeRect(50, y - 22, width - 100, 34);
+
     ctx.fillStyle = '#0f172a';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.fillText(
-      `JUMLAH TOTAL: Pemasukan ${formatRupiah(laporanTotalMasuk)} - Pengeluaran ${formatRupiah(
-        laporanTotalKeluar
-      )} = Sisa Saldo ${formatRupiah(laporanSaldoAkhir)}`,
-      55,
-      y
-    );
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('JUMLAH TOTAL MUTASI & SALDO AKHIR', 62, y);
+    ctx.fillStyle = '#047857';
+    ctx.fillText(`+${formatRupiah(laporanTotalMasuk)}`, 660, y);
+    ctx.fillStyle = '#be123c';
+    ctx.fillText(`-${formatRupiah(laporanTotalKeluar)}`, 805, y);
+    ctx.fillStyle = '#1e3a8a';
+    ctx.fillText(formatRupiah(laporanSaldoAkhir), 955, y);
+
+    y += 46;
+    ctx.fillStyle = '#0f172a';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Mengetahui,', 240, y);
+    ctx.fillText(`${formatTanggalFormal()}`, width - 240, y);
+    y += 18;
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('Ketua OSIS', 240, y);
+    ctx.fillText('Bendahara OSIS', width - 240, y);
+    y += 58;
+    ctx.fillText('( _________________________ )', 240, y);
+    ctx.fillText(`( ${namaBendahara} )`, width - 240, y);
 
     if (validNotas.length > 0) {
       y += 45;
+      ctx.textAlign = 'left';
       ctx.fillStyle = '#0f172a';
-      ctx.font = 'bold 15px sans-serif';
-      ctx.fillText(`LAMPIRAN BUKTI NOTA PENGELUARAN (${validNotas.length} NOTA)`, 50, y);
-      y += 18;
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillText(`LAMPIRAN BUKTI NOTA PENGELUARAN (${validNotas.length} LAMPIRAN)`, 50, y);
+      y += 16;
 
-      const cardW = 285;
-      const gap = 22;
+      const cardW = 320;
+      const gap = 30;
       validNotas.forEach(({ item, img }, idx) => {
         const col = idx % notaCols;
         const row = Math.floor(idx / notaCols);
         const cardX = 50 + col * (cardW + gap);
         const cardY = y + row * notaCardH;
 
-        ctx.strokeStyle = '#cbd5e1';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1.2;
         ctx.strokeRect(cardX, cardY, cardW, notaCardH - 14);
 
-        const imgBoxH = 155;
+        const imgBoxH = 160;
         const ratio = Math.min((cardW - 16) / img.width, (imgBoxH - 10) / img.height);
         const drawW = img.width * ratio;
         const drawH = img.height * ratio;
@@ -1482,7 +1650,7 @@ export default function DashboardBendahara({
         ctx.fillStyle = '#0f172a';
         ctx.font = 'bold 11px sans-serif';
         ctx.fillText(
-          `${idx + 1}. ${String(item.keterangan || '-').slice(0, 30)}`,
+          `Lampiran ${idx + 1}: ${String(item.keterangan || '-').slice(0, 32)}`,
           cardX + 10,
           cardY + imgBoxH + 18
         );
@@ -1490,7 +1658,9 @@ export default function DashboardBendahara({
         ctx.fillStyle = '#be123c';
         ctx.font = 'bold 11px sans-serif';
         ctx.fillText(
-          `${formatTanggal(item.tanggal)} • ${formatRupiah(normalizeNominal(item))}`,
+          `${normalizeSumberLabel(item)} • ${formatTanggal(item.tanggal)} • ${formatRupiah(
+            item._nom
+          )}`,
           cardX + 10,
           cardY + imgBoxH + 36
         );
@@ -1499,10 +1669,10 @@ export default function DashboardBendahara({
 
     const mimeType = ext === 'jpg' ? 'image/jpeg' : 'image/png';
     const link = document.createElement('a');
-    link.download = `Laporan-Keuangan-OSIS-${new Date().toISOString().split('T')[0]}.${ext}`;
+    link.download = `LPJ-Keuangan-OSIS-${new Date().toISOString().split('T')[0]}.${ext}`;
     link.href = canvas.toDataURL(mimeType, 0.92);
     link.click();
-    showToast(`Laporan beserta bukti nota berhasil diunduh (${ext.toUpperCase()})!`);
+    showToast(`Laporan Pertanggungjawaban Keuangan (${ext.toUpperCase()}) berhasil diunduh!`);
   };
 
   const namaBendahara = user?.name || user?.nama || user?.namaLengkap || 'Bendahara OSIS';
@@ -1519,14 +1689,16 @@ export default function DashboardBendahara({
   ];
 
   const sumberSummary = getRingkasanBySumber(selectedSumberDetail);
-  const overviewFilteredList = keuanganList.filter((item) => {
-    return normalizeJenis(item) === overviewKategoriFilter;
-  });
+  const overviewFilteredList = keuanganList.filter(
+    (item) => normalizeJenis(item) === overviewKategoriFilter
+  );
 
   const buildMutasiSaldoBerjalan = (masukArr, keluarArr) => {
-    const kronologis = [...masukArr, ...keluarArr].sort((a, b) =>
-      String(a.tanggal || '').localeCompare(String(b.tanggal || ''))
-    );
+    const kronologis = [...masukArr, ...keluarArr].sort((a, b) => {
+      const cmp = String(a.tanggal || '').localeCompare(String(b.tanggal || ''));
+      if (cmp !== 0) return cmp;
+      return Number(a.id || 0) - Number(b.id || 0);
+    });
     let runningSaldo = 0;
     return kronologis.map((item) => {
       const isMasuk = normalizeJenis(item) === 'Pemasukan';
@@ -1592,7 +1764,7 @@ export default function DashboardBendahara({
         />
       )}
 
-      {/* SIDEBAR (DENGAN h-dvh & SAFE BOTTOM PADDING AGAR LOGOUT TIDAK TERTUTUP ADDRESS BAR / LOCALHOST DI LAYAR 690PX) */}
+      {/* SIDEBAR */}
       <aside
         className={`fixed lg:sticky top-0 left-0 z-40 h-dvh lg:h-screen w-64 bg-gradient-to-b from-[#1B4694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col justify-between gap-4 p-5 pb-24 lg:pb-5 overflow-y-auto shrink-0 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
@@ -1951,7 +2123,7 @@ export default function DashboardBendahara({
                       className="px-4 py-2.5 rounded-2xl bg-[#109868] hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
                     >
                       <Icon type="export" />
-                      <span>Ekspor Laporan</span>
+                      <span>Laporan Formal &amp; Ekspor</span>
                     </button>
                     <button
                       type="button"
@@ -2269,19 +2441,29 @@ export default function DashboardBendahara({
                               {ringkasan.pengeluaranList.length} keluar)
                             </span>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPilihTabelModal({
-                                isOpen: true,
-                                sumber: namaSumber,
-                                pilihan: 'Pemasukan',
-                              })
-                            }
-                            className="px-3 py-1.5 rounded-xl bg-blue-50/70 hover:bg-blue-100 text-[#2256B7] border border-blue-200/70 text-[11px] font-extrabold shrink-0 cursor-pointer transition-all"
-                          >
-                            Buka Tabel &rarr;
-                          </button>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleBukaLaporanDariCard('Semua', namaSumber)}
+                              className="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[11px] font-extrabold cursor-pointer transition-all"
+                              title={`Buat laporan formal khusus ${namaSumber}`}
+                            >
+                              Laporan
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPilihTabelModal({
+                                  isOpen: true,
+                                  sumber: namaSumber,
+                                  pilihan: 'Pemasukan',
+                                })
+                              }
+                              className="px-3 py-1.5 rounded-xl bg-blue-50/70 hover:bg-blue-100 text-[#2256B7] border border-blue-200/70 text-[11px] font-extrabold cursor-pointer transition-all"
+                            >
+                              Buka Tabel &rarr;
+                            </button>
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-3 gap-2.5">
@@ -2369,7 +2551,7 @@ export default function DashboardBendahara({
                       className="px-3.5 py-2.5 rounded-2xl bg-[#109868] hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
                     >
                       <Icon type="export" />
-                      <span>Ekspor Laporan</span>
+                      <span>Laporan {selectedSumberDetail}</span>
                     </button>
                     <button
                       type="button"
@@ -2388,32 +2570,30 @@ export default function DashboardBendahara({
                   </div>
                 </div>
 
-                {activeTabelKategori !== 'Saldo' && (
-                  <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {['Pemasukan', 'Pengeluaran', 'Saldo'].map((tabKat) => (
                     <button
+                      key={tabKat}
                       type="button"
-                      onClick={() => setActiveTabelKategori('Pemasukan')}
+                      onClick={() => setActiveTabelKategori(tabKat)}
                       className={`px-4 py-2 rounded-xl text-xs font-black border cursor-pointer transition-all ${
-                        activeTabelKategori === 'Pemasukan'
-                          ? 'bg-emerald-600 text-white border-emerald-600'
-                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        activeTabelKategori === tabKat
+                          ? tabKat === 'Pemasukan'
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : tabKat === 'Pengeluaran'
+                            ? 'bg-rose-600 text-white border-rose-600'
+                            : 'bg-[#2256B7] text-white border-[#2256B7]'
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                       }`}
                     >
-                      Tabel Pemasukan ({sumberSummary.pemasukanList.length})
+                      {tabKat === 'Pemasukan'
+                        ? `Tabel Pemasukan (${sumberSummary.pemasukanList.length})`
+                        : tabKat === 'Pengeluaran'
+                        ? `Tabel Pengeluaran (${sumberSummary.pengeluaranList.length})`
+                        : `Mutasi Saldo Gabungan (${sumberMutasiSaldo.length})`}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTabelKategori('Pengeluaran')}
-                      className={`px-4 py-2 rounded-xl text-xs font-black border cursor-pointer transition-all ${
-                        activeTabelKategori === 'Pengeluaran'
-                          ? 'bg-rose-600 text-white border-rose-600'
-                          : 'bg-rose-50 text-rose-700 border-rose-200'
-                      }`}
-                    >
-                      Tabel Pengeluaran ({sumberSummary.pengeluaranList.length})
-                    </button>
-                  </div>
-                )}
+                  ))}
+                </div>
 
                 {activeTabelKategori === 'Saldo' ? (
                   <div className="overflow-x-auto">
@@ -2947,13 +3127,13 @@ export default function DashboardBendahara({
         </div>
       )}
 
-      {/* MODAL LAPORAN & EKSPOR */}
+      {/* MODAL LAPORAN PERTANGGUNGJAWABAN KEUANGAN FORMAL */}
       {isLaporanModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
-          <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between print:hidden">
               <div>
-                <span className="px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider">
+                <span className="px-2.5 py-0.5 rounded-md bg-blue-100 text-[#2256B7] text-[10px] font-black uppercase tracking-wider">
                   Dokumen Resmi Bendahara OSIS
                 </span>
                 <h3 className="text-base sm:text-lg font-black text-slate-800 mt-0.5">
@@ -2969,14 +3149,21 @@ export default function DashboardBendahara({
               </button>
             </div>
 
-            <div className="px-6 py-3.5 bg-white border-b border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* FILTER LAPORAN */}
+            <div className="px-6 py-3.5 bg-white border-b border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 print:hidden">
               <div>
                 <label className="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">
                   Sumber Dana
                 </label>
                 <select
                   value={laporanSumberFilter}
-                  onChange={(e) => setLaporanSumberFilter(e.target.value)}
+                  onChange={(e) =>
+                    handleChangeLaporanFilter(
+                      e.target.value,
+                      laporanJenisFilter,
+                      laporanPeriodeFilter
+                    )
+                  }
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#2256B7]"
                 >
                   <option value="Semua">Semua Sumber Dana ({keuanganList.length})</option>
@@ -2992,7 +3179,13 @@ export default function DashboardBendahara({
                 </label>
                 <select
                   value={laporanJenisFilter}
-                  onChange={(e) => setLaporanJenisFilter(e.target.value)}
+                  onChange={(e) =>
+                    handleChangeLaporanFilter(
+                      laporanSumberFilter,
+                      e.target.value,
+                      laporanPeriodeFilter
+                    )
+                  }
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#2256B7]"
                 >
                   <option value="Semua">Semua (Pemasukan &amp; Pengeluaran)</option>
@@ -3006,7 +3199,13 @@ export default function DashboardBendahara({
                 </label>
                 <select
                   value={laporanPeriodeFilter}
-                  onChange={(e) => setLaporanPeriodeFilter(e.target.value)}
+                  onChange={(e) =>
+                    handleChangeLaporanFilter(
+                      laporanSumberFilter,
+                      laporanJenisFilter,
+                      e.target.value
+                    )
+                  }
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#2256B7]"
                 >
                   <option value="semua">Seluruh Periode Berjalan</option>
@@ -3017,44 +3216,72 @@ export default function DashboardBendahara({
               </div>
             </div>
 
-            <div className="p-5 sm:p-6 overflow-y-auto bg-slate-200/75 flex-1">
-              <div className="max-w-4xl mx-auto mb-3 flex flex-wrap items-center justify-between gap-2">
+            {/* AREA LEMBAR LAPORAN FORMAL */}
+            <div className="p-4 sm:p-6 overflow-y-auto bg-slate-200/80 flex-1">
+              <div className="max-w-4xl mx-auto mb-3 flex flex-wrap items-center justify-between gap-2 print:hidden">
                 <p className="text-xs font-semibold text-slate-600">
-                  Edit draf, lalu klik Simpan Perubahan agar daftar pemasukan dan pengeluaran ikut
-                  diperbarui.
+                  {isLaporanEditMode
+                    ? 'Mode Koreksi Draf aktif: ubah baris di tabel lalu klik Simpan ke Database.'
+                    : 'Pratinjau Dokumen Resmi siap cetak/unduh lengkap dengan lampiran nota pengeluaran.'}
                 </p>
-                <button
-                  type="button"
-                  onClick={tambahBarisLaporan}
-                  className="rounded-xl bg-[#2256B7] px-4 py-2 text-xs font-black text-white hover:bg-[#1A469B] cursor-pointer"
-                >
-                  + Tambah Baris
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsLaporanEditMode((prev) => !prev)}
+                    className={`rounded-xl px-3.5 py-2 text-xs font-extrabold border cursor-pointer transition-all ${
+                      isLaporanEditMode
+                        ? 'bg-slate-800 text-white border-slate-800'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    {isLaporanEditMode ? 'Selesai Koreksi (Pratinjau Formal)' : 'Koreksi Draf'}
+                  </button>
+                  {isLaporanEditMode && (
+                    <button
+                      type="button"
+                      onClick={tambahBarisLaporan}
+                      className="rounded-xl bg-[#2256B7] px-3.5 py-2 text-xs font-black text-white hover:bg-[#1A469B] cursor-pointer"
+                    >
+                      + Tambah Baris
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="bg-white p-6 sm:p-10 border border-slate-400 shadow-md max-w-4xl mx-auto text-slate-900 space-y-5">
-                <div className="text-center border-b-4 border-double border-slate-900 pb-4">
-                  <p className="text-xs sm:text-sm font-serif font-bold uppercase tracking-widest text-slate-800">
-                    Organisasi Siswa Intra Sekolah (OSIS)
-                  </p>
-                  <h4 className="text-base sm:text-xl font-serif font-bold uppercase tracking-wide text-slate-950 mt-0.5">
-                    Laporan Pertanggungjawaban Keuangan
-                  </h4>
-                  <p className="text-[11px] text-slate-600 mt-1">
-                    Sistem Informasi Administrasi &amp; Keuangan OSITARA
-                  </p>
+              {/* LEMBAR KERTAS FORMAL */}
+              <div className="bg-white p-6 sm:p-11 border border-slate-400 shadow-lg max-w-4xl mx-auto text-slate-900 space-y-6">
+                {/* KOP SURAT RESMI */}
+                <div className="flex items-center justify-between gap-4 border-b-4 border-double border-slate-900 pb-4">
+                  <img
+                    src={logoOsitara}
+                    alt="Logo OSIS"
+                    className="w-14 h-14 sm:w-16 sm:h-16 object-contain shrink-0"
+                  />
+                  <div className="text-center flex-1">
+                    <p className="text-xs sm:text-sm font-serif font-bold uppercase tracking-widest text-slate-800">
+                      Organisasi Siswa Intra Sekolah (OSIS)
+                    </p>
+                    <h4 className="text-base sm:text-xl font-serif font-bold uppercase tracking-wide text-slate-950 mt-0.5">
+                      Laporan Pertanggungjawaban Keuangan
+                    </h4>
+                    <p className="text-[11px] font-serif text-slate-600 mt-1">
+                      Nomor Dokumen: {nomorSuratLaporan}
+                    </p>
+                  </div>
+                  <div className="w-14 sm:w-16 shrink-0 hidden sm:block" />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-800">
+                {/* IDENTITAS & METADATA LAPORAN */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-serif text-slate-800">
                   <div className="space-y-1">
                     <p>
                       <span className="font-bold inline-block w-36">Sumber Dana</span>:{' '}
                       {laporanSumberFilter === 'Semua'
-                        ? 'Semua Sumber Dana'
+                        ? 'Seluruh Sumber Dana OSIS'
                         : laporanSumberFilter}
                     </p>
                     <p>
-                      <span className="font-bold inline-block w-36">Kategori Transaksi</span>:{' '}
+                      <span className="font-bold inline-block w-36">Kategori Mutasi</span>:{' '}
                       {laporanJenisFilter === 'Semua'
                         ? 'Pemasukan & Pengeluaran'
                         : laporanJenisFilter}
@@ -3062,29 +3289,30 @@ export default function DashboardBendahara({
                   </div>
                   <div className="space-y-1 sm:text-right">
                     <p>
-                      <span className="font-bold">Periode:</span> {getLabelPeriode()}
+                      <span className="font-bold">Periode Laporan:</span> {getLabelPeriode()}
                     </p>
                     <p>
-                      <span className="font-bold">Jumlah Data:</span>{' '}
-                      {laporanDraftList.length} Transaksi ({laporanNotaList.length} Bukti Nota)
+                      <span className="font-bold">Jumlah Tercatat:</span>{' '}
+                      {laporanRowsWithSaldo.length} Transaksi ({laporanNotaList.length} Bukti Nota)
                     </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 border border-slate-500 divide-y sm:divide-y-0 sm:divide-x divide-slate-500 bg-slate-50">
+                {/* RINGKASAN SALDO FORMAL */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 border border-slate-700 divide-y sm:divide-y-0 sm:divide-x divide-slate-700 bg-slate-50 font-serif">
                   <div className="p-3">
                     <span className="text-[10px] font-bold uppercase text-slate-600 block">
-                      Total Pemasukan
+                      Total Pemasukan (+)
                     </span>
-                    <strong className="text-sm sm:text-base font-black text-emerald-800">
+                    <strong className="text-sm sm:text-base font-bold text-emerald-800">
                       + {formatRupiah(laporanTotalMasuk)}
                     </strong>
                   </div>
                   <div className="p-3">
                     <span className="text-[10px] font-bold uppercase text-slate-600 block">
-                      Total Pengeluaran
+                      Total Pengeluaran (-)
                     </span>
-                    <strong className="text-sm sm:text-base font-black text-rose-800">
+                    <strong className="text-sm sm:text-base font-bold text-rose-800">
                       - {formatRupiah(laporanTotalKeluar)}
                     </strong>
                   </div>
@@ -3092,77 +3320,80 @@ export default function DashboardBendahara({
                     <span className="text-[10px] font-bold uppercase text-slate-700 block">
                       Saldo Akhir Periode
                     </span>
-                    <strong className="text-sm sm:text-base font-black text-[#2256B7]">
+                    <strong className="text-sm sm:text-base font-bold text-slate-950">
                       {formatRupiah(laporanSaldoAkhir)}
                     </strong>
                   </div>
                 </div>
 
+                {/* TABEL PEMBUKUAN RESMI */}
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse border border-slate-500">
+                  <table className="w-full text-left text-xs border-collapse border border-slate-700 font-serif">
                     <thead>
-                      <tr className="bg-slate-200 text-slate-900 font-bold uppercase text-[11px]">
-                        <th className="border border-slate-500 py-2 px-2.5 text-center w-10">
+                      <tr className="bg-slate-200 text-slate-950 font-bold uppercase text-[10px] sm:text-[11px]">
+                        <th className="border border-slate-700 py-2.5 px-2 text-center w-9">
                           No
                         </th>
-                        <th className="border border-slate-500 py-2 px-2.5 text-center w-24">
+                        <th className="border border-slate-700 py-2.5 px-2.5 text-center w-24">
                           Tanggal
                         </th>
-                        <th className="border border-slate-500 py-2 px-2.5 w-32">
+                        <th className="border border-slate-700 py-2.5 px-2.5 w-28">
                           Sumber Dana
                         </th>
-                        <th className="border border-slate-500 py-2 px-2.5">
+                        <th className="border border-slate-700 py-2.5 px-2.5">
                           Uraian / Keterangan Transaksi
                         </th>
-                        <th className="border border-slate-500 py-2 px-2 text-center w-20">
-                          Bukti Nota
+                        <th className="border border-slate-700 py-2 px-2 text-center w-20">
+                          Nota
                         </th>
-                        <th className="border border-slate-500 py-2 px-2.5 text-right w-32">
-                          Pemasukan
+                        <th className="border border-slate-700 py-2.5 px-2.5 text-right w-28">
+                          Pemasukan (+)
                         </th>
-                        <th className="border border-slate-500 py-2 px-2.5 text-right w-32">
-                          Pengeluaran
+                        <th className="border border-slate-700 py-2.5 px-2.5 text-right w-28">
+                          Pengeluaran (-)
+                        </th>
+                        <th className="border border-slate-700 py-2.5 px-2.5 text-right w-28">
+                          Saldo
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {laporanDraftList.length === 0 ? (
+                      {laporanRowsWithSaldo.length === 0 ? (
                         <tr>
                           <td
-                            colSpan="7"
-                            className="border border-slate-500 py-8 text-center text-slate-500 italic"
+                            colSpan="8"
+                            className="border border-slate-700 py-8 text-center text-slate-500 italic"
                           >
-                            Tidak ada transaksi pada filter laporan yang dipilih.
+                            Tidak ada catatan transaksi pada periode dan filter yang dipilih.
                           </td>
                         </tr>
                       ) : (
-                        laporanDraftList.map((item, i) => {
-                          const isMasuk =
-                            String(item.jenis || item.jenis_transaksi || 'Pemasukan') ===
-                            'Pemasukan';
-                          const nomStr = formatRupiah(Number(item.jumlah ?? item.nominal ?? 0));
-                          const notaSrc = !isMasuk ? normalizeBuktiNota(item) : '';
-                          return (
-                            <tr
-                              key={item._draftId || `prev-${item.id || i}`}
-                              className={i % 2 === 1 ? 'bg-slate-50/80' : 'bg-white'}
-                            >
-                              <td className="border border-slate-500 py-2 px-2.5 text-center">
-                                {i + 1}
-                              </td>
-                              <td className="border border-slate-500 py-1 px-1">
+                        laporanRowsWithSaldo.map((item, i) => (
+                          <tr
+                            key={item._draftId || `prev-${item.id || i}`}
+                            className={i % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}
+                          >
+                            <td className="border border-slate-700 py-2 px-2 text-center">
+                              {i + 1}
+                            </td>
+                            <td className="border border-slate-700 py-2 px-2 text-center whitespace-nowrap">
+                              {isLaporanEditMode ? (
                                 <input
                                   type="date"
                                   value={String(item.tanggal || '').split('T')[0]}
                                   onChange={(e) =>
                                     updateLaporanDraft(item._draftId, 'tanggal', e.target.value)
                                   }
-                                  className="w-full min-w-[112px] rounded-md border border-slate-300 px-1.5 py-1 text-[10px]"
+                                  className="w-28 rounded border border-slate-300 px-1 py-0.5 text-[10px] font-sans"
                                 />
-                              </td>
-                              <td className="border border-slate-500 py-1 px-1">
+                              ) : (
+                                formatTanggal(item.tanggal)
+                              )}
+                            </td>
+                            <td className="border border-slate-700 py-2 px-2">
+                              {isLaporanEditMode ? (
                                 <select
-                                  value={String(item.kategori_sumber || 'Kas OSIS')}
+                                  value={normalizeKategoriSumber(item)}
                                   onChange={(e) => {
                                     updateLaporanDraft(
                                       item._draftId,
@@ -3171,125 +3402,119 @@ export default function DashboardBendahara({
                                     );
                                     updateLaporanDraft(item._draftId, 'sumber', e.target.value);
                                   }}
-                                  className="w-full min-w-[105px] rounded-md border border-slate-300 px-1 py-1 text-[10px]"
+                                  className="w-full rounded border border-slate-300 px-1 py-0.5 text-[10px] font-sans"
                                 >
-                                  <option>Kas OSIS</option>
-                                  <option>Dana Sekolah</option>
-                                  <option>Sponsor</option>
-                                  <option>Lainnya</option>
+                                  <option value="Kas OSIS">Kas OSIS</option>
+                                  <option value="Dana Sekolah">Dana Sekolah</option>
+                                  <option value="Sponsor">Sponsor</option>
+                                  <option value="Lainnya">Lainnya</option>
                                 </select>
-                              </td>
-                              <td className="border border-slate-500 py-1 px-1">
-                                <input
-                                  value={item.keterangan || ''}
-                                  onChange={(e) =>
-                                    updateLaporanDraft(item._draftId, 'keterangan', e.target.value)
-                                  }
-                                  className="w-full min-w-[150px] rounded-md border border-slate-300 px-2 py-1 text-[10px]"
-                                  placeholder="Uraian transaksi"
-                                />
-                                <div className="flex gap-1 mt-1">
-                                  <select
-                                    value={String(
-                                      item.jenis || item.jenis_transaksi || 'Pemasukan'
-                                    )}
-                                    onChange={(e) => {
-                                      updateLaporanDraft(item._draftId, 'jenis', e.target.value);
+                              ) : (
+                                normalizeSumberLabel(item)
+                              )}
+                            </td>
+                            <td className="border border-slate-700 py-2 px-2.5">
+                              {isLaporanEditMode ? (
+                                <div className="space-y-1 font-sans">
+                                  <input
+                                    value={item.keterangan || ''}
+                                    onChange={(e) =>
                                       updateLaporanDraft(
                                         item._draftId,
-                                        'kategori',
+                                        'keterangan',
                                         e.target.value
-                                      );
-                                    }}
-                                    className="rounded-md border border-slate-300 px-1 py-0.5 text-[9px]"
-                                  >
-                                    <option>Pemasukan</option>
-                                    <option>Pengeluaran</option>
-                                  </select>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={Number(item.jumlah ?? item.nominal ?? 0)}
-                                    onChange={(e) => {
-                                      const n = Math.max(0, Number(e.target.value) || 0);
-                                      updateLaporanDraft(item._draftId, 'jumlah', n);
-                                      updateLaporanDraft(item._draftId, 'nominal', n);
-                                    }}
-                                    className="w-24 rounded-md border border-slate-300 px-1 py-0.5 text-[9px]"
-                                    aria-label="Nominal transaksi"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => hapusBarisLaporan(item._draftId)}
-                                    className="rounded-md bg-rose-100 px-2 py-0.5 text-[9px] font-bold text-rose-700 hover:bg-rose-200 cursor-pointer"
-                                  >
-                                    Hapus
-                                  </button>
-                                </div>
-                              </td>
-                              <td className="border border-slate-500 py-1.5 px-2 text-center">
-                                {notaSrc ? (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setPreviewNotaModal({
-                                        isOpen: true,
-                                        imageUrl: notaSrc,
-                                        keterangan: item.keterangan,
-                                        tanggal: formatTanggal(item.tanggal),
-                                        nominal: Number(item.jumlah ?? item.nominal ?? 0),
-                                      })
+                                      )
                                     }
-                                    className="inline-flex flex-col items-center justify-center group cursor-pointer"
-                                    title="Klik untuk memperbesar foto nota"
-                                  >
-                                    <img
-                                      src={notaSrc}
-                                      alt="Bukti Nota"
-                                      className="w-10 h-10 object-cover rounded border border-slate-400 group-hover:scale-105 transition-transform"
+                                    className="w-full rounded border border-slate-300 px-1.5 py-0.5 text-[10px]"
+                                    placeholder="Uraian transaksi"
+                                  />
+                                  <div className="flex items-center gap-1">
+                                    <select
+                                      value={normalizeJenis(item)}
+                                      onChange={(e) =>
+                                        updateLaporanDraft(item._draftId, 'jenis', e.target.value)
+                                      }
+                                      className="rounded border border-slate-300 px-1 py-0.5 text-[9px]"
+                                    >
+                                      <option value="Pemasukan">Pemasukan</option>
+                                      <option value="Pengeluaran">Pengeluaran</option>
+                                    </select>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={item._nom}
+                                      onChange={(e) => {
+                                        const n = Math.max(0, Number(e.target.value) || 0);
+                                        updateLaporanDraft(item._draftId, 'nominal', n);
+                                        updateLaporanDraft(item._draftId, 'jumlah', n);
+                                      }}
+                                      className="w-24 rounded border border-slate-300 px-1 py-0.5 text-[9px]"
                                     />
-                                  </button>
-                                ) : (
-                                  <span className="text-[10px] text-slate-400">-</span>
-                                )}
-                              </td>
-                              <td className="border border-slate-500 py-2 px-2.5 text-right font-semibold text-emerald-800 whitespace-nowrap">
-                                {isMasuk ? nomStr : '-'}
-                              </td>
-                              <td className="border border-slate-500 py-2 px-2.5 text-right font-semibold text-rose-800 whitespace-nowrap">
-                                {!isMasuk ? nomStr : '-'}
-                              </td>
-                            </tr>
-                          );
-                        })
+                                    <button
+                                      type="button"
+                                      onClick={() => hapusBarisLaporan(item._draftId)}
+                                      className="rounded bg-rose-100 px-1.5 py-0.5 text-[9px] font-bold text-rose-700 cursor-pointer"
+                                    >
+                                      Hapus
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span>{item.keterangan}</span>
+                              )}
+                            </td>
+                            <td className="border border-slate-700 py-2 px-2 text-center">
+                              {item._notaSrc ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewNotaModal({
+                                      isOpen: true,
+                                      imageUrl: item._notaSrc,
+                                      keterangan: item.keterangan,
+                                      tanggal: formatTanggal(item.tanggal),
+                                      nominal: item._nom,
+                                    })
+                                  }
+                                  className="text-[10px] font-sans font-bold text-blue-700 underline cursor-pointer"
+                                >
+                                  Lampiran{' '}
+                                  {laporanNotaList.findIndex(
+                                    (n) => n._draftId === item._draftId
+                                  ) + 1}
+                                </button>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+                            <td className="border border-slate-700 py-2 px-2.5 text-right font-semibold text-emerald-900 whitespace-nowrap">
+                              {item._isMasuk ? `+${formatRupiah(item._nom)}` : '-'}
+                            </td>
+                            <td className="border border-slate-700 py-2 px-2.5 text-right font-semibold text-rose-900 whitespace-nowrap">
+                              {!item._isMasuk ? `-${formatRupiah(item._nom)}` : '-'}
+                            </td>
+                            <td className="border border-slate-700 py-2 px-2.5 text-right font-bold text-slate-950 whitespace-nowrap">
+                              {formatRupiah(item._saldoBaris)}
+                            </td>
+                          </tr>
+                        ))
                       )}
                     </tbody>
                     <tfoot>
                       <tr className="bg-slate-200 font-bold text-slate-950">
                         <td
                           colSpan="5"
-                          className="border border-slate-500 py-2.5 px-3 text-right uppercase text-[11px]"
+                          className="border border-slate-700 py-2.5 px-3 text-right uppercase text-[10px]"
                         >
-                          Jumlah Total Pemasukan &amp; Pengeluaran
+                          Jumlah Total Mutasi &amp; Saldo Akhir
                         </td>
-                        <td className="border border-slate-500 py-2.5 px-2.5 text-right text-emerald-900 whitespace-nowrap">
-                          {formatRupiah(laporanTotalMasuk)}
+                        <td className="border border-slate-700 py-2.5 px-2.5 text-right text-emerald-900 whitespace-nowrap">
+                          +{formatRupiah(laporanTotalMasuk)}
                         </td>
-                        <td className="border border-slate-500 py-2.5 px-2.5 text-right text-rose-900 whitespace-nowrap">
-                          {formatRupiah(laporanTotalKeluar)}
+                        <td className="border border-slate-700 py-2.5 px-2.5 text-right text-rose-900 whitespace-nowrap">
+                          -{formatRupiah(laporanTotalKeluar)}
                         </td>
-                      </tr>
-                      <tr className="bg-blue-100/90 font-black text-slate-950">
-                        <td
-                          colSpan="5"
-                          className="border border-slate-500 py-2.5 px-3 text-right uppercase text-[11px]"
-                        >
-                          Sisa Saldo Akhir (Total Pemasukan - Total Pengeluaran)
-                        </td>
-                        <td
-                          colSpan="2"
-                          className="border border-slate-500 py-2.5 px-3 text-right text-[#2256B7] text-sm whitespace-nowrap"
-                        >
+                        <td className="border border-slate-700 py-2.5 px-2.5 text-right text-slate-950 whitespace-nowrap">
                           {formatRupiah(laporanSaldoAkhir)}
                         </td>
                       </tr>
@@ -3297,34 +3522,86 @@ export default function DashboardBendahara({
                   </table>
                 </div>
 
-                {/* TANDA TANGAN PENGESAHAN */}
-                <div className="pt-6 grid grid-cols-2 gap-6 text-xs text-slate-900 text-center">
+                {/* BLOK PENGESAHAN TANDA TANGAN FORMAL */}
+                <div className="pt-4 grid grid-cols-2 gap-6 text-xs font-serif text-slate-900 text-center">
                   <div>
                     <p>Mengetahui,</p>
                     <p className="font-bold">{namaKetuaOsis}</p>
                     <div className="h-16" />
-                    <p className="font-bold underline">_________________________</p>
+                    <p className="font-bold underline">( _________________________ )</p>
                   </div>
                   <div>
                     <p>{formatTanggalFormal()}</p>
                     <p className="font-bold">Bendahara OSIS</p>
                     <div className="h-16" />
-                    <p className="font-bold underline">{namaBendahara}</p>
+                    <p className="font-bold underline">( {namaBendahara} )</p>
                   </div>
                 </div>
+
+                {/* LAMPIRAN BUKTI NOTA PENGELUARAN */}
+                {laporanNotaList.length > 0 && (
+                  <div className="pt-6 border-t-2 border-slate-800 space-y-3 font-serif">
+                    <h5 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-950">
+                      Lampiran Bukti Nota Pengeluaran ({laporanNotaList.length} Bukti Transaksi)
+                    </h5>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {laporanNotaList.map((notaItem, idx) => {
+                        const imgSrc = notaItem._notaSrc || normalizeBuktiNota(notaItem);
+                        return (
+                          <div
+                            key={notaItem._draftId || idx}
+                            onClick={() =>
+                              setPreviewNotaModal({
+                                isOpen: true,
+                                imageUrl: imgSrc,
+                                keterangan: notaItem.keterangan,
+                                tanggal: formatTanggal(notaItem.tanggal),
+                                nominal: notaItem._nom,
+                              })
+                            }
+                            className="border border-slate-300 rounded-xl overflow-hidden bg-slate-50/70 hover:bg-blue-50/50 transition-colors cursor-pointer p-2.5"
+                          >
+                            <img
+                              src={imgSrc}
+                              alt={`Lampiran Nota ${idx + 1}`}
+                              className="w-full h-36 object-contain bg-white rounded border border-slate-200 mb-2"
+                            />
+                            <p className="text-[11px] font-bold text-slate-900 truncate">
+                              Lampiran {idx + 1}. {notaItem.keterangan || '-'}
+                            </p>
+                            <p className="text-[10px] text-slate-600 mt-0.5">
+                              {formatTanggal(notaItem.tanggal)} &bull;{' '}
+                              {normalizeSumberLabel(notaItem)}
+                            </p>
+                            <p className="text-[11px] font-bold text-rose-700 mt-0.5">
+                              - {formatRupiah(notaItem._nom)}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* FOOTER AKSI EKSPOR LAPORAN */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={terapkanDraftKeDataKas}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs cursor-pointer"
-              >
-                Simpan Perubahan Draf ke Kas
-              </button>
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="px-4 sm:px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+              {isLaporanEditMode ? (
+                <button
+                  type="button"
+                  onClick={terapkanDraftKeDataKas}
+                  disabled={isSavingDraftToDb}
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingDraftToDb ? 'Menyimpan ke DB...' : 'Simpan Perubahan ke Database'}
+                </button>
+              ) : (
+                <span className="text-[11px] text-slate-500 font-medium">
+                  Format resmi siap cetak beserta lampiran nota pengeluaran.
+                </span>
+              )}
+              <div className="flex flex-wrap items-center gap-2 ml-auto">
                 <button
                   type="button"
                   onClick={() => handleExportLaporanImage('png')}
@@ -3344,7 +3621,7 @@ export default function DashboardBendahara({
                   onClick={handlePrintPdfLaporan}
                   className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer"
                 >
-                  Cetak / PDF
+                  Cetak / PDF Resmi
                 </button>
               </div>
             </div>
