@@ -1428,19 +1428,20 @@ export default function DashboardBendahara({
   };
 
   const laporanRowsWithSaldo = useMemo(() => {
-    let running = 0;
-    return laporanDraftList.map((item) => {
+    return laporanDraftList.reduce((acc, item) => {
       const isMasuk = normalizeJenis(item) === 'Pemasukan';
       const nom = normalizeNominal(item);
-      running += isMasuk ? nom : -nom;
-      return {
+      const prevSaldo = acc.length > 0 ? acc[acc.length - 1]._saldoBaris : 0;
+      const saldoBaris = prevSaldo + (isMasuk ? nom : -nom);
+      acc.push({
         ...item,
         _isMasuk: isMasuk,
         _nom: nom,
-        _saldoBaris: running,
+        _saldoBaris: saldoBaris,
         _notaSrc: !isMasuk ? normalizeBuktiNota(item) : '',
-      };
-    });
+      });
+      return acc;
+    }, []);
   }, [laporanDraftList]);
 
   const laporanTotalMasuk = laporanRowsWithSaldo

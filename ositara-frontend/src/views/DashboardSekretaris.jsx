@@ -310,8 +310,10 @@ export default function DashboardSekretaris({
 
   useEffect(() => {
     if (Array.isArray(propKeuanganList)) {
-      setKeuanganList(propKeuanganList);
-      saveKeuanganToAllKeys(propKeuanganList);
+      queueMicrotask(() => {
+        setKeuanganList(propKeuanganList);
+        saveKeuanganToAllKeys(propKeuanganList);
+      });
     }
   }, [propKeuanganList]);
 

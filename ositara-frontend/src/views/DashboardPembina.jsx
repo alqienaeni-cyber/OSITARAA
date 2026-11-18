@@ -37,26 +37,76 @@ const formatTanggal = (tgl) => {
   return tgl;
 };
 
-// --- NORMALISASI ITEM KEUANGAN AGAR SINKRON 100% DENGAN BENDAHARA ---
-const normalizeKeuanganItem = (item) => {
+const getStorageBaseUrl = () => {
+  const envUrl = import.meta?.env?.VITE_API_URL || '';
+  if (envUrl) return envUrl.replace(/\/api\/?$/, '');
+  return window.location.origin;
+};
+
+const normalizeBuktiNota = (item) => {
+  if (!item || typeof item !== 'object') return '';
+  const raw =
+    item.bukti_nota ||
+    item.buktiNota ||
+    item.nota ||
+    item.foto_nota ||
+    item.gambar_nota ||
+    item.lampiran_nota ||
+    item.bukti_transaksi ||
+    item.file_nota ||
+    item.bukti ||
+    item.file_bukti ||
+    '';
+  if (!raw || typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return '';
+  if (trimmed.startsWith('data:image') || trimmed.startsWith('http') || trimmed.startsWith('blob:')) {
+    return trimmed;
+  }
+  return `${getStorageBaseUrl()}/${trimmed.replace(/^\/+/, '')}`;
+};
+
+const readLocalOverrides = () => {
+  try {
+    const raw = localStorage.getItem('ositara_keuangan_overrides');
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+// --- NORMALISASI ITEM KEUANGAN AGAR SINKRON 100% DENGAN BENDAHARA (GALERI & KAMERA) ---
+const normalizeKeuanganItem = (item, overrides = null) => {
   if (!item || typeof item !== 'object') return item;
 
+  const ovMap = overrides || readLocalOverrides();
+  const idKey = item.id !== undefined && item.id !== null ? String(item.id) : '';
+  const fallbackKey = `${String(item.tanggal || '').split('T')[0]}|${String(
+    item.keterangan || item.uraian || ''
+  )
+    .toLowerCase()
+    .trim()}|${Math.abs(Number(item.nominal ?? item.jumlah ?? item.amount ?? item.nilai ?? 0))}`;
+
+  const matchedOv = (idKey && ovMap[idKey]) || ovMap[fallbackKey] || null;
+  const merged = matchedOv ? { ...item, ...matchedOv } : item;
+
   const rawJenis = String(
-    item.jenis ??
-      item.tipe ??
-      item.type ??
-      item.jenis_transaksi ??
-      item.jenisTransaksi ??
-      item.alur ??
-      item.kategori_transaksi ??
-      item.kategori ??
+    merged.jenis ??
+      merged.tipe ??
+      merged.type ??
+      merged.jenis_transaksi ??
+      merged.jenisTransaksi ??
+      merged.alur ??
+      merged.kategori_transaksi ??
+      merged.kategori ??
       ''
   )
     .toLowerCase()
     .trim();
 
   const rawNominal = Number(
-    item.nominal ?? item.jumlah ?? item.amount ?? item.nilai ?? 0
+    merged.nominal ?? merged.jumlah ?? merged.amount ?? merged.nilai ?? 0
   );
 
   const isPengeluaran =
@@ -69,9 +119,10 @@ const normalizeKeuanganItem = (item) => {
 
   const jenisNormalized = isPengeluaran ? 'Pengeluaran' : 'Pemasukan';
   const nominalAbs = Math.abs(rawNominal);
+  const resolvedNota = normalizeBuktiNota(merged);
 
   return {
-    ...item,
+    ...merged,
     jenis: jenisNormalized,
     tipe: jenisNormalized,
     kategori: jenisNormalized,
@@ -79,29 +130,73 @@ const normalizeKeuanganItem = (item) => {
     nominal: nominalAbs,
     jumlah: nominalAbs,
     sumber_dana:
-      item.sumber_dana || item.sumberDana || item.sumber || 'Kas OSIS',
+      merged.sumber_dana || merged.sumberDana || merged.sumber || 'Kas OSIS',
     sumberDana:
-      item.sumberDana || item.sumber_dana || item.sumber || 'Kas OSIS',
+      merged.sumberDana || merged.sumber_dana || merged.sumber || 'Kas OSIS',
     keterangan:
-      item.keterangan || item.uraian || item.deskripsi || item.judul || '-',
+      merged.keterangan || merged.uraian || merged.deskripsi || merged.judul || '-',
     tanggal:
-      item.tanggal || item.tanggal_transaksi || item.created_at || '-',
-    bukti_nota:
-      item.bukti_nota ||
-      item.buktiNota ||
-      item.bukti ||
-      item.nota ||
-      item.file_bukti ||
-      null,
+      merged.tanggal || merged.tanggal_transaksi || merged.created_at || '-',
+    bukti_nota: resolvedNota || null,
   };
 };
 
 const normalizeKeuanganList = (list) => {
   if (!Array.isArray(list)) return [];
-  return list.map(normalizeKeuanganItem);
+  const overrides = readLocalOverrides();
+  const normalizedBackend = list.map((item) => normalizeKeuanganItem(item, overrides));
+
+  let localCache = [];
+  try {
+    const rawLocal =
+      localStorage.getItem('ositara_keuangan_list') ||
+      localStorage.getItem('ositara_keuangan') ||
+      localStorage.getItem('keuanganList');
+    const parsedLocal = rawLocal ? JSON.parse(rawLocal) : [];
+    if (Array.isArray(parsedLocal)) {
+      localCache = parsedLocal.map((item) => normalizeKeuanganItem(item, overrides));
+    }
+  } catch {
+    localCache = [];
+  }
+
+  const localById = new Map();
+  const localBySig = new Map();
+  localCache.forEach((loc) => {
+    if (loc?.id !== undefined && loc?.id !== null) {
+      localById.set(String(loc.id), loc);
+    }
+    const sig = `${String(loc?.tanggal || '').split('T')[0]}|${String(loc?.keterangan || '')
+      .toLowerCase()
+      .trim()}|${Number(loc?.nominal || 0)}`;
+    localBySig.set(sig, loc);
+  });
+
+  const mergedResult = normalizedBackend.map((item) => {
+    if (item.bukti_nota) return item;
+    const byId = item.id !== undefined && item.id !== null ? localById.get(String(item.id)) : null;
+    if (byId?.bukti_nota) return { ...item, bukti_nota: byId.bukti_nota };
+
+    const sig = `${String(item.tanggal || '').split('T')[0]}|${String(item.keterangan || '')
+      .toLowerCase()
+      .trim()}|${Number(item.nominal || 0)}`;
+    const bySig = localBySig.get(sig);
+    if (bySig?.bukti_nota) return { ...item, bukti_nota: bySig.bukti_nota };
+
+    return item;
+  });
+
+  const existingIds = new Set(mergedResult.map((i) => String(i.id)));
+  localCache.forEach((loc) => {
+    if (String(loc.id || '').startsWith('local-') && !existingIds.has(String(loc.id))) {
+      mergedResult.push(loc);
+    }
+  });
+
+  return mergedResult;
 };
 
-// --- DEKLARASI IKON SVG (SERAGAM DENGAN KETUA, SEKRETARIS & BENDAHARA) ---
+// --- DEKLARASI IKON SVG ---
 const SvgHome = () => (
   <svg
     className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
@@ -354,8 +449,10 @@ export default function DashboardPembina({
   });
 
   useEffect(() => {
-    if (Array.isArray(propKeuanganList)) {
-      setKeuanganList(normalizeKeuanganList(propKeuanganList));
+    if (Array.isArray(propKeuanganList) && propKeuanganList.length > 0) {
+      queueMicrotask(() => {
+        setKeuanganList(normalizeKeuanganList(propKeuanganList));
+      });
     }
   }, [propKeuanganList]);
 
@@ -510,7 +607,7 @@ export default function DashboardPembina({
         console.warn('Sync proker/kegiatan terlewati:', e);
       }
 
-      // 4. Sync Keuangan (Sinkron dengan Backend & LocalStorage Bendahara + Normalisasi)
+      // 4. Sync Keuangan (Sinkron dengan Backend & LocalStorage Bendahara + Bukti Nota)
       try {
         let resKeuangan = await fetch(`${API_BASE}/keuangan`, {
           headers: getAuthHeaders(),
@@ -527,9 +624,13 @@ export default function DashboardPembina({
           setKeuanganList((prev) =>
             JSON.stringify(prev) !== JSON.stringify(normalizedK) ? normalizedK : prev
           );
-          localStorage.setItem('ositara_keuangan_list', JSON.stringify(normalizedK));
-          localStorage.setItem('ositara_keuangan', JSON.stringify(normalizedK));
-          localStorage.setItem('keuanganList', JSON.stringify(normalizedK));
+          try {
+            localStorage.setItem('ositara_keuangan_list', JSON.stringify(normalizedK));
+            localStorage.setItem('ositara_keuangan', JSON.stringify(normalizedK));
+            localStorage.setItem('keuanganList', JSON.stringify(normalizedK));
+          } catch {
+            // Abaikan jika quota penuh
+          }
         } else {
           const localK = getInitialData(
             ['ositara_keuangan_list', 'ositara_keuangan', 'keuanganList'],
@@ -609,9 +710,13 @@ export default function DashboardPembina({
     if (e?.detail && Array.isArray(e.detail)) {
       const normalized = normalizeKeuanganList(e.detail);
       setKeuanganList(normalized);
-      localStorage.setItem('ositara_keuangan_list', JSON.stringify(normalized));
-      localStorage.setItem('ositara_keuangan', JSON.stringify(normalized));
-      localStorage.setItem('keuanganList', JSON.stringify(normalized));
+      try {
+        localStorage.setItem('ositara_keuangan_list', JSON.stringify(normalized));
+        localStorage.setItem('ositara_keuangan', JSON.stringify(normalized));
+        localStorage.setItem('keuanganList', JSON.stringify(normalized));
+      } catch {
+        // Abaikan jika quota penuh
+      }
       return;
     }
     const localK = getInitialData(
@@ -626,13 +731,19 @@ export default function DashboardPembina({
   useEffect(() => {
     syncAllDataFromBackend();
     const interval = setInterval(syncAllDataFromBackend, 5000);
-    window.addEventListener('storage', syncAllDataFromBackend);
+    const handleStorageChange = (ev) => {
+      if (!ev || !ev.key || ev.key.includes('keuangan') || ev.key.includes('overrides')) {
+        syncKeuanganImmediate();
+      }
+      syncAllDataFromBackend();
+    };
+    window.addEventListener('storage', handleStorageChange);
     window.addEventListener('ositara_proposal_updated', syncAllDataFromBackend);
     window.addEventListener('ositara_keuangan_updated', syncKeuanganImmediate);
     window.addEventListener('ositara-keuangan-updated', syncKeuanganImmediate);
     return () => {
       clearInterval(interval);
-      window.removeEventListener('storage', syncAllDataFromBackend);
+      window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('ositara_proposal_updated', syncAllDataFromBackend);
       window.removeEventListener('ositara_keuangan_updated', syncKeuanganImmediate);
       window.removeEventListener('ositara-keuangan-updated', syncKeuanganImmediate);
@@ -1146,7 +1257,6 @@ export default function DashboardPembina({
         {/* 1. BERANDA UTAMA */}
         {activeMenu === 'beranda' && (
           <div className="space-y-3.5 sm:space-y-6 animate-[fadeIn_0.3s_ease-out] min-w-0">
-            {/* STATS CARDS - 2 KOLOM DI HP, 4 KOLOM DI LAYAR LEBAR */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-5">
               {/* Kartu 1: Menunggu Persetujuan */}
               <div className="relative overflow-hidden bg-gradient-to-br from-[#c7852e] via-[#ebaa46] to-[#ffd27d] p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#c7852e]/25 hover:-translate-y-0.5 transition-all duration-300 text-white group flex items-center justify-between gap-2 min-w-0">
@@ -1194,7 +1304,11 @@ export default function DashboardPembina({
               </div>
 
               {/* Kartu 4: Saldo Kas OSIS */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#249ea0]/25 hover:-translate-y-0.5 transition-all duration-300 text-white group flex items-center justify-between gap-2 min-w-0">
+              <div
+                onClick={() => setActiveMenu('laporan-keuangan')}
+                className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#249ea0]/25 hover:-translate-y-0.5 transition-all duration-300 text-white group flex items-center justify-between gap-2 min-w-0 cursor-pointer"
+                title="Klik untuk membuka Laporan Keuangan & Bukti Nota"
+              >
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wide leading-tight truncate">
                     Saldo Kas OSIS
@@ -1629,7 +1743,7 @@ export default function DashboardPembina({
           </div>
         )}
 
-        {/* 6. LAPORAN KEUANGAN (READ-ONLY + CETAK PDF TERSINKRON BENDAHARA) */}
+        {/* 6. LAPORAN KEUANGAN (READ-ONLY + CETAK PDF & LAMPIRAN NOTA TERSINKRON BENDAHARA) */}
         {activeMenu === 'laporan-keuangan' && (
           <div className="animate-[fadeIn_0.3s_ease-out] min-w-0">
             <PanelKeuanganReadOnly
