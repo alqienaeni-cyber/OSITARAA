@@ -234,18 +234,31 @@ const sanitizeKeuanganList = (list) => {
   return result;
 };
 
-// SINKRONISASI KE STORAGE GLOBAL & APP.JSX AGAR SEMUA DASHBOARD TERUPDATE
+// SINKRONISASI KE STORAGE GLOBAL & APP.JSX AGAR PEMASUKAN & PENGELUARAN TERUPDATE DI SEMUA DASHBOARD
 const syncGlobalKeuanganStorage = (gabunganList, onUpdateKeuanganCallback) => {
   const cleanAll = sanitizeKeuanganList(gabunganList);
+  // Versi ringan tanpa base64 gambar besar agar tidak pernah gagal karena limit 5MB localStorage
+  const ringan = cleanAll.map((item) => ({
+    ...item,
+    bukti_nota:
+      typeof item.bukti_nota === 'string' && item.bukti_nota.startsWith('data:image')
+        ? ''
+        : item.bukti_nota || '',
+    foto_nota: '',
+  }));
+
   try {
     localStorage.setItem('ositara_keuangan_list', JSON.stringify(cleanAll));
     localStorage.setItem('ositara_keuangan', JSON.stringify(cleanAll));
     localStorage.setItem('keuanganList', JSON.stringify(cleanAll));
   } catch {
-    const ringan = cleanAll.map((item) => ({ ...item, bukti_nota: '', foto_nota: '' }));
-    localStorage.setItem('ositara_keuangan_list', JSON.stringify(ringan));
-    localStorage.setItem('ositara_keuangan', JSON.stringify(ringan));
-    localStorage.setItem('keuanganList', JSON.stringify(ringan));
+    try {
+      localStorage.setItem('ositara_keuangan_list', JSON.stringify(ringan));
+      localStorage.setItem('ositara_keuangan', JSON.stringify(ringan));
+      localStorage.setItem('keuanganList', JSON.stringify(ringan));
+    } catch {
+      // Tetap lanjutkan broadcast via callback & CustomEvent
+    }
   }
 
   if (typeof onUpdateKeuanganCallback === 'function') {
@@ -270,7 +283,19 @@ const persistSeparatedKeuangan = (masukList, keluarList, onUpdateKeuanganCallbac
       })
     );
   } catch {
-    // Abaikan error storage
+    try {
+      const ringanMasuk = cleanMasuk.map((i) => ({ ...i, bukti_nota: '', foto_nota: '' }));
+      const ringanKeluar = cleanKeluar.map((i) => ({ ...i, bukti_nota: '', foto_nota: '' }));
+      localStorage.setItem(
+        SEPARATED_CACHE_KEY,
+        JSON.stringify({
+          pemasukan: ringanMasuk,
+          pengeluaran: ringanKeluar,
+        })
+      );
+    } catch {
+      // Abaikan error storage
+    }
   }
   syncGlobalKeuanganStorage([...cleanMasuk, ...cleanKeluar], onUpdateKeuanganCallback);
 };
@@ -281,9 +306,25 @@ const loadInitialSeparatedKeuangan = (fallbackList = []) => {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed?.pemasukan) || Array.isArray(parsed?.pengeluaran)) {
+        const masuk = sanitizeKeuanganList(parsed.pemasukan || []).map((i) => ({
+          ...i,
+          jenis: 'Pemasukan',
+          jenis_transaksi: 'Pemasukan',
+          kategori: 'Pemasukan',
+          tipe: 'Pemasukan',
+          type: 'Pemasukan',
+        }));
+        const keluar = sanitizeKeuanganList(parsed.pengeluaran || []).map((i) => ({
+          ...i,
+          jenis: 'Pengeluaran',
+          jenis_transaksi: 'Pengeluaran',
+          kategori: 'Pengeluaran',
+          tipe: 'Pengeluaran',
+          type: 'Pengeluaran',
+        }));
         return {
-          pemasukan: sanitizeKeuanganList(parsed.pemasukan || []),
-          pengeluaran: sanitizeKeuanganList(parsed.pengeluaran || []),
+          pemasukan: masuk,
+          pengeluaran: keluar,
         };
       }
     }
@@ -529,11 +570,10 @@ export default function DashboardBendahara({
     String(b.tanggal || '').localeCompare(String(a.tanggal || ''))
   );
 
-  // SINKRONKAN DATA AWAL BENDAHARA KE GLOBAL STORAGE & DASHBOARD LAIN SAAT DIBUKA
+  // SINKRONKAN SETIAP PERUBAHAN PEMASUKAN & PENGELUARAN KE GLOBAL STORAGE & DASHBOARD LAIN
   useEffect(() => {
-    syncGlobalKeuanganStorage([...pemasukanList, ...pengeluaranList], onUpdateKeuangan);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    persistSeparatedKeuangan(pemasukanList, pengeluaranList, onUpdateKeuangan);
+  }, [pemasukanList, pengeluaranList, onUpdateKeuangan]);
 
   const [proposalList, setProposalList] = useState(Array.isArray(propProposal) ? propProposal : []);
   const [prokerList, setProkerList] = useState(
@@ -958,7 +998,12 @@ export default function DashboardBendahara({
         keterangan: keterangan.trim(),
         kategori_sumber: kategoriSumberFix,
         sumber: sumberLabelFix,
+        sumber_dana: sumberLabelFix,
         jenis: jenisFix,
+        jenis_transaksi: jenisFix,
+        kategori: jenisFix,
+        tipe: jenisFix,
+        type: jenisFix,
         nominal: nominalNum,
         jumlah: nominalNum,
         bukti_nota: notaFix,
@@ -1044,6 +1089,8 @@ export default function DashboardBendahara({
       jenis: jenisFix,
       jenis_transaksi: jenisFix,
       kategori: jenisFix,
+      tipe: jenisFix,
+      type: jenisFix,
       nominal: nominalNum,
       jumlah: nominalNum,
       bukti_nota: notaFix,
@@ -1545,9 +1592,9 @@ export default function DashboardBendahara({
         />
       )}
 
-      {/* SIDEBAR */}
+      {/* SIDEBAR (DENGAN h-dvh & SAFE BOTTOM PADDING AGAR LOGOUT TIDAK TERTUTUP ADDRESS BAR / LOCALHOST DI LAYAR 690PX) */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-64 bg-gradient-to-b from-[#1B4694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col justify-between p-5 shrink-0 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ${
+        className={`fixed lg:sticky top-0 left-0 z-40 h-dvh lg:h-screen w-64 bg-gradient-to-b from-[#1B4694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col justify-between gap-4 p-5 pb-24 lg:pb-5 overflow-y-auto shrink-0 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
@@ -1594,7 +1641,7 @@ export default function DashboardBendahara({
           </nav>
         </div>
 
-        <div>
+        <div className="pt-2 shrink-0">
           <button
             type="button"
             onClick={onLogout}

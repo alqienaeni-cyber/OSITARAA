@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import logoOsitara from '../assets/LOGO OSITARA.png';
+import PanelKeuanganReadOnly from './PanelKeuanganReadOnly';
 
 // --- KONFIGURASI API BACKEND ---
 const API_BASE = '/api';
@@ -133,18 +134,6 @@ const SvgKeuangan = () => (
   </svg>
 );
 
-const SvgArrowUp = () => (
-  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-  </svg>
-);
-
-const SvgArrowDown = () => (
-  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-  </svg>
-);
-
 const SvgLogout = () => (
   <svg
     className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:scale-125"
@@ -222,17 +211,27 @@ const SvgPlus = () => (
   </svg>
 );
 
-const getInitialData = (key, fallback) => {
-  try {
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) return parsed;
+const getInitialData = (keys, fallback) => {
+  const keyList = Array.isArray(keys) ? keys : [keys];
+  for (const key of keyList) {
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // Lanjut cek key berikutnya
     }
-    return fallback;
-  } catch {
-    return fallback;
   }
+  return fallback;
+};
+
+const saveKeuanganToAllKeys = (list) => {
+  const safeList = Array.isArray(list) ? list : [];
+  localStorage.setItem('ositara_keuangan_list', JSON.stringify(safeList));
+  localStorage.setItem('ositara_keuangan', JSON.stringify(safeList));
+  localStorage.setItem('keuanganList', JSON.stringify(safeList));
 };
 
 const filterOnlyKegiatanSekre = (list) => {
@@ -262,6 +261,7 @@ export default function DashboardSekretaris({
   initialProker = [],
   initialAnggota = [],
   initialKeuangan = [],
+  keuanganList: propKeuanganList,
 }) {
   const [activeMenu, setActiveMenu] = useState('beranda');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -291,31 +291,41 @@ export default function DashboardSekretaris({
 
   // --- STATES DATA UTAMA ---
   const [kegiatanList, setKegiatanList] = useState(() => {
-    const raw = getInitialData('ositara_kegiatan', initialKegiatan);
+    const raw = getInitialData(['ositara_kegiatan', 'kegiatanList'], initialKegiatan);
     return filterOnlyKegiatanSekre(raw);
   });
 
   const [proposalList, setProposalList] = useState(() =>
-    getInitialData('ositara_proposal', initialProposal)
+    getInitialData(['ositara_proposal', 'proposals'], initialProposal)
   );
 
   const [keuanganList, setKeuanganList] = useState(() =>
-    getInitialData('ositara_keuangan', initialKeuangan)
+    Array.isArray(propKeuanganList)
+      ? propKeuanganList
+      : getInitialData(
+          ['ositara_keuangan_list', 'ositara_keuangan', 'keuanganList'],
+          initialKeuangan
+        )
   );
 
-  const [pendaftaranList, setPendaftaranList] = useState(() => {
-    const primary = getInitialData('ositara_pendaftaran', null);
-    const secondary = getInitialData('pendaftaranList', initialPendaftaran);
-    return primary || secondary || [];
-  });
+  useEffect(() => {
+    if (Array.isArray(propKeuanganList)) {
+      setKeuanganList(propKeuanganList);
+      saveKeuanganToAllKeys(propKeuanganList);
+    }
+  }, [propKeuanganList]);
+
+  const [pendaftaranList, setPendaftaranList] = useState(() =>
+    getInitialData(['ositara_pendaftaran', 'pendaftaranList'], initialPendaftaran)
+  );
 
   const [prokerList, setProkerList] = useState(() => {
-    const raw = getInitialData('ositara_proker', initialProker);
+    const raw = getInitialData(['ositara_proker', 'prokerList'], initialProker);
     return filterOnlyProkerKetua(raw);
   });
 
   const [anggotaList, setAnggotaList] = useState(() =>
-    getInitialData('ositara_anggota', initialAnggota)
+    getInitialData(['ositara_anggota', 'anggotaList'], initialAnggota)
   );
 
   const [avatarUrl, setAvatarUrl] = useState(
@@ -328,7 +338,7 @@ export default function DashboardSekretaris({
   const [isSubmittingKegiatan, setIsSubmittingKegiatan] = useState(false);
 
   const namaDisplay =
-    user?.namaLengkap || user?.nama || user?.name || user?.username || 'Salfa Alena Eka Putri';
+    user?.namaLengkap || user?.nama || user?.name || user?.username || 'Sekretaris OSIS';
   const inisialNama = namaDisplay.charAt(0).toUpperCase();
 
   // --- KUNCI SCROLL BODY SAAT SIDEBAR MOBILE TERBUKA ---
@@ -421,14 +431,17 @@ export default function DashboardSekretaris({
           const formattedA = dataA.map((a) => ({
             id: a.id,
             nis: a.nis || a.nisn || '-',
-            nama: a.nama || a.nama_lengkap || '-',
+            nama: a.nama || a.nama_lengkap || a.name || '-',
             jabatan: a.jabatan || '-',
-            sekbid: a.sekbid || a.divisi || '-',
+            sekbid: a.sekbid || a.divisi || a.kelas || '-',
           }));
           setAnggotaList((prev) =>
             JSON.stringify(prev) !== JSON.stringify(formattedA) ? formattedA : prev
           );
           localStorage.setItem('ositara_anggota', JSON.stringify(formattedA));
+        } else {
+          const localA = getInitialData(['ositara_anggota', 'anggotaList'], null);
+          if (Array.isArray(localA)) setAnggotaList(localA);
         }
       } catch (e) {
         console.warn('Sync anggota terlewati:', e);
@@ -452,31 +465,44 @@ export default function DashboardSekretaris({
           );
           localStorage.setItem('ositara_proker', JSON.stringify(onlyProker));
           localStorage.setItem('ositara_kegiatan', JSON.stringify(onlyKegiatan));
+        } else {
+          const localP = getInitialData(['ositara_proker', 'prokerList'], null);
+          if (Array.isArray(localP)) setProkerList(filterOnlyProkerKetua(localP));
         }
       } catch (e) {
         console.warn('Sync proker/kegiatan terlewati:', e);
       }
 
-      // 4. Sync Keuangan
-      try {
-        let resKeuangan = await fetch(`${API_BASE}/keuangan`, {
-          headers: getAuthHeaders(),
-        });
-        if (!resKeuangan.ok) {
-          resKeuangan = await fetch(`${API_BASE}/laporan-keuangan`, {
+      // 4. Sync Keuangan (Prioritas LocalStorage Bendahara + Fallback Backend)
+      const localK = getInitialData(
+        ['ositara_keuangan_list', 'ositara_keuangan', 'keuanganList'],
+        null
+      );
+      if (Array.isArray(localK) && localK.length > 0) {
+        setKeuanganList((prev) =>
+          JSON.stringify(prev) !== JSON.stringify(localK) ? localK : prev
+        );
+      } else {
+        try {
+          let resKeuangan = await fetch(`${API_BASE}/keuangan`, {
             headers: getAuthHeaders(),
           });
+          if (!resKeuangan.ok) {
+            resKeuangan = await fetch(`${API_BASE}/laporan-keuangan`, {
+              headers: getAuthHeaders(),
+            });
+          }
+          if (resKeuangan.ok) {
+            const resultK = await resKeuangan.json();
+            const dataK = Array.isArray(resultK) ? resultK : resultK.data || [];
+            setKeuanganList((prev) =>
+              JSON.stringify(prev) !== JSON.stringify(dataK) ? dataK : prev
+            );
+            saveKeuanganToAllKeys(dataK);
+          }
+        } catch (e) {
+          console.warn('Sync keuangan terlewati:', e);
         }
-        if (resKeuangan.ok) {
-          const resultK = await resKeuangan.json();
-          const dataK = Array.isArray(resultK) ? resultK : resultK.data || [];
-          setKeuanganList((prev) =>
-            JSON.stringify(prev) !== JSON.stringify(dataK) ? dataK : prev
-          );
-          localStorage.setItem('ositara_keuangan', JSON.stringify(dataK));
-        }
-      } catch (e) {
-        console.warn('Sync keuangan terlewati:', e);
       }
 
       // 5. Sync Pendaftaran
@@ -529,15 +555,57 @@ export default function DashboardSekretaris({
     }
   }, []);
 
+  const syncLocalStorageImmediate = useCallback(
+    (e) => {
+      if (e?.detail && Array.isArray(e.detail)) {
+        setKeuanganList(e.detail);
+        saveKeuanganToAllKeys(e.detail);
+      } else {
+        const localK = getInitialData(
+          ['ositara_keuangan_list', 'ositara_keuangan', 'keuanganList'],
+          null
+        );
+        if (Array.isArray(localK)) {
+          setKeuanganList(localK);
+        }
+      }
+
+      const localA = getInitialData(['ositara_anggota', 'anggotaList'], null);
+      if (Array.isArray(localA)) setAnggotaList(localA);
+
+      const localP = getInitialData(['ositara_proker', 'prokerList'], null);
+      if (Array.isArray(localP)) setProkerList(filterOnlyProkerKetua(localP));
+
+      const localProp = getInitialData(['ositara_proposal', 'proposals'], null);
+      if (Array.isArray(localProp)) setProposalList(localProp);
+
+      const localPend = getInitialData(['ositara_pendaftaran', 'pendaftaranList'], null);
+      if (Array.isArray(localPend)) setPendaftaranList(localPend);
+    },
+    []
+  );
+
   useEffect(() => {
     syncAllDataFromBackend();
-    const interval = setInterval(syncAllDataFromBackend, 15000);
-    window.addEventListener('storage', syncAllDataFromBackend);
+    const interval = setInterval(syncAllDataFromBackend, 5000);
+    window.addEventListener('storage', syncLocalStorageImmediate);
+    window.addEventListener('ositara_keuangan_updated', syncLocalStorageImmediate);
+    window.addEventListener('ositara-keuangan-updated', syncLocalStorageImmediate);
+    window.addEventListener('ositara_anggota_updated', syncLocalStorageImmediate);
+    window.addEventListener('ositara_proker_updated', syncLocalStorageImmediate);
+    window.addEventListener('ositara_proposal_updated', syncLocalStorageImmediate);
+    window.addEventListener('ositara_pendaftaran_updated', syncLocalStorageImmediate);
     return () => {
       clearInterval(interval);
-      window.removeEventListener('storage', syncAllDataFromBackend);
+      window.removeEventListener('storage', syncLocalStorageImmediate);
+      window.removeEventListener('ositara_keuangan_updated', syncLocalStorageImmediate);
+      window.removeEventListener('ositara-keuangan-updated', syncLocalStorageImmediate);
+      window.removeEventListener('ositara_anggota_updated', syncLocalStorageImmediate);
+      window.removeEventListener('ositara_proker_updated', syncLocalStorageImmediate);
+      window.removeEventListener('ositara_proposal_updated', syncLocalStorageImmediate);
+      window.removeEventListener('ositara_pendaftaran_updated', syncLocalStorageImmediate);
     };
-  }, [syncAllDataFromBackend]);
+  }, [syncAllDataFromBackend, syncLocalStorageImmediate]);
 
   // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG ---
   const handleBukaUnduhProposal = async (item) => {
@@ -755,6 +823,7 @@ export default function DashboardSekretaris({
       localStorage.setItem('ositara_proposal', JSON.stringify(updated));
     }
 
+    window.dispatchEvent(new Event('ositara_proposal_updated'));
     setEditingProposalId(null);
     setJudulProposal('');
     setAnggaranProposal('');
@@ -946,6 +1015,7 @@ export default function DashboardSekretaris({
       const updated = proposalList.filter((p) => String(p.id) !== String(targetId));
       setProposalList(updated);
       localStorage.setItem('ositara_proposal', JSON.stringify(updated));
+      window.dispatchEvent(new Event('ositara_proposal_updated'));
       showToast('Proposal berhasil dihapus.');
 
       try {
@@ -1006,16 +1076,20 @@ export default function DashboardSekretaris({
     });
   };
 
-  // --- KALKULASI KEUANGAN ---
-  const totalPemasukan = keuanganList
-    .filter((k) => (k.jenis || k.kategori) === 'Pemasukan')
-    .reduce((acc, cur) => acc + Number(cur.jumlah || cur.nominal || 0), 0);
+  // --- IDENTITAS PENANDATANGAN LAPORAN KEUANGAN ---
+  const ketuaOsisData = anggotaList.find(
+    (a) =>
+      String(a.jabatan || '').toLowerCase().includes('ketua') &&
+      !String(a.jabatan || '').toLowerCase().includes('wakil')
+  );
+  const bendaharaData = anggotaList.find((a) =>
+    String(a.jabatan || '').toLowerCase().includes('bendahara')
+  );
 
-  const totalPengeluaran = keuanganList
-    .filter((k) => (k.jenis || k.kategori) === 'Pengeluaran')
-    .reduce((acc, cur) => acc + Number(cur.jumlah || cur.nominal || 0), 0);
-
-  const saldoKas = totalPemasukan - totalPengeluaran;
+  const namaKetuaUntukLaporan =
+    ketuaOsisData?.nama || ketuaOsisData?.nama_lengkap || ketuaOsisData?.name || 'Ketua OSIS';
+  const namaBendaharaUntukLaporan =
+    bendaharaData?.nama || bendaharaData?.nama_lengkap || bendaharaData?.name || 'Bendahara OSIS';
 
   const menuList = [
     { id: 'beranda', label: 'Beranda Utama', IconComponent: SvgHome },
@@ -1047,7 +1121,7 @@ export default function DashboardSekretaris({
         </div>
       )}
 
-      {/* HEADER NAVBAR MOBILE (DIOPTIMALKAN UNTUK 390PX) */}
+      {/* HEADER NAVBAR MOBILE */}
       <header className="md:hidden bg-gradient-to-r from-[#184694] to-[#2158B8] text-white px-3.5 py-3 flex items-center justify-between sticky top-0 z-30 shadow-md w-full border-b border-blue-800/30">
         <div className="flex items-center space-x-2.5 min-w-0">
           <img
@@ -1090,14 +1164,13 @@ export default function DashboardSekretaris({
         />
       )}
 
-      {/* SIDEBAR NAVIGATION - DIKUNCI KE TINGGI LAYAR & LOGOUT DI ATAS TOOLBAR BROWSER MOBILE */}
+      {/* SIDEBAR NAVIGATION */}
       <aside
         style={{ height: '100dvh', maxHeight: '100vh' }}
         className={`fixed top-0 left-0 z-50 w-64 max-w-[78vw] bg-gradient-to-b from-[#184694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col px-3.5 pt-3.5 pb-24 md:p-5 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ease-in-out overflow-hidden ${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        {/* 1. BAGIAN ATAS: LOGO */}
         <div className="flex items-center justify-between mb-3 sm:mb-5 p-1 shrink-0">
           <div className="flex items-center space-x-2.5 min-w-0">
             <img
@@ -1123,12 +1196,16 @@ export default function DashboardSekretaris({
             aria-label="Tutup Menu"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2.5"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
 
-        {/* 2. BAGIAN TENGAH: LIST MENU (SCROLLABLE JIKA LAYAR PENDEK) */}
         <nav className="flex-1 min-h-0 overflow-y-auto space-y-1 sm:space-y-1.5 pr-0.5">
           {menuList.map((menu) => {
             const IconComp = menu.IconComponent;
@@ -1154,7 +1231,6 @@ export default function DashboardSekretaris({
           })}
         </nav>
 
-        {/* 3. BAGIAN BAWAH: TOMBOL LOGOUT */}
         <div className="pt-2.5 mt-2 shrink-0 border-t border-white/15">
           <button
             type="button"
@@ -1167,7 +1243,7 @@ export default function DashboardSekretaris({
         </div>
       </aside>
 
-      {/* MAIN CONTENT AREA (BEBAS HORIZONTAL SCROLL DI LAYAR 390PX & TIDAK KETUTUP BILAH BAWAH) */}
+      {/* MAIN CONTENT AREA */}
       <main className="md:ml-64 w-full md:w-auto max-w-full overflow-x-hidden px-3 pt-3 pb-24 sm:p-6 lg:p-8 min-w-0 space-y-3.5 sm:space-y-6">
         {/* HEADER PROFIL SEKRETARIS */}
         <div className="relative overflow-hidden bg-white p-3.5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200/90 transition-all duration-300 hover:shadow-md">
@@ -1212,9 +1288,7 @@ export default function DashboardSekretaris({
         {/* 1. BERANDA UTAMA */}
         {activeMenu === 'beranda' && (
           <div className="space-y-3.5 sm:space-y-6 animate-[fadeIn_0.3s_ease-out] min-w-0">
-            {/* STATS CARDS - 2 KOLOM RAPI DI 390PX, 4 KOLOM DI LAYAR LEBAR */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-5">
-              {/* Kartu 1: Total Kegiatan */}
               <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#3b72b5]/25 hover:-translate-y-0.5 transition-all duration-300 text-white group flex items-center justify-between gap-2 min-w-0">
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wide leading-tight truncate">
@@ -1229,7 +1303,6 @@ export default function DashboardSekretaris({
                 </div>
               </div>
 
-              {/* Kartu 2: Total Anggota */}
               <div className="relative overflow-hidden bg-gradient-to-br from-[#e05263] via-[#f27482] to-[#fca5b0] p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#e05263]/25 hover:-translate-y-0.5 transition-all duration-300 text-white group flex items-center justify-between gap-2 min-w-0">
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wide leading-tight truncate">
@@ -1244,7 +1317,6 @@ export default function DashboardSekretaris({
                 </div>
               </div>
 
-              {/* Kartu 3: Proposal Diajukan */}
               <div className="relative overflow-hidden bg-gradient-to-br from-[#c7852e] via-[#ebaa46] to-[#ffd27d] p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#c7852e]/25 hover:-translate-y-0.5 transition-all duration-300 text-white group flex items-center justify-between gap-2 min-w-0">
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wide leading-tight truncate">
@@ -1259,7 +1331,6 @@ export default function DashboardSekretaris({
                 </div>
               </div>
 
-              {/* Kartu 4: Pendaftar Siswa */}
               <div className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#249ea0]/25 hover:-translate-y-0.5 transition-all duration-300 text-white group flex items-center justify-between gap-2 min-w-0">
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wide leading-tight truncate">
@@ -1275,7 +1346,6 @@ export default function DashboardSekretaris({
               </div>
             </div>
 
-            {/* RINGKASAN AKTIVITAS TERBARU */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-6 min-w-0">
               <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0">
                 <div className="flex justify-between items-center gap-2 mb-4 pb-2.5 border-b border-slate-100">
@@ -1681,14 +1751,16 @@ export default function DashboardSekretaris({
                     anggotaList.map((a) => (
                       <tr key={a.id} className="hover:bg-blue-50/40 transition-colors">
                         <td className="py-3 px-3 sm:px-4 text-slate-500 font-mono whitespace-nowrap">
-                          {a.nis || '-'}
+                          {a.nis || a.nisn || '-'}
                         </td>
-                        <td className="py-3 px-3 sm:px-4 font-bold text-slate-800">{a.nama}</td>
+                        <td className="py-3 px-3 sm:px-4 font-bold text-slate-800">
+                          {a.nama || a.nama_lengkap || a.name || '-'}
+                        </td>
                         <td className="py-3 px-3 sm:px-4 text-slate-700 font-semibold">
                           {a.jabatan || '-'}
                         </td>
                         <td className="py-3 px-3 sm:px-4 text-slate-600 font-medium">
-                          {a.sekbid || a.divisi || '-'}
+                          {a.sekbid || a.divisi || a.kelas || '-'}
                         </td>
                       </tr>
                     ))
@@ -1940,115 +2012,14 @@ export default function DashboardSekretaris({
           </div>
         )}
 
-        {/* 7. LAPORAN KEUANGAN */}
+        {/* 7. LAPORAN KEUANGAN (SINKRON & SERAGAM DENGAN DASHBOARD KETUA) */}
         {activeMenu === 'laporan-keuangan' && (
-          <div className="space-y-4 sm:space-y-5 animate-[fadeIn_0.3s_ease-out] min-w-0">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-5">
-              {/* Kartu 1: Total Pemasukan */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#249ea0]/25 text-white flex items-center justify-between gap-2 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wider leading-tight truncate">
-                    Total Pemasukan
-                  </p>
-                  <h3 className="text-base sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 truncate">
-                    {formatRupiah(totalPemasukan)}
-                  </h3>
-                </div>
-                <div className="flex w-9 h-9 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 border border-white/30">
-                  <SvgArrowUp />
-                </div>
-              </div>
-
-              {/* Kartu 2: Total Pengeluaran */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#e05263] via-[#f27482] to-[#fca5b0] p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#e05263]/25 text-white flex items-center justify-between gap-2 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wider leading-tight truncate">
-                    Total Pengeluaran
-                  </p>
-                  <h3 className="text-base sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 truncate">
-                    {formatRupiah(totalPengeluaran)}
-                  </h3>
-                </div>
-                <div className="flex w-9 h-9 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 border border-white/30">
-                  <SvgArrowDown />
-                </div>
-              </div>
-
-              {/* Kartu 3: Saldo Kas Saat Ini */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#3b72b5] via-[#4c9ae8] to-[#82c8f7] p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#3b72b5]/25 text-white flex items-center justify-between gap-2 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wider leading-tight truncate">
-                    Saldo Kas Saat Ini
-                  </p>
-                  <h3 className="text-base sm:text-2xl font-black tracking-tight drop-shadow mt-0.5 truncate">
-                    {formatRupiah(saldoKas)}
-                  </h3>
-                </div>
-                <div className="flex w-9 h-9 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-md text-white rounded-xl sm:rounded-2xl items-center justify-center shrink-0 border border-white/30">
-                  <SvgKeuangan />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0 w-full">
-              <div className="flex items-center justify-between gap-2 mb-3.5 pb-2.5 border-b border-slate-100">
-                <h3 className="text-sm sm:text-lg font-black text-slate-800">
-                  Laporan Keuangan OSIS
-                </h3>
-                <span className="md:hidden text-[10px] text-slate-400 font-semibold">
-                  Geser tabel &rarr;
-                </span>
-              </div>
-              <div className="w-full overflow-x-auto pb-1">
-                <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[440px]">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[10px] sm:text-[11px] bg-slate-100/70">
-                      <th className="py-2.5 px-3 sm:px-4 rounded-l-xl">Keterangan</th>
-                      <th className="py-2.5 px-3 sm:px-4">Jenis</th>
-                      <th className="py-2.5 px-3 sm:px-4 text-right rounded-r-xl">Jumlah</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {keuanganList.length === 0 ? (
-                      <tr>
-                        <td colSpan="3" className="py-10 text-center text-slate-400 font-medium">
-                          Belum ada data keuangan.
-                        </td>
-                      </tr>
-                    ) : (
-                      keuanganList.map((kq) => (
-                        <tr key={kq.id} className="hover:bg-blue-50/40 transition-colors">
-                          <td className="py-3 px-3 sm:px-4 text-slate-700 font-bold">
-                            {kq.keterangan}
-                          </td>
-                          <td className="py-3 px-3 sm:px-4">
-                            <span
-                              className={`px-2.5 py-1 font-bold text-[10px] rounded-xl inline-block uppercase tracking-wider whitespace-nowrap ${
-                                kq.jenis === 'Pemasukan' || kq.kategori === 'Pemasukan'
-                                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                                  : 'bg-rose-100 text-rose-700 border border-rose-200'
-                              }`}
-                            >
-                              {kq.jenis || kq.kategori}
-                            </span>
-                          </td>
-                          <td
-                            className={`py-3 px-3 sm:px-4 text-right font-black whitespace-nowrap ${
-                              kq.jenis === 'Pemasukan' || kq.kategori === 'Pemasukan'
-                                ? 'text-emerald-600'
-                                : 'text-rose-500'
-                            }`}
-                          >
-                            {kq.jenis === 'Pemasukan' || kq.kategori === 'Pemasukan' ? '+' : '-'}
-                            {formatRupiah(kq.jumlah || kq.nominal)}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          <div className="animate-[fadeIn_0.3s_ease-out] min-w-0">
+            <PanelKeuanganReadOnly
+              keuanganList={keuanganList}
+              namaKetuaOsis={namaKetuaUntukLaporan}
+              namaBendahara={namaBendaharaUntukLaporan}
+            />
           </div>
         )}
       </main>

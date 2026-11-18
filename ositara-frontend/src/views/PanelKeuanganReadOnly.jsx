@@ -1,69 +1,224 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import api from '../api';
 
 const DAFTAR_SUMBER_DANA = ['Kas OSIS', 'Dana Sekolah', 'Sponsor', 'Lainnya'];
+const SEPARATED_CACHE_KEY = 'ositara_keuangan_separated_v1';
+const OVERRIDE_CACHE_KEY = 'ositara_keuangan_overrides_v1';
+
+// Helper Normalisasi Data Universal
+const normalizeJenis = (item) => {
+  if (!item || typeof item !== 'object') return 'Pemasukan';
+  const raw = String(
+    item?.jenis ??
+      item?.jenis_transaksi ??
+      item?.tipe ??
+      item?.type ??
+      item?.kategori ??
+      ''
+  )
+    .toLowerCase()
+    .trim();
+
+  if (
+    raw === 'pengeluaran' ||
+    raw === 'keluar' ||
+    raw === 'expense' ||
+    raw === 'debit' ||
+    raw === 'out' ||
+    raw.includes('keluar') ||
+    raw.includes('expense')
+  ) {
+    return 'Pengeluaran';
+  }
+  return 'Pemasukan';
+};
+
+const normalizeNominal = (item) => {
+  if (!item || typeof item !== 'object') return 0;
+  const raw = item?.jumlah ?? item?.nominal ?? item?.amount ?? 0;
+  if (typeof raw === 'number') return Number.isNaN(raw) ? 0 : raw;
+  const parsed = Number(String(raw).replace(/[^0-9.-]/g, ''));
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const normalizeSumberKategori = (item) => {
+  const raw = String(
+    item?.kategori_sumber || item?.sumber || item?.sumber_dana || 'Kas OSIS'
+  );
+  if (raw.toLowerCase().includes('sekolah')) return 'Dana Sekolah';
+  if (raw.toLowerCase().includes('sponsor')) return 'Sponsor';
+  if (raw.toLowerCase().includes('kas')) return 'Kas OSIS';
+  return 'Lainnya';
+};
+
+const normalizeSumberLabel = (item) => {
+  return item?.sumber || item?.kategori_sumber || item?.sumber_dana || 'Kas OSIS';
+};
+
+const normalizeBuktiNota = (item) => {
+  const raw =
+    item?.bukti_nota || item?.buktiNota || item?.nota || item?.foto_nota || '';
+  if (!raw || typeof raw !== 'string') return '';
+  if (raw.startsWith('data:image') || raw.startsWith('http')) return raw;
+  return `http://localhost:8000/storage/${raw.replace(/^\/+/, '')}`;
+};
+
+const getFingerprint = (item) => {
+  const tgl = String(item?.tanggal || '').split('T')[0].split(' ')[0];
+  const ket = String(item?.keterangan || '').trim().toLowerCase();
+  const nom = normalizeNominal(item);
+  const jns = normalizeJenis(item);
+  return `${tgl}|${ket}|${nom}|${jns}`;
+};
+
+// Membaca seluruh data keuangan dari localStorage (termasuk separated cache Bendahara)
+const readAllLocalKeuangan = () => {
+  const collected = [];
+
+  try {
+    const sepRaw = localStorage.getItem(SEPARATED_CACHE_KEY);
+    if (sepRaw) {
+      const sep = JSON.parse(sepRaw);
+      if (Array.isArray(sep?.pemasukan)) {
+        sep.pemasukan.forEach((it) =>
+          collected.push({ ...it, jenis: 'Pemasukan', tipe: 'Pemasukan' })
+        );
+      }
+      if (Array.isArray(sep?.pengeluaran)) {
+        sep.pengeluaran.forEach((it) =>
+          collected.push({ ...it, jenis: 'Pengeluaran', tipe: 'Pengeluaran' })
+        );
+      }
+    }
+  } catch {
+    // Abaikan error parse
+  }
+
+  const keysToCheck = [
+    'ositara_keuangan_list',
+    'ositara_keuangan',
+    'keuanganList',
+    'keuangan',
+    'data_keuangan',
+    'ositara_laporan_keuangan',
+  ];
+
+  for (const key of keysToCheck) {
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          collected.push(...parsed);
+        }
+      }
+    } catch {
+      // Abaikan error parse
+    }
+  }
+
+  return collected;
+};
+
+// Menggabungkan & menduplikasi transaksi dari berbagai sumber tanpa menghilangkan pengeluaran
+const mergeAndDedupeKeuangan = (...sources) => {
+  let overrides = {};
+  try {
+    overrides = JSON.parse(localStorage.getItem(OVERRIDE_CACHE_KEY) || '{}');
+  } catch {
+    overrides = {};
+  }
+
+  const seenIds = new Set();
+  const seenFps = new Set();
+  const mergedResult = [];
+
+  for (const src of sources) {
+    if (!Array.isArray(src)) continue;
+    for (const rawItem of src) {
+      if (!rawItem || typeof rawItem !== 'object') continue;
+      const ov =
+        (rawItem.id !== undefined &&
+          rawItem.id !== null &&
+          overrides[`id:${rawItem.id}`]) ||
+        overrides[`fp:${getFingerprint(rawItem)}`] ||
+        null;
+      const item = ov ? { ...rawItem, ...ov, id: rawItem.id ?? ov.id } : rawItem;
+
+      const jenisFix = normalizeJenis(item);
+      const nomFix = normalizeNominal(item);
+      const normalizedItem = {
+        ...item,
+        jenis: jenisFix,
+        jenis_transaksi: jenisFix,
+        tipe: jenisFix,
+        type: jenisFix,
+        kategori: jenisFix,
+        nominal: nomFix,
+        jumlah: nomFix,
+        sumber: normalizeSumberLabel(item),
+        kategori_sumber: normalizeSumberKategori(item),
+        bukti_nota: normalizeBuktiNota(item),
+      };
+
+      const idKey =
+        normalizedItem.id !== undefined && normalizedItem.id !== null
+          ? `id:${normalizedItem.id}`
+          : null;
+      const fpKey = `fp:${getFingerprint(normalizedItem)}`;
+
+      if (idKey && seenIds.has(idKey)) continue;
+      if (seenFps.has(fpKey)) continue;
+
+      if (idKey) seenIds.add(idKey);
+      seenFps.add(fpKey);
+      mergedResult.push(normalizedItem);
+    }
+  }
+
+  return mergedResult.sort((a, b) =>
+    String(b.tanggal || '').localeCompare(String(a.tanggal || ''))
+  );
+};
 
 export default function PanelKeuanganReadOnly({
   keuanganList = [],
   namaKetuaOsis = 'Ketua OSIS',
   namaBendaharaOsis = 'Bendahara OSIS',
 }) {
-  // Sinkronisasi otomatis universal dari berbagai variasi key localStorage Bendahara
-  const [syncedList, setSyncedList] = useState(() => {
-    if (Array.isArray(keuanganList) && keuanganList.length > 0) {
-      return keuanganList;
-    }
-    const keysToCheck = [
-      'keuanganList',
-      'ositara_keuangan_list',
-      'ositara_keuangan',
-      'keuangan',
-      'data_keuangan',
-      'ositara_laporan_keuangan',
-    ];
-    for (const key of keysToCheck) {
-      try {
-        const saved = localStorage.getItem(key);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      } catch (e) {
-        // Abaikan
-      }
-    }
-    return [];
-  });
+  const [serverList, setServerList] = useState([]);
+  const [syncedList, setSyncedList] = useState(() =>
+    mergeAndDedupeKeuangan(readAllLocalKeuangan(), keuanganList)
+  );
 
-  useEffect(() => {
-    if (Array.isArray(keuanganList) && keuanganList.length > 0) {
-      setSyncedList(keuanganList);
+  // Ambil data terbaru langsung dari backend API /keuangan
+  const fetchKeuanganServer = useCallback(async () => {
+    try {
+      const res = await api.get('/keuangan');
+      const raw = res?.data?.data || res?.data || [];
+      if (Array.isArray(raw)) {
+        setServerList(raw);
+        setSyncedList(mergeAndDedupeKeuangan(readAllLocalKeuangan(), raw, keuanganList));
+      }
+    } catch {
+      // Jika offline, tetap gunakan data lokal
+      setSyncedList(mergeAndDedupeKeuangan(readAllLocalKeuangan(), keuanganList));
     }
   }, [keuanganList]);
 
   useEffect(() => {
+    fetchKeuanganServer();
+  }, [fetchKeuanganServer]);
+
+  useEffect(() => {
+    setSyncedList(mergeAndDedupeKeuangan(readAllLocalKeuangan(), serverList, keuanganList));
+  }, [keuanganList, serverList]);
+
+  useEffect(() => {
     const handleStorageSync = () => {
-      const keysTarget = [
-        'keuanganList',
-        'ositara_keuangan_list',
-        'ositara_keuangan',
-        'keuangan',
-        'data_keuangan',
-        'ositara_laporan_keuangan',
-      ];
-      for (const key of keysTarget) {
-        const saved = localStorage.getItem(key);
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed)) {
-              setSyncedList(parsed);
-              break;
-            }
-          } catch (err) {
-            // Abaikan
-          }
-        }
-      }
+      setSyncedList(
+        mergeAndDedupeKeuangan(readAllLocalKeuangan(), serverList, keuanganList)
+      );
     };
 
     window.addEventListener('storage', handleStorageSync);
@@ -80,7 +235,7 @@ export default function PanelKeuanganReadOnly({
       window.removeEventListener('ositara-keuangan-updated', handleStorageSync);
       window.removeEventListener('storage_keuangan_updated', handleStorageSync);
     };
-  }, []);
+  }, [keuanganList, serverList]);
 
   const [selectedSumber, setSelectedSumber] = useState('Semua');
   const [selectedJenis, setSelectedJenis] = useState('Semua');
@@ -88,7 +243,7 @@ export default function PanelKeuanganReadOnly({
   const [laporanSumberFilter, setLaporanSumberFilter] = useState('Semua');
   const [laporanJenisFilter, setLaporanJenisFilter] = useState('Semua');
   const [laporanPeriodeFilter, setLaporanPeriodeFilter] = useState('semua');
-  
+
   const [previewNotaModal, setPreviewNotaModal] = useState({
     isOpen: false,
     imageUrl: '',
@@ -96,32 +251,6 @@ export default function PanelKeuanganReadOnly({
     tanggal: '',
     nominal: 0,
   });
-
-  // Helper Normalisasi Data
-  const normalizeJenis = (item) => {
-    const raw = String(item?.jenis || item?.jenis_transaksi || item?.kategori || '').toLowerCase();
-    return raw.includes('keluar') ? 'Pengeluaran' : 'Pemasukan';
-  };
-
-  const normalizeNominal = (item) => {
-    return Number(item?.jumlah ?? item?.nominal ?? item?.amount ?? 0) || 0;
-  };
-
-  const normalizeSumberKategori = (item) => {
-    const raw = String(item?.kategori_sumber || item?.sumber || item?.sumber_dana || 'Kas OSIS');
-    if (raw.toLowerCase().includes('sekolah')) return 'Dana Sekolah';
-    if (raw.toLowerCase().includes('sponsor')) return 'Sponsor';
-    if (raw.toLowerCase().includes('kas')) return 'Kas OSIS';
-    return 'Lainnya';
-  };
-
-  const normalizeSumberLabel = (item) => {
-    return item?.sumber || item?.kategori_sumber || item?.sumber_dana || 'Kas OSIS';
-  };
-
-  const normalizeBuktiNota = (item) => {
-    return item?.bukti_nota || item?.buktiNota || item?.nota || item?.foto_nota || '';
-  };
 
   const formatRupiah = (angka) => {
     return new Intl.NumberFormat('id-ID', {
@@ -135,11 +264,19 @@ export default function PanelKeuanganReadOnly({
     if (!tgl) return '-';
     const d = new Date(tgl);
     if (Number.isNaN(d.getTime())) return String(tgl);
-    return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    return d.toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
   const formatTanggalFormal = () => {
-    return new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    return new Date().toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
   };
 
   // Kalkulasi Utama
@@ -163,8 +300,10 @@ export default function PanelKeuanganReadOnly({
 
   const filteredTransaksi = useMemo(() => {
     return syncedList.filter((item) => {
-      const matchSumber = selectedSumber === 'Semua' || normalizeSumberKategori(item) === selectedSumber;
-      const matchJenis = selectedJenis === 'Semua' || normalizeJenis(item) === selectedJenis;
+      const matchSumber =
+        selectedSumber === 'Semua' || normalizeSumberKategori(item) === selectedSumber;
+      const matchJenis =
+        selectedJenis === 'Semua' || normalizeJenis(item) === selectedJenis;
       return matchSumber && matchJenis;
     });
   }, [syncedList, selectedSumber, selectedJenis]);
@@ -173,7 +312,10 @@ export default function PanelKeuanganReadOnly({
   const laporanFilteredList = useMemo(() => {
     const now = new Date();
     return syncedList.filter((item) => {
-      if (laporanSumberFilter !== 'Semua' && normalizeSumberKategori(item) !== laporanSumberFilter)
+      if (
+        laporanSumberFilter !== 'Semua' &&
+        normalizeSumberKategori(item) !== laporanSumberFilter
+      )
         return false;
       if (laporanJenisFilter !== 'Semua' && normalizeJenis(item) !== laporanJenisFilter)
         return false;
@@ -190,26 +332,27 @@ export default function PanelKeuanganReadOnly({
     });
   }, [syncedList, laporanSumberFilter, laporanJenisFilter, laporanPeriodeFilter]);
 
-  const { laporanTotalMasuk, laporanTotalKeluar, laporanSaldoAkhir, laporanNotaList } = useMemo(() => {
-    let masuk = 0;
-    let keluar = 0;
-    const notas = [];
-    laporanFilteredList.forEach((item) => {
-      const nom = normalizeNominal(item);
-      if (normalizeJenis(item) === 'Pemasukan') {
-        masuk += nom;
-      } else {
-        keluar += nom;
-      }
-      if (normalizeBuktiNota(item)) notas.push(item);
-    });
-    return {
-      laporanTotalMasuk: masuk,
-      laporanTotalKeluar: keluar,
-      laporanSaldoAkhir: masuk - keluar,
-      laporanNotaList: notas,
-    };
-  }, [laporanFilteredList]);
+  const { laporanTotalMasuk, laporanTotalKeluar, laporanSaldoAkhir, laporanNotaList } =
+    useMemo(() => {
+      let masuk = 0;
+      let keluar = 0;
+      const notas = [];
+      laporanFilteredList.forEach((item) => {
+        const nom = normalizeNominal(item);
+        if (normalizeJenis(item) === 'Pemasukan') {
+          masuk += nom;
+        } else {
+          keluar += nom;
+        }
+        if (normalizeBuktiNota(item)) notas.push(item);
+      });
+      return {
+        laporanTotalMasuk: masuk,
+        laporanTotalKeluar: keluar,
+        laporanSaldoAkhir: masuk - keluar,
+        laporanNotaList: notas,
+      };
+    }, [laporanFilteredList]);
 
   const getLabelPeriode = () => {
     if (laporanPeriodeFilter === 'minggu') return '7 Hari Terakhir';
@@ -399,7 +542,8 @@ export default function PanelKeuanganReadOnly({
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Data tersinkron langsung dari pencatatan Bendahara OSIS. Anda dapat memfilter dan mengekspor laporan resmi.
+            Data tersinkron langsung dari pencatatan Bendahara OSIS. Anda dapat memfilter dan
+            mengekspor laporan resmi.
           </p>
         </div>
         <button
@@ -686,7 +830,10 @@ export default function PanelKeuanganReadOnly({
                   <tbody>
                     {laporanFilteredList.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="border border-slate-500 py-6 text-center text-slate-400">
+                        <td
+                          colSpan="6"
+                          className="border border-slate-500 py-6 text-center text-slate-400"
+                        >
                           Tidak ada transaksi pada filter yang dipilih.
                         </td>
                       </tr>
@@ -695,14 +842,18 @@ export default function PanelKeuanganReadOnly({
                         const isMasuk = normalizeJenis(item) === 'Pemasukan';
                         return (
                           <tr key={item.id || idx}>
-                            <td className="border border-slate-500 py-1.5 px-2 text-center">{idx + 1}</td>
+                            <td className="border border-slate-500 py-1.5 px-2 text-center">
+                              {idx + 1}
+                            </td>
                             <td className="border border-slate-500 py-1.5 px-2 text-center">
                               {formatTanggal(item.tanggal)}
                             </td>
                             <td className="border border-slate-500 py-1.5 px-2">
                               {normalizeSumberLabel(item)}
                             </td>
-                            <td className="border border-slate-500 py-1.5 px-2">{item.keterangan}</td>
+                            <td className="border border-slate-500 py-1.5 px-2">
+                              {item.keterangan}
+                            </td>
                             <td className="border border-slate-500 py-1.5 px-2 text-right text-emerald-700 font-semibold">
                               {isMasuk ? formatRupiah(normalizeNominal(item)) : '-'}
                             </td>

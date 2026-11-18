@@ -37,6 +37,70 @@ const formatTanggal = (tgl) => {
   return tgl;
 };
 
+// --- NORMALISASI ITEM KEUANGAN AGAR SINKRON 100% DENGAN BENDAHARA ---
+const normalizeKeuanganItem = (item) => {
+  if (!item || typeof item !== 'object') return item;
+
+  const rawJenis = String(
+    item.jenis ??
+      item.tipe ??
+      item.type ??
+      item.jenis_transaksi ??
+      item.jenisTransaksi ??
+      item.alur ??
+      item.kategori_transaksi ??
+      item.kategori ??
+      ''
+  )
+    .toLowerCase()
+    .trim();
+
+  const rawNominal = Number(
+    item.nominal ?? item.jumlah ?? item.amount ?? item.nilai ?? 0
+  );
+
+  const isPengeluaran =
+    rawJenis.includes('keluar') ||
+    rawJenis === 'expense' ||
+    rawJenis === 'out' ||
+    rawJenis === 'debit' ||
+    rawJenis === 'kredit' ||
+    rawNominal < 0;
+
+  const jenisNormalized = isPengeluaran ? 'Pengeluaran' : 'Pemasukan';
+  const nominalAbs = Math.abs(rawNominal);
+
+  return {
+    ...item,
+    jenis: jenisNormalized,
+    tipe: jenisNormalized,
+    kategori: jenisNormalized,
+    jenis_transaksi: jenisNormalized,
+    nominal: nominalAbs,
+    jumlah: nominalAbs,
+    sumber_dana:
+      item.sumber_dana || item.sumberDana || item.sumber || 'Kas OSIS',
+    sumberDana:
+      item.sumberDana || item.sumber_dana || item.sumber || 'Kas OSIS',
+    keterangan:
+      item.keterangan || item.uraian || item.deskripsi || item.judul || '-',
+    tanggal:
+      item.tanggal || item.tanggal_transaksi || item.created_at || '-',
+    bukti_nota:
+      item.bukti_nota ||
+      item.buktiNota ||
+      item.bukti ||
+      item.nota ||
+      item.file_bukti ||
+      null,
+  };
+};
+
+const normalizeKeuanganList = (list) => {
+  if (!Array.isArray(list)) return [];
+  return list.map(normalizeKeuanganItem);
+};
+
 // --- DEKLARASI IKON SVG (SERAGAM DENGAN KETUA, SEKRETARIS & BENDAHARA) ---
 const SvgHome = () => (
   <svg
@@ -278,18 +342,20 @@ export default function DashboardPembina({
     return filterOnlyKegiatanSekre(raw);
   });
 
-  const [keuanganList, setKeuanganList] = useState(() =>
-    Array.isArray(propKeuanganList) && propKeuanganList.length > 0
-      ? propKeuanganList
-      : getInitialData(
-          ['ositara_keuangan_list', 'ositara_keuangan', 'keuanganList'],
-          initialKeuangan
-        )
-  );
+  const [keuanganList, setKeuanganList] = useState(() => {
+    const raw =
+      Array.isArray(propKeuanganList) && propKeuanganList.length > 0
+        ? propKeuanganList
+        : getInitialData(
+            ['ositara_keuangan_list', 'ositara_keuangan', 'keuanganList'],
+            initialKeuangan
+          );
+    return normalizeKeuanganList(raw);
+  });
 
   useEffect(() => {
     if (Array.isArray(propKeuanganList)) {
-      setKeuanganList(propKeuanganList);
+      setKeuanganList(normalizeKeuanganList(propKeuanganList));
     }
   }, [propKeuanganList]);
 
@@ -444,41 +510,49 @@ export default function DashboardPembina({
         console.warn('Sync proker/kegiatan terlewati:', e);
       }
 
-      // 4. Sync Keuangan (Prioritaskan LocalStorage terbaru Bendahara jika tersedia)
+      // 4. Sync Keuangan (Sinkron dengan Backend & LocalStorage Bendahara + Normalisasi)
       try {
-        const localRaw =
-          localStorage.getItem('ositara_keuangan_list') ??
-          localStorage.getItem('ositara_keuangan') ??
-          localStorage.getItem('keuanganList');
-        if (localRaw !== null) {
-          const parsedLocal = JSON.parse(localRaw);
-          if (Array.isArray(parsedLocal)) {
-            setKeuanganList((prev) =>
-              JSON.stringify(prev) !== JSON.stringify(parsedLocal) ? parsedLocal : prev
-            );
-          }
-        } else {
-          let resKeuangan = await fetch(`${API_BASE}/keuangan`, {
+        let resKeuangan = await fetch(`${API_BASE}/keuangan`, {
+          headers: getAuthHeaders(),
+        });
+        if (!resKeuangan.ok) {
+          resKeuangan = await fetch(`${API_BASE}/laporan-keuangan`, {
             headers: getAuthHeaders(),
           });
-          if (!resKeuangan.ok) {
-            resKeuangan = await fetch(`${API_BASE}/laporan-keuangan`, {
-              headers: getAuthHeaders(),
-            });
-          }
-          if (resKeuangan.ok) {
-            const resultK = await resKeuangan.json();
-            const dataK = Array.isArray(resultK) ? resultK : resultK.data || [];
+        }
+        if (resKeuangan.ok) {
+          const resultK = await resKeuangan.json();
+          const dataK = Array.isArray(resultK) ? resultK : resultK.data || [];
+          const normalizedK = normalizeKeuanganList(dataK);
+          setKeuanganList((prev) =>
+            JSON.stringify(prev) !== JSON.stringify(normalizedK) ? normalizedK : prev
+          );
+          localStorage.setItem('ositara_keuangan_list', JSON.stringify(normalizedK));
+          localStorage.setItem('ositara_keuangan', JSON.stringify(normalizedK));
+          localStorage.setItem('keuanganList', JSON.stringify(normalizedK));
+        } else {
+          const localK = getInitialData(
+            ['ositara_keuangan_list', 'ositara_keuangan', 'keuanganList'],
+            null
+          );
+          if (Array.isArray(localK)) {
+            const normalizedLocal = normalizeKeuanganList(localK);
             setKeuanganList((prev) =>
-              JSON.stringify(prev) !== JSON.stringify(dataK) ? dataK : prev
+              JSON.stringify(prev) !== JSON.stringify(normalizedLocal)
+                ? normalizedLocal
+                : prev
             );
-            localStorage.setItem('ositara_keuangan_list', JSON.stringify(dataK));
-            localStorage.setItem('ositara_keuangan', JSON.stringify(dataK));
-            localStorage.setItem('keuanganList', JSON.stringify(dataK));
           }
         }
       } catch (e) {
         console.warn('Sync keuangan terlewati:', e);
+        const localK = getInitialData(
+          ['ositara_keuangan_list', 'ositara_keuangan', 'keuanganList'],
+          null
+        );
+        if (Array.isArray(localK)) {
+          setKeuanganList(normalizeKeuanganList(localK));
+        }
       }
 
       // 5. Sync Pendaftaran
@@ -531,19 +605,27 @@ export default function DashboardPembina({
     }
   }, []);
 
-  const syncKeuanganImmediate = useCallback(() => {
+  const syncKeuanganImmediate = useCallback((e) => {
+    if (e?.detail && Array.isArray(e.detail)) {
+      const normalized = normalizeKeuanganList(e.detail);
+      setKeuanganList(normalized);
+      localStorage.setItem('ositara_keuangan_list', JSON.stringify(normalized));
+      localStorage.setItem('ositara_keuangan', JSON.stringify(normalized));
+      localStorage.setItem('keuanganList', JSON.stringify(normalized));
+      return;
+    }
     const localK = getInitialData(
       ['ositara_keuangan_list', 'ositara_keuangan', 'keuanganList'],
       null
     );
     if (Array.isArray(localK)) {
-      setKeuanganList(localK);
+      setKeuanganList(normalizeKeuanganList(localK));
     }
   }, []);
 
   useEffect(() => {
     syncAllDataFromBackend();
-    const interval = setInterval(syncAllDataFromBackend, 15000);
+    const interval = setInterval(syncAllDataFromBackend, 5000);
     window.addEventListener('storage', syncAllDataFromBackend);
     window.addEventListener('ositara_proposal_updated', syncAllDataFromBackend);
     window.addEventListener('ositara_keuangan_updated', syncKeuanganImmediate);
@@ -821,13 +903,13 @@ export default function DashboardPembina({
     });
   };
 
-  // --- KALKULASI KEUANGAN ---
+  // --- KALKULASI KEUANGAN (DARI DATA YANG SUDAH DINORMALISASI) ---
   const totalPemasukan = keuanganList
-    .filter((k) => String(k.jenis || k.kategori || '').toLowerCase() === 'pemasukan')
+    .filter((k) => String(k.jenis || '').toLowerCase() === 'pemasukan')
     .reduce((acc, cur) => acc + Number(cur.nominal || cur.jumlah || 0), 0);
 
   const totalPengeluaran = keuanganList
-    .filter((k) => String(k.jenis || k.kategori || '').toLowerCase() === 'pengeluaran')
+    .filter((k) => String(k.jenis || '').toLowerCase() === 'pengeluaran')
     .reduce((acc, cur) => acc + Number(cur.nominal || cur.jumlah || 0), 0);
 
   const saldoKas = totalPemasukan - totalPengeluaran;
@@ -927,14 +1009,13 @@ export default function DashboardPembina({
         />
       )}
 
-      {/* SIDEBAR NAVIGATION - TOMBOL LOGOUT TERANGKAT DI ATAS TOOLBAR BROWSER MOBILE */}
+      {/* SIDEBAR NAVIGATION */}
       <aside
         style={{ height: '100dvh', maxHeight: '100vh' }}
         className={`fixed top-0 left-0 z-50 w-64 max-w-[78vw] bg-gradient-to-b from-[#184694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col px-3.5 pt-3.5 pb-24 md:p-5 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ease-in-out overflow-hidden ${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        {/* 1. BAGIAN ATAS: LOGO */}
         <div className="flex items-center justify-between mb-3 sm:mb-5 p-1 shrink-0">
           <div className="flex items-center space-x-2.5 min-w-0">
             <img
@@ -970,7 +1051,6 @@ export default function DashboardPembina({
           </button>
         </div>
 
-        {/* 2. BAGIAN TENGAH: LIST MENU */}
         <nav className="flex-1 min-h-0 overflow-y-auto space-y-1 sm:space-y-1.5 pr-0.5">
           {menuList.map((menu) => {
             const IconComp = menu.IconComponent;
@@ -1009,7 +1089,6 @@ export default function DashboardPembina({
           })}
         </nav>
 
-        {/* 3. BAGIAN BAWAH: TOMBOL LOGOUT */}
         <div className="pt-2.5 mt-2 shrink-0 border-t border-white/15">
           <button
             type="button"
