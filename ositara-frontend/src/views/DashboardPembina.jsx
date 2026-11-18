@@ -37,6 +37,19 @@ const formatTanggal = (tgl) => {
   return tgl;
 };
 
+const getPeriodeProker = (pk) => {
+  if (!pk || typeof pk !== 'object') return 'Mingguan';
+  return (
+    String(
+      pk.periode ||
+        pk.periode_program ||
+        pk.tahun_ajaran ||
+        pk.tahunAjaran ||
+        'Mingguan'
+    ).trim() || 'Mingguan'
+  );
+};
+
 const getStorageBaseUrl = () => {
   const envUrl = import.meta?.env?.VITE_API_URL || '';
   if (envUrl) return envUrl.replace(/\/api\/?$/, '');
@@ -60,7 +73,11 @@ const normalizeBuktiNota = (item) => {
   if (!raw || typeof raw !== 'string') return '';
   const trimmed = raw.trim();
   if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return '';
-  if (trimmed.startsWith('data:image') || trimmed.startsWith('http') || trimmed.startsWith('blob:')) {
+  if (
+    trimmed.startsWith('data:image') ||
+    trimmed.startsWith('http') ||
+    trimmed.startsWith('blob:')
+  ) {
     return trimmed;
   }
   return `${getStorageBaseUrl()}/${trimmed.replace(/^\/+/, '')}`;
@@ -79,15 +96,15 @@ const readLocalOverrides = () => {
 // --- NORMALISASI ITEM KEUANGAN AGAR SINKRON 100% DENGAN BENDAHARA (GALERI & KAMERA) ---
 const normalizeKeuanganItem = (item, overrides = null) => {
   if (!item || typeof item !== 'object') return item;
-
   const ovMap = overrides || readLocalOverrides();
   const idKey = item.id !== undefined && item.id !== null ? String(item.id) : '';
   const fallbackKey = `${String(item.tanggal || '').split('T')[0]}|${String(
     item.keterangan || item.uraian || ''
   )
     .toLowerCase()
-    .trim()}|${Math.abs(Number(item.nominal ?? item.jumlah ?? item.amount ?? item.nilai ?? 0))}`;
-
+    .trim()}|${Math.abs(
+    Number(item.nominal ?? item.jumlah ?? item.amount ?? item.nilai ?? 0)
+  )}`;
   const matchedOv = (idKey && ovMap[idKey]) || ovMap[fallbackKey] || null;
   const merged = matchedOv ? { ...item, ...matchedOv } : item;
 
@@ -144,8 +161,9 @@ const normalizeKeuanganItem = (item, overrides = null) => {
 const normalizeKeuanganList = (list) => {
   if (!Array.isArray(list)) return [];
   const overrides = readLocalOverrides();
-  const normalizedBackend = list.map((item) => normalizeKeuanganItem(item, overrides));
-
+  const normalizedBackend = list.map((item) =>
+    normalizeKeuanganItem(item, overrides)
+  );
   let localCache = [];
   try {
     const rawLocal =
@@ -154,7 +172,9 @@ const normalizeKeuanganList = (list) => {
       localStorage.getItem('keuanganList');
     const parsedLocal = rawLocal ? JSON.parse(rawLocal) : [];
     if (Array.isArray(parsedLocal)) {
-      localCache = parsedLocal.map((item) => normalizeKeuanganItem(item, overrides));
+      localCache = parsedLocal.map((item) =>
+        normalizeKeuanganItem(item, overrides)
+      );
     }
   } catch {
     localCache = [];
@@ -166,7 +186,9 @@ const normalizeKeuanganList = (list) => {
     if (loc?.id !== undefined && loc?.id !== null) {
       localById.set(String(loc.id), loc);
     }
-    const sig = `${String(loc?.tanggal || '').split('T')[0]}|${String(loc?.keterangan || '')
+    const sig = `${String(loc?.tanggal || '').split('T')[0]}|${String(
+      loc?.keterangan || ''
+    )
       .toLowerCase()
       .trim()}|${Number(loc?.nominal || 0)}`;
     localBySig.set(sig, loc);
@@ -174,21 +196,27 @@ const normalizeKeuanganList = (list) => {
 
   const mergedResult = normalizedBackend.map((item) => {
     if (item.bukti_nota) return item;
-    const byId = item.id !== undefined && item.id !== null ? localById.get(String(item.id)) : null;
+    const byId =
+      item.id !== undefined && item.id !== null
+        ? localById.get(String(item.id))
+        : null;
     if (byId?.bukti_nota) return { ...item, bukti_nota: byId.bukti_nota };
-
-    const sig = `${String(item.tanggal || '').split('T')[0]}|${String(item.keterangan || '')
+    const sig = `${String(item.tanggal || '').split('T')[0]}|${String(
+      item.keterangan || ''
+    )
       .toLowerCase()
       .trim()}|${Number(item.nominal || 0)}`;
     const bySig = localBySig.get(sig);
     if (bySig?.bukti_nota) return { ...item, bukti_nota: bySig.bukti_nota };
-
     return item;
   });
 
   const existingIds = new Set(mergedResult.map((i) => String(i.id)));
   localCache.forEach((loc) => {
-    if (String(loc.id || '').startsWith('local-') && !existingIds.has(String(loc.id))) {
+    if (
+      String(loc.id || '').startsWith('local-') &&
+      !existingIds.has(String(loc.id))
+    ) {
       mergedResult.push(loc);
     }
   });
@@ -387,20 +415,22 @@ const filterOnlyProkerKetua = (list) => {
       String(item.sekbid || item.divisi || '').toLowerCase().trim() !== 'sekretaris'
   );
 };
-
 export default function DashboardPembina({
   user,
   onLogout,
   proposalList: initialProposal = [],
+  proposals: propProposals,
   kegiatanList: initialKegiatan = [],
   prokerList: initialProker = [],
   laporanKeuanganList: initialKeuangan = [],
   keuanganList: propKeuanganList,
   anggotaList: initialAnggota = [],
+  pendaftaranList: initialPendaftaran = [],
+  onUpdateProposalStatus,
 }) {
   const [activeMenu, setActiveMenu] = useState('beranda');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
+  const [filterPeriodeProker, setFilterPeriodeProker] = useState('Semua');
   const isFetchingRef = useRef(false);
 
   // --- STATE NOTIFIKASI TOAST & MODAL ---
@@ -423,19 +453,55 @@ export default function DashboardPembina({
   }, []);
 
   // --- STATES DATA UTAMA ---
-  const [proposalList, setProposalList] = useState(() =>
-    getInitialData(['ositara_proposal', 'proposals'], initialProposal)
-  );
+  const [proposalList, setProposalList] = useState(() => {
+    if (Array.isArray(propProposals) && propProposals.length > 0) {
+      return propProposals;
+    }
+    return getInitialData(['ositara_proposal', 'proposals'], initialProposal);
+  });
+
+  useEffect(() => {
+    if (Array.isArray(propProposals) && propProposals.length > 0) {
+      queueMicrotask(() => {
+        setProposalList(propProposals);
+      });
+    }
+  }, [propProposals]);
 
   const [prokerList, setProkerList] = useState(() => {
-    const raw = getInitialData(['ositara_proker', 'prokerList'], initialProker);
+    if (Array.isArray(initialProker) && initialProker.length > 0) {
+      return filterOnlyProkerKetua(initialProker);
+    }
+    const raw = getInitialData(
+      ['ositara_proker', 'prokerList', 'ositara_program_kerja'],
+      []
+    );
     return filterOnlyProkerKetua(raw);
   });
 
+  useEffect(() => {
+    if (Array.isArray(initialProker)) {
+      queueMicrotask(() => {
+        setProkerList(filterOnlyProkerKetua(initialProker));
+      });
+    }
+  }, [initialProker]);
+
   const [kegiatanList, setKegiatanList] = useState(() => {
-    const raw = getInitialData(['ositara_kegiatan', 'kegiatanList'], initialKegiatan);
+    const raw = getInitialData(
+      ['ositara_kegiatan', 'kegiatanList'],
+      initialKegiatan
+    );
     return filterOnlyKegiatanSekre(raw);
   });
+
+  useEffect(() => {
+    if (Array.isArray(initialKegiatan) && initialKegiatan.length > 0) {
+      queueMicrotask(() => {
+        setKegiatanList(filterOnlyKegiatanSekre(initialKegiatan));
+      });
+    }
+  }, [initialKegiatan]);
 
   const [keuanganList, setKeuanganList] = useState(() => {
     const raw =
@@ -456,13 +522,27 @@ export default function DashboardPembina({
     }
   }, [propKeuanganList]);
 
-  const [anggotaList, setAnggotaList] = useState(() =>
-    getInitialData(['ositara_anggota', 'anggotaList'], initialAnggota)
-  );
+  const [anggotaList, setAnggotaList] = useState(() => {
+    if (Array.isArray(initialAnggota) && initialAnggota.length > 0) {
+      return initialAnggota;
+    }
+    return getInitialData(['ositara_anggota', 'anggotaList'], []);
+  });
+
+  useEffect(() => {
+    if (Array.isArray(initialAnggota) && initialAnggota.length > 0) {
+      queueMicrotask(() => {
+        setAnggotaList(initialAnggota);
+      });
+    }
+  }, [initialAnggota]);
 
   const [pendaftaranList, setPendaftaranList] = useState(() => {
+    if (Array.isArray(initialPendaftaran) && initialPendaftaran.length > 0) {
+      return initialPendaftaran;
+    }
     const primary = getInitialData('ositara_pendaftaran', null);
-    const secondary = getInitialData('pendaftaranList', []);
+    const secondary = getInitialData('pendaftaranList', null);
     return primary || secondary || [];
   });
 
@@ -529,7 +609,6 @@ export default function DashboardPembina({
               (rawFile ? String(rawFile).split('/').pop() : null) ||
               'Dokumen.pdf';
             return {
-              ...p,
               id: p.id,
               judul_proposal: p.judul_proposal || p.judul || 'Tanpa Judul',
               judul: p.judul_proposal || p.judul || 'Tanpa Judul',
@@ -571,14 +650,17 @@ export default function DashboardPembina({
           const formattedA = dataA.map((a) => ({
             id: a.id,
             nis: a.nis || a.nisn || '-',
-            nama: a.nama || a.nama_lengkap || '-',
+            nama: a.nama || a.nama_lengkap || a.name || '-',
             jabatan: a.jabatan || '-',
-            sekbid: a.sekbid || a.divisi || '-',
+            sekbid: a.sekbid || a.divisi || a.kelas || '-',
           }));
           setAnggotaList((prev) =>
             JSON.stringify(prev) !== JSON.stringify(formattedA) ? formattedA : prev
           );
           localStorage.setItem('ositara_anggota', JSON.stringify(formattedA));
+        } else {
+          const localA = getInitialData(['ositara_anggota', 'anggotaList'], null);
+          if (Array.isArray(localA)) setAnggotaList(localA);
         }
       } catch (e) {
         console.warn('Sync anggota terlewati:', e);
@@ -594,20 +676,36 @@ export default function DashboardPembina({
           const dataPK = Array.isArray(resultPK) ? resultPK : resultPK.data || [];
           const onlyProker = filterOnlyProkerKetua(dataPK);
           const onlyKegiatan = filterOnlyKegiatanSekre(dataPK);
-          setProkerList((prev) =>
-            JSON.stringify(prev) !== JSON.stringify(onlyProker) ? onlyProker : prev
+          if (onlyProker.length > 0) {
+            setProkerList((prev) =>
+              JSON.stringify(prev) !== JSON.stringify(onlyProker) ? onlyProker : prev
+            );
+            localStorage.setItem('ositara_proker', JSON.stringify(onlyProker));
+          } else {
+            const localP = getInitialData(
+              ['ositara_proker', 'prokerList', 'ositara_program_kerja'],
+              null
+            );
+            if (Array.isArray(localP)) setProkerList(filterOnlyProkerKetua(localP));
+          }
+          if (onlyKegiatan.length > 0) {
+            setKegiatanList((prev) =>
+              JSON.stringify(prev) !== JSON.stringify(onlyKegiatan) ? onlyKegiatan : prev
+            );
+            localStorage.setItem('ositara_kegiatan', JSON.stringify(onlyKegiatan));
+          }
+        } else {
+          const localP = getInitialData(
+            ['ositara_proker', 'prokerList', 'ositara_program_kerja'],
+            null
           );
-          setKegiatanList((prev) =>
-            JSON.stringify(prev) !== JSON.stringify(onlyKegiatan) ? onlyKegiatan : prev
-          );
-          localStorage.setItem('ositara_proker', JSON.stringify(onlyProker));
-          localStorage.setItem('ositara_kegiatan', JSON.stringify(onlyKegiatan));
+          if (Array.isArray(localP)) setProkerList(filterOnlyProkerKetua(localP));
         }
       } catch (e) {
         console.warn('Sync proker/kegiatan terlewati:', e);
       }
 
-      // 4. Sync Keuangan (Sinkron dengan Backend & LocalStorage Bendahara + Bukti Nota)
+      // 4. Sync Keuangan (Sinkron dengan Backend & LocalStorage Bendahara Bukti Nota)
       try {
         let resKeuangan = await fetch(`${API_BASE}/keuangan`, {
           headers: getAuthHeaders(),
@@ -728,6 +826,18 @@ export default function DashboardPembina({
     }
   }, []);
 
+  const syncLocalAllImmediate = useCallback(() => {
+    const localP = getInitialData(
+      ['ositara_proker', 'prokerList', 'ositara_program_kerja'],
+      null
+    );
+    if (Array.isArray(localP)) setProkerList(filterOnlyProkerKetua(localP));
+    const localA = getInitialData(['ositara_anggota', 'anggotaList'], null);
+    if (Array.isArray(localA)) setAnggotaList(localA);
+    const localProp = getInitialData(['ositara_proposal', 'proposals'], null);
+    if (Array.isArray(localProp)) setProposalList(localProp);
+  }, []);
+
   useEffect(() => {
     syncAllDataFromBackend();
     const interval = setInterval(syncAllDataFromBackend, 5000);
@@ -735,21 +845,25 @@ export default function DashboardPembina({
       if (!ev || !ev.key || ev.key.includes('keuangan') || ev.key.includes('overrides')) {
         syncKeuanganImmediate();
       }
+      syncLocalAllImmediate();
       syncAllDataFromBackend();
     };
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('ositara_proposal_updated', syncAllDataFromBackend);
+    window.addEventListener('ositara_proker_updated', syncLocalAllImmediate);
+    window.addEventListener('ositara_anggota_updated', syncLocalAllImmediate);
     window.addEventListener('ositara_keuangan_updated', syncKeuanganImmediate);
     window.addEventListener('ositara-keuangan-updated', syncKeuanganImmediate);
     return () => {
       clearInterval(interval);
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('ositara_proposal_updated', syncAllDataFromBackend);
+      window.removeEventListener('ositara_proker_updated', syncLocalAllImmediate);
+      window.removeEventListener('ositara_anggota_updated', syncLocalAllImmediate);
       window.removeEventListener('ositara_keuangan_updated', syncKeuanganImmediate);
       window.removeEventListener('ositara-keuangan-updated', syncKeuanganImmediate);
     };
-  }, [syncAllDataFromBackend, syncKeuanganImmediate]);
-
+  }, [syncAllDataFromBackend, syncKeuanganImmediate, syncLocalAllImmediate]);
   // --- HELPER BUKA & UNDUH BERKAS PROPOSAL LANGSUNG ---
   const handleBukaUnduhProposal = async (item) => {
     const serverFile =
@@ -764,20 +878,16 @@ export default function DashboardPembina({
       item.file ||
       item.lampiran ||
       item.dokumen;
-
     if (!serverFile || serverFile === 'Tidak ada berkas') {
       showToast('Berkas proposal tidak ditemukan.', 'warning');
       return;
     }
-
     const downloadLabelName =
       item.nama_file ||
       item.original_name ||
       String(serverFile).split('/').pop() ||
       `Proposal_${item.judul_proposal || item.judul || 'OSIS'}.pdf`;
-
     const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
     const triggerDownloadAndOpenBlob = (blob) => {
       const blobUrl = URL.createObjectURL(blob);
       if (isMobileDevice) {
@@ -822,7 +932,6 @@ export default function DashboardPembina({
       .replace(/^\/+/, '');
     const cleanFilename = rawStr.split('/').pop();
     const altFilename = item.nama_file ? String(item.nama_file).split('/').pop() : null;
-
     const candidateUrls = [
       ...(String(serverFile).startsWith('http') ? [String(serverFile)] : []),
       `${API_BASE}/download-proposal/${encodeURIComponent(cleanFilename)}`,
@@ -868,7 +977,7 @@ export default function DashboardPembina({
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size >= 2 * 1024 * 1024) {
+      if (file.size > 2 * 1024 * 1024) {
         showToast('Ukuran foto terlalu besar! Maksimal 2MB.', 'warning');
         return;
       }
@@ -925,6 +1034,9 @@ export default function DashboardPembina({
     setProposalList(updated);
     localStorage.setItem('ositara_proposal', JSON.stringify(updated));
     window.dispatchEvent(new Event('ositara_proposal_updated'));
+    if (typeof onUpdateProposalStatus === 'function') {
+      onUpdateProposalStatus(id, newStatus, catatanFinal);
+    }
 
     showToast(
       newStatus === 'Disetujui'
@@ -1034,8 +1146,10 @@ export default function DashboardPembina({
     String(a.jabatan || '').toLowerCase().includes('bendahara')
   );
 
-  const namaKetuaUntukLaporan = ketuaOsisData?.nama || 'Ketua OSIS';
-  const namaBendaharaUntukLaporan = bendaharaData?.nama || 'Bendahara OSIS';
+  const namaKetuaUntukLaporan =
+    ketuaOsisData?.nama || ketuaOsisData?.nama_lengkap || ketuaOsisData?.name || 'Ketua OSIS';
+  const namaBendaharaUntukLaporan =
+    bendaharaData?.nama || bendaharaData?.nama_lengkap || bendaharaData?.name || 'Bendahara OSIS';
 
   const proposalMenungguCount = proposalList.filter(
     (p) =>
@@ -1048,6 +1162,17 @@ export default function DashboardPembina({
     (p) => p.status === 'Disetujui' || p.status === 'Diterima'
   ).length;
 
+  // Filter Proker berdasarkan periode dari Ketua OSIS
+  const daftarPeriodeTersedia = Array.from(
+    new Set(['Mingguan', 'Bulanan', 'Tahunan', ...prokerList.map((pk) => getPeriodeProker(pk))])
+  );
+  const filteredProkerList =
+    filterPeriodeProker === 'Semua'
+      ? prokerList
+      : prokerList.filter(
+          (pk) => getPeriodeProker(pk).toLowerCase() === filterPeriodeProker.toLowerCase()
+        );
+
   const menuList = [
     { id: 'beranda', label: 'Beranda Utama', IconComponent: SvgHome },
     { id: 'persetujuan-proposal', label: 'Persetujuan Proposal', IconComponent: SvgProposal },
@@ -1056,7 +1181,6 @@ export default function DashboardPembina({
     { id: 'kegiatan', label: 'Kegiatan OSIS', IconComponent: SvgKegiatan },
     { id: 'laporan-keuangan', label: 'Laporan Keuangan', IconComponent: SvgKeuangan },
   ];
-
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-100/90 font-sans text-slate-800 selection:bg-[#2158B8] selection:text-white">
       {/* NOTIFIKASI TOAST MELAYANG */}
@@ -1144,7 +1268,6 @@ export default function DashboardPembina({
               </p>
             </div>
           </div>
-
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(false)}
@@ -1307,7 +1430,7 @@ export default function DashboardPembina({
               <div
                 onClick={() => setActiveMenu('laporan-keuangan')}
                 className="relative overflow-hidden bg-gradient-to-br from-[#249ea0] via-[#34c6c8] to-[#7ce8ea] p-3 sm:p-5 rounded-2xl sm:rounded-3xl shadow-md shadow-[#249ea0]/25 hover:-translate-y-0.5 transition-all duration-300 text-white group flex items-center justify-between gap-2 min-w-0 cursor-pointer"
-                title="Klik untuk membuka Laporan Keuangan & Bukti Nota"
+                title="Klik untuk membuka Laporan Keuangan Bukti Nota"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] sm:text-xs font-bold text-white/95 uppercase tracking-wide leading-tight truncate">
@@ -1542,7 +1665,7 @@ export default function DashboardPembina({
                                   'Proposal disetujui oleh Pembina.'
                                 )
                               }
-                              className="px-3 py-1.5 bg-[#2158B8] hover:bg-[#1B4694] text-white text-xs font-bold rounded-xl transition-all duration-200 active:scale-95 shadow-sm inline-flex items-center space-x-1 cursor-pointer"
+                              className="px-3 py-1.5 bg-[#2158B8] hover:bg-[#184694] text-white text-xs font-bold rounded-xl transition-all duration-200 active:scale-95 shadow-sm inline-flex items-center space-x-1 cursor-pointer"
                             >
                               <SvgCheck />
                               <span>Setujui</span>
@@ -1580,47 +1703,89 @@ export default function DashboardPembina({
           </div>
         )}
 
-        {/* 3. PROGRAM KERJA (READ-ONLY) */}
+        {/* 3. PROGRAM KERJA (SERAGAM DENGAN BENDAHARA & SEKRETARIS + KOLOM PERIODE & FILTER) */}
         {activeMenu === 'program-kerja' && (
           <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0 w-full animate-[fadeIn_0.3s_ease-out]">
-            <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
-              <h3 className="text-sm sm:text-lg font-black text-slate-800">
-                Program Kerja OSIS
-              </h3>
-              <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-[11px] font-bold">
-                Mode Pantau
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-2.5 mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 min-w-0">
+                <h3 className="text-sm sm:text-lg font-black text-slate-800 truncate">
+                  Program Kerja OSIS
+                </h3>
+                <span className="bg-blue-50 text-[#2158B8] text-[10px] sm:text-xs font-extrabold px-2.5 py-1 rounded-xl border border-blue-200 shrink-0">
+                  Total: {filteredProkerList.length} Program Kerja
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="filter-periode-pembina"
+                  className="text-[11px] font-bold text-slate-500 uppercase tracking-wider"
+                >
+                  Periode:
+                </label>
+                <select
+                  id="filter-periode-pembina"
+                  value={filterPeriodeProker}
+                  onChange={(e) => setFilterPeriodeProker(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-slate-50/80 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2158B8] cursor-pointer"
+                >
+                  <option value="Semua">Semua Periode</option>
+                  {daftarPeriodeTersedia.map((per) => (
+                    <option key={per} value={per}>
+                      {per}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="w-full overflow-x-auto pb-1">
-              <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[460px]">
+              <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[540px]">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[10px] sm:text-[11px] bg-slate-100/70">
                     <th className="py-3 px-4 rounded-l-xl">Program Kerja</th>
                     <th className="py-3 px-4">Divisi / Sekbid</th>
-                    <th className="py-3 px-4 rounded-r-xl">Target Pelaksanaan</th>
+                    <th className="py-3 px-4 text-center">Target Pelaksanaan</th>
+                    <th className="py-3 px-4 text-center rounded-r-xl">Periode</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {prokerList.length === 0 ? (
+                  {filteredProkerList.length === 0 ? (
                     <tr>
-                      <td colSpan="3" className="py-12 text-center text-slate-400 font-medium">
-                        Belum ada data program kerja dari Ketua OSIS.
+                      <td colSpan="4" className="py-12 text-center text-slate-400 font-medium">
+                        {prokerList.length === 0
+                          ? 'Belum ada data program kerja dari Ketua OSIS.'
+                          : `Tidak ada program kerja untuk periode "${filterPeriodeProker}".`}
                       </td>
                     </tr>
                   ) : (
-                    prokerList.map((pk) => (
-                      <tr key={pk.id} className="hover:bg-blue-50/40 transition-colors">
-                        <td className="py-3.5 px-4 font-bold text-slate-800">
-                          {pk.nama_proker || pk.nama}
-                        </td>
-                        <td className="py-3.5 px-4 font-semibold text-[#2158B8]">
-                          {pk.divisi || pk.sekbid || 'Umum'}
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap">
-                          {formatTanggal(pk.target || pk.tanggal)}
-                        </td>
-                      </tr>
-                    ))
+                    filteredProkerList.map((pk) => {
+                      const periodeLabel = getPeriodeProker(pk);
+                      return (
+                        <tr key={pk.id} className="hover:bg-blue-50/40 transition-colors">
+                          <td className="py-3.5 px-4 font-bold text-slate-800">
+                            {pk.nama_proker || pk.nama}
+                          </td>
+                          <td className="py-3.5 px-4 font-semibold text-[#2158B8]">
+                            {pk.divisi || pk.sekbid || 'Umum'}
+                          </td>
+                          <td className="py-3.5 px-4 text-center text-slate-600 font-medium whitespace-nowrap">
+                            {formatTanggal(pk.target || pk.tanggal)}
+                          </td>
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                            <span
+                              className={`px-3 py-1 font-bold text-[10px] sm:text-xs rounded-xl inline-block uppercase tracking-wider border ${
+                                periodeLabel === 'Tahunan'
+                                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                  : periodeLabel === 'Bulanan'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : 'bg-blue-50 text-[#2158B8] border-blue-200'
+                              }`}
+                            >
+                              {periodeLabel}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -1628,15 +1793,15 @@ export default function DashboardPembina({
           </div>
         )}
 
-        {/* 4. ANGGOTA OSIS (READ-ONLY) */}
+        {/* 4. ANGGOTA OSIS (SERAGAM DENGAN BENDAHARA & SEKRETARIS) */}
         {activeMenu === 'anggota-osis' && (
           <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0 w-full animate-[fadeIn_0.3s_ease-out]">
             <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
               <h3 className="text-sm sm:text-lg font-black text-slate-800">
-                Daftar Pengurus & Anggota OSIS
+                Daftar Pengurus &amp; Anggota OSIS
               </h3>
-              <span className="bg-blue-50 text-[#2158B8] border border-blue-200 px-3 py-1 rounded-full text-xs font-extrabold">
-                {anggotaList.length} Anggota
+              <span className="bg-blue-50 text-[#2158B8] border border-blue-200 px-3 py-1 rounded-full text-xs font-extrabold shrink-0">
+                Total: {anggotaList.length} Anggota
               </span>
             </div>
             <div className="w-full overflow-x-auto pb-1">
@@ -1660,14 +1825,18 @@ export default function DashboardPembina({
                     anggotaList.map((a) => (
                       <tr key={a.id} className="hover:bg-blue-50/40 transition-colors">
                         <td className="py-3.5 px-4 text-slate-500 font-mono whitespace-nowrap">
-                          {a.nis || '-'}
+                          {a.nis || a.nisn || '-'}
                         </td>
-                        <td className="py-3.5 px-4 font-bold text-slate-800">{a.nama}</td>
-                        <td className="py-3.5 px-4 text-slate-700 font-semibold">
-                          {a.jabatan || '-'}
+                        <td className="py-3.5 px-4 font-bold text-slate-800">
+                          {a.nama || a.nama_lengkap || a.name || '-'}
                         </td>
-                        <td className="py-3.5 px-4 text-slate-600 font-medium">
-                          {a.sekbid || a.divisi || '-'}
+                        <td className="py-3.5 px-4">
+                          <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[10px] sm:text-xs rounded-xl inline-block">
+                            {a.jabatan || '-'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-[#2158B8] font-semibold">
+                          {a.sekbid || a.divisi || a.kelas || '-'}
                         </td>
                       </tr>
                     ))
@@ -1684,7 +1853,7 @@ export default function DashboardPembina({
             <div className="flex items-center space-x-2.5 mb-5 pb-3 border-b border-slate-100">
               <span className="w-2.5 h-2.5 rounded-full bg-[#2158B8] shrink-0" />
               <h3 className="text-sm sm:text-lg font-black text-slate-800 truncate">
-                Daftar Kegiatan OSIS & Pendaftar Siswa
+                Daftar Kegiatan OSIS &amp; Pendaftar Siswa
               </h3>
             </div>
             {kegiatanList.length === 0 ? (
@@ -1729,7 +1898,7 @@ export default function DashboardPembina({
                           type="button"
                           title="Lihat Daftar Peserta"
                           onClick={() => setSelectedKegiatanPeserta(k)}
-                          className="px-3.5 py-2 bg-[#2158B8] hover:bg-[#1B4694] text-white rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 shadow-sm shadow-blue-600/20 inline-flex items-center space-x-1.5 cursor-pointer shrink-0"
+                          className="px-3.5 py-2 bg-[#2158B8] hover:bg-[#184694] text-white rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 shadow-sm shadow-blue-600/20 inline-flex items-center space-x-1.5 cursor-pointer shrink-0"
                         >
                           <SvgUsersGroup />
                           <span>Peserta ({pesertaKegiatan.length})</span>
@@ -1743,7 +1912,7 @@ export default function DashboardPembina({
           </div>
         )}
 
-        {/* 6. LAPORAN KEUANGAN (READ-ONLY + CETAK PDF & LAMPIRAN NOTA TERSINKRON BENDAHARA) */}
+        {/* 6. LAPORAN KEUANGAN (READ-ONLY + CETAK PDF LAMPIRAN NOTA TERSINKRON BENDAHARA) */}
         {activeMenu === 'laporan-keuangan' && (
           <div className="animate-[fadeIn_0.3s_ease-out] min-w-0">
             <PanelKeuanganReadOnly
@@ -1801,7 +1970,7 @@ export default function DashboardPembina({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 px-4 rounded-2xl font-bold text-xs sm:text-sm text-white bg-[#2158B8] hover:bg-[#1B4694] shadow-lg shadow-blue-600/25 transition-all active:scale-95 cursor-pointer"
+                  className="flex-1 py-2.5 px-4 rounded-2xl font-bold text-xs sm:text-sm text-white bg-[#2158B8] hover:bg-[#184694] shadow-lg shadow-blue-600/25 transition-all active:scale-95 cursor-pointer"
                 >
                   Kirim Revisi
                 </button>
@@ -1947,7 +2116,7 @@ export default function DashboardPembina({
             <div className="space-y-2.5 pt-1">
               <label
                 htmlFor="avatar-input-pembina"
-                className="w-full py-2.5 bg-[#2158B8] hover:bg-[#1B4694] text-white rounded-2xl font-bold text-xs flex items-center justify-center cursor-pointer shadow-lg shadow-blue-600/30 active:scale-95 transition-all"
+                className="w-full py-2.5 bg-[#2158B8] hover:bg-[#184694] text-white rounded-2xl font-bold text-xs flex items-center justify-center cursor-pointer shadow-lg shadow-blue-600/30 active:scale-95 transition-all"
               >
                 Ganti / Unggah Foto Baru
               </label>

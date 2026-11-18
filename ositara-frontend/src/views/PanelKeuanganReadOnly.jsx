@@ -45,16 +45,20 @@ const normalizeNominal = (item) => {
 const normalizeSumberKategori = (item) => {
   const raw = String(
     item?.kategori_sumber || item?.sumber || item?.sumber_dana || 'Kas OSIS'
-  );
-  if (raw.toLowerCase().includes('sekolah') || raw.toLowerCase().includes('bos'))
-    return 'Dana Sekolah';
-  if (raw.toLowerCase().includes('sponsor')) return 'Sponsor';
-  if (raw.toLowerCase().includes('kas')) return 'Kas OSIS';
+  )
+    .toLowerCase()
+    .trim();
+  if (raw.includes('dana sekolah') || raw.includes('bos')) return 'Dana Sekolah';
+  if (raw.includes('sponsor')) return 'Sponsor';
+  if (raw.includes('kas')) return 'Kas OSIS';
   return 'Lainnya';
 };
 
 const normalizeSumberLabel = (item) => {
-  return item?.sumber || item?.kategori_sumber || item?.sumber_dana || 'Kas OSIS';
+  const label = String(
+    item?.sumber || item?.kategori_sumber || item?.sumber_dana || ''
+  ).trim();
+  return label || 'Kas OSIS';
 };
 
 const getStorageBaseUrl = () => {
@@ -155,7 +159,7 @@ const readOverridesSafe = (storageKey) => {
   }
 };
 
-// Menggabungkan & menduplikasi transaksi dari berbagai sumber tanpa menghilangkan pengeluaran & bukti nota
+// Menggabungkan & menduplikasi transaksi dari berbagai sumber tanpa menghilangkan bukti nota
 const mergeAndDedupeKeuangan = (...sources) => {
   const overridesV1 = readOverridesSafe(OVERRIDE_CACHE_KEY);
   const overridesLegacy = readOverridesSafe('ositara_keuangan_overrides');
@@ -182,7 +186,12 @@ const mergeAndDedupeKeuangan = (...sources) => {
 
       const jenisFix = normalizeJenis(item);
       const nomFix = normalizeNominal(item);
-      const notaFix = jenisFix === 'Pengeluaran' ? normalizeBuktiNota(item) : '';
+      const notaFix = normalizeBuktiNota(item);
+      const ketFix = String(item?.keterangan || '').trim() || '-';
+      const tglFix =
+        String(item?.tanggal || new Date().toISOString().split('T')[0])
+          .split('T')[0]
+          .split(' ')[0] || '-';
 
       const normalizedItem = {
         ...item,
@@ -193,6 +202,8 @@ const mergeAndDedupeKeuangan = (...sources) => {
         kategori: jenisFix,
         nominal: nomFix,
         jumlah: nomFix,
+        keterangan: ketFix,
+        tanggal: tglFix,
         sumber: normalizeSumberLabel(item),
         kategori_sumber: normalizeSumberKategori(item),
         bukti_nota: notaFix,
@@ -243,20 +254,54 @@ export default function PanelKeuanganReadOnly({
   const bendaharaDisplay = namaBendahara || namaBendaharaOsis || 'Bendahara OSIS';
 
   const [serverList, setServerList] = useState([]);
+  const [hasServerResponded, setHasServerResponded] = useState(false);
   const [localTick, setLocalTick] = useState(0);
 
   const syncedList = useMemo(() => {
     void localTick;
-    return mergeAndDedupeKeuangan(readAllLocalKeuangan(), serverList, keuanganList);
-  }, [keuanganList, serverList, localTick]);
+    const localItems = readAllLocalKeuangan();
+
+    // Jika server sudah merespons dan memiliki data, jadikan server sebagai acuan utama
+    // (sehingga jika data dihapus di database server, tampilan ikut menyesuaikan)
+    if (hasServerResponded && serverList.length > 0) {
+      const notaById = new Map();
+      const notaByFp = new Map();
+      localItems.forEach((loc) => {
+        const n = normalizeBuktiNota(loc);
+        if (!n) return;
+        if (loc.id !== undefined && loc.id !== null) notaById.set(String(loc.id), n);
+        notaByFp.set(getFingerprint(loc), n);
+      });
+
+      const enrichedServer = serverList.map((srv) => {
+        const existingNota = normalizeBuktiNota(srv);
+        if (existingNota) return srv;
+        const matchedNota =
+          (srv.id !== undefined && srv.id !== null && notaById.get(String(srv.id))) ||
+          notaByFp.get(getFingerprint(srv)) ||
+          '';
+        return matchedNota ? { ...srv, bukti_nota: matchedNota } : srv;
+      });
+
+      return mergeAndDedupeKeuangan(enrichedServer);
+    }
+
+    // Jika server masih kosong (0 rows) atau offline, tetap baca data dari Bendahara (localStorage / props)
+    return mergeAndDedupeKeuangan(localItems, serverList, keuanganList);
+  }, [keuanganList, serverList, hasServerResponded, localTick]);
 
   // Ambil data terbaru langsung dari backend API /keuangan
   const fetchKeuanganServer = useCallback(async () => {
     try {
       const res = await api.get('/keuangan');
-      const raw = res?.data?.data || res?.data || [];
+      const raw = res?.data?.data ?? res?.data;
       if (Array.isArray(raw)) {
         setServerList(raw);
+        setHasServerResponded(true);
+        if (raw.length > 0) {
+          const cleanCache = mergeAndDedupeKeuangan(raw);
+          localStorage.setItem('ositara_keuangan_list', JSON.stringify(cleanCache));
+        }
       }
     } catch {
       // Jika offline, tetap gunakan data lokal
@@ -272,6 +317,7 @@ export default function PanelKeuanganReadOnly({
   useEffect(() => {
     const handleStorageSync = () => {
       setLocalTick((prev) => prev + 1);
+      fetchKeuanganServer();
     };
 
     window.addEventListener('storage', handleStorageSync);
@@ -279,7 +325,10 @@ export default function PanelKeuanganReadOnly({
     window.addEventListener('ositara-keuangan-updated', handleStorageSync);
     window.addEventListener('storage_keuangan_updated', handleStorageSync);
 
-    const interval = setInterval(handleStorageSync, 1500);
+    const interval = setInterval(() => {
+      setLocalTick((prev) => prev + 1);
+      fetchKeuanganServer();
+    }, 2500);
 
     return () => {
       clearInterval(interval);
@@ -288,7 +337,7 @@ export default function PanelKeuanganReadOnly({
       window.removeEventListener('ositara-keuangan-updated', handleStorageSync);
       window.removeEventListener('storage_keuangan_updated', handleStorageSync);
     };
-  }, []);
+  }, [fetchKeuanganServer]);
 
   const [selectedSumber, setSelectedSumber] = useState('Semua');
   const [selectedJenis, setSelectedJenis] = useState('Semua');
@@ -372,7 +421,9 @@ export default function PanelKeuanganReadOnly({
   const filteredTransaksi = useMemo(() => {
     return syncedList.filter((item) => {
       const matchSumber =
-        selectedSumber === 'Semua' || normalizeSumberKategori(item) === selectedSumber;
+        selectedSumber === 'Semua' ||
+        normalizeSumberKategori(item) === selectedSumber ||
+        normalizeSumberLabel(item).toLowerCase() === selectedSumber.toLowerCase();
       const matchJenis =
         selectedJenis === 'Semua' || normalizeJenis(item) === selectedJenis;
       return matchSumber && matchJenis;
@@ -386,7 +437,8 @@ export default function PanelKeuanganReadOnly({
       .filter((item) => {
         if (
           laporanSumberFilter !== 'Semua' &&
-          normalizeSumberKategori(item) !== laporanSumberFilter
+          normalizeSumberKategori(item) !== laporanSumberFilter &&
+          normalizeSumberLabel(item).toLowerCase() !== laporanSumberFilter.toLowerCase()
         )
           return false;
         if (laporanJenisFilter !== 'Semua' && normalizeJenis(item) !== laporanJenisFilter)
@@ -414,7 +466,7 @@ export default function PanelKeuanganReadOnly({
         _isMasuk: isMasuk,
         _nominal: nom,
         _saldoBerjalan: saldoBerjalan,
-        _notaUrl: !isMasuk ? normalizeBuktiNota(item) : '',
+        _notaUrl: normalizeBuktiNota(item),
       });
       return acc;
     }, []);
@@ -473,11 +525,11 @@ export default function PanelKeuanganReadOnly({
             <td style="text-align:center;white-space:nowrap;">${formatTanggalDash(item.tanggal)}</td>
             <td>${normalizeSumberLabel(item)}</td>
             <td>${item.keterangan || '-'}</td>
-            <td style="text-align:center;color:${lampIndex >= 0 ? '#1d4ed8' : '#64748b'};font-weight:${lampIndex >= 0 ? 'bold' : 'normal'};">
-              ${lampIndex >= 0 ? `Lampiran ${lampIndex + 1}` : '-'}
+            <td style="text-align:center;color:${lampIndex >= 0 ? '#1d4ed8' : '#475569'};font-weight:${lampIndex >= 0 ? 'bold' : 'normal'};">
+              ${lampIndex >= 0 ? `Lampiran ${lampIndex + 1}` : 'Tercatat Sistem'}
             </td>
-            <td style="text-align:right;color:#047857;font-weight:bold;white-space:nowrap;">${item._isMasuk ? `+${nom}` : '-'}</td>
-            <td style="text-align:right;color:#be123c;font-weight:bold;white-space:nowrap;">${!item._isMasuk ? `-${nom}` : '-'}</td>
+            <td style="text-align:right;color:#047857;font-weight:bold;white-space:nowrap;">${item._isMasuk ? `+${nom}` : 'Rp 0'}</td>
+            <td style="text-align:right;color:#be123c;font-weight:bold;white-space:nowrap;">${!item._isMasuk ? `-${nom}` : 'Rp 0'}</td>
             <td style="text-align:right;font-weight:bold;white-space:nowrap;">${formatRupiah(item._saldoBerjalan)}</td>
           </tr>
         `;
@@ -489,7 +541,7 @@ export default function PanelKeuanganReadOnly({
         ? `
           <div style="margin-top:28px;border-top:2px solid #0f172a;padding-top:14px;page-break-inside:avoid;">
             <h4 style="margin:0 0 12px 0;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">
-              LAMPIRAN BUKTI NOTA PENGELUARAN (${laporanNotaList.length} BUKTI TRANSAKSI)
+              LAMPIRAN BUKTI NOTA TRANSAKSI (${laporanNotaList.length} BUKTI TRANSAKSI)
             </h4>
             <div style="display:grid;grid-template-columns: repeat(3,1fr);gap:12px;">
               ${laporanNotaList
@@ -501,7 +553,7 @@ export default function PanelKeuanganReadOnly({
                   </div>
                   <div style="font-size:11px;font-weight:bold;color:#0f172a;">Lampiran ${idx + 1}. ${n.keterangan || '-'}</div>
                   <div style="font-size:10px;color:#475569;margin-top:2px;">${formatTanggalDash(n.tanggal)} &bull; ${normalizeSumberLabel(n)}</div>
-                  <div style="font-size:11px;color:#be123c;font-weight:bold;margin-top:2px;">- ${formatRupiah(n._nominal)}</div>
+                  <div style="font-size:11px;color:${n._isMasuk ? '#047857' : '#be123c'};font-weight:bold;margin-top:2px;">${n._isMasuk ? '+' : '-'} ${formatRupiah(n._nominal)}</div>
                 </div>
               `
                 )
@@ -681,14 +733,14 @@ export default function PanelKeuanganReadOnly({
       ctx.fillText(formatTanggalDash(item.tanggal), 96, y + 23);
       ctx.fillText(normalizeSumberLabel(item).slice(0, 16), 190, y + 23);
       ctx.fillText(String(item.keterangan || '-').slice(0, 34), 320, y + 23);
-      ctx.fillStyle = lampIdx >= 0 ? '#1d4ed8' : '#94a3b8';
-      ctx.fillText(lampIdx >= 0 ? `Lampiran ${lampIdx + 1}` : '-', 595, y + 23);
-      ctx.fillStyle = item._isMasuk ? '#047857' : '#94a3b8';
+      ctx.fillStyle = lampIdx >= 0 ? '#1d4ed8' : '#64748b';
+      ctx.fillText(lampIdx >= 0 ? `Lampiran ${lampIdx + 1}` : 'Tercatat', 595, y + 23);
+      ctx.fillStyle = item._isMasuk ? '#047857' : '#64748b';
       ctx.font = item._isMasuk ? 'bold 12px sans-serif' : '12px sans-serif';
-      ctx.fillText(item._isMasuk ? `+${formatRupiah(item._nominal)}` : '-', 665, y + 23);
-      ctx.fillStyle = !item._isMasuk ? '#be123c' : '#94a3b8';
+      ctx.fillText(item._isMasuk ? `+${formatRupiah(item._nominal)}` : 'Rp 0', 665, y + 23);
+      ctx.fillStyle = !item._isMasuk ? '#be123c' : '#64748b';
       ctx.font = !item._isMasuk ? 'bold 12px sans-serif' : '12px sans-serif';
-      ctx.fillText(!item._isMasuk ? `-${formatRupiah(item._nominal)}` : '-', 805, y + 23);
+      ctx.fillText(!item._isMasuk ? `-${formatRupiah(item._nominal)}` : 'Rp 0', 805, y + 23);
       ctx.fillStyle = '#0f172a';
       ctx.font = 'bold 12px sans-serif';
       ctx.fillText(formatRupiah(item._saldoBerjalan), 955, y + 23);
@@ -714,7 +766,7 @@ export default function PanelKeuanganReadOnly({
       ctx.textAlign = 'left';
       ctx.font = 'bold 13px sans-serif';
       ctx.fillText(
-        `LAMPIRAN BUKTI NOTA PENGELUARAN (${validNotas.length} BUKTI TRANSAKSI)`,
+        `LAMPIRAN BUKTI NOTA TRANSAKSI (${validNotas.length} BUKTI TRANSAKSI)`,
         45,
         y
       );
@@ -744,9 +796,9 @@ export default function PanelKeuanganReadOnly({
           cx + 10,
           cy + 196
         );
-        ctx.fillStyle = '#be123c';
+        ctx.fillStyle = item._isMasuk ? '#047857' : '#be123c';
         ctx.font = 'bold 11px sans-serif';
-        ctx.fillText(`- ${formatRupiah(item._nominal)}`, cx + 10, cy + 214);
+        ctx.fillText(`${item._isMasuk ? '+' : '-'} ${formatRupiah(item._nominal)}`, cx + 10, cy + 214);
       });
     }
 
@@ -771,7 +823,7 @@ export default function PanelKeuanganReadOnly({
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Data &amp; bukti nota tersinkron langsung dari pencatatan Bendahara OSIS. Anda dapat
+            Data &amp; bukti nota tersinkron langsung dari pencatatan Bendahara OSIS &amp; database server. Anda dapat
             memfilter dan mengekspor laporan resmi.
           </p>
         </div>
@@ -862,7 +914,7 @@ export default function PanelKeuanganReadOnly({
               ) : (
                 filteredTransaksi.map((item, idx) => {
                   const isMasuk = normalizeJenis(item) === 'Pemasukan';
-                  const notaUrl = !isMasuk ? normalizeBuktiNota(item) : '';
+                  const notaUrl = normalizeBuktiNota(item);
                   return (
                     <tr key={item.id || idx} className="hover:bg-blue-50/40">
                       <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
@@ -892,7 +944,7 @@ export default function PanelKeuanganReadOnly({
                             Lihat Nota
                           </button>
                         ) : (
-                          <span className="text-xs text-slate-400">-</span>
+                          <span className="text-xs text-slate-500 font-medium">Tercatat</span>
                         )}
                       </td>
                       <td
@@ -917,7 +969,7 @@ export default function PanelKeuanganReadOnly({
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
             <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div>
-                <h4 className="text-sm font-black text-slate-800">Bukti Nota Pengeluaran</h4>
+                <h4 className="text-sm font-black text-slate-800">Bukti Nota Transaksi</h4>
                 <p className="text-xs text-slate-500">
                   {previewNotaModal.keterangan} &bull; {formatRupiah(previewNotaModal.nominal)}
                 </p>
@@ -1164,14 +1216,14 @@ export default function PanelKeuanganReadOnly({
                                     Lampiran {lampIndex + 1}
                                   </button>
                                 ) : (
-                                  '-'
+                                  'Tercatat Sistem'
                                 )}
                               </td>
                               <td className="border border-slate-700 py-2 px-2 text-right text-emerald-800 font-bold whitespace-nowrap">
-                                {item._isMasuk ? `+${formatRupiah(item._nominal)}` : '-'}
+                                {item._isMasuk ? `+${formatRupiah(item._nominal)}` : 'Rp 0'}
                               </td>
                               <td className="border border-slate-700 py-2 px-2 text-right text-rose-800 font-bold whitespace-nowrap">
-                                {!item._isMasuk ? `-${formatRupiah(item._nominal)}` : '-'}
+                                {!item._isMasuk ? `-${formatRupiah(item._nominal)}` : 'Rp 0'}
                               </td>
                               <td className="border border-slate-700 py-2 px-2 text-right font-bold whitespace-nowrap">
                                 {formatRupiah(item._saldoBerjalan)}
@@ -1200,11 +1252,11 @@ export default function PanelKeuanganReadOnly({
                   </div>
                 </div>
 
-                {/* LAMPIRAN BUKTI NOTA PENGELUARAN (GALERI & KAMERA BENDAHARA) */}
+                {/* LAMPIRAN BUKTI NOTA TRANSAKSI (GALERI & KAMERA BENDAHARA) */}
                 {laporanNotaList.length > 0 && (
                   <div className="pt-6 border-t-2 border-slate-900 space-y-3">
                     <h5 className="text-xs font-bold uppercase tracking-wide">
-                      LAMPIRAN BUKTI NOTA PENGELUARAN ({laporanNotaList.length} BUKTI TRANSAKSI)
+                      LAMPIRAN BUKTI NOTA TRANSAKSI ({laporanNotaList.length} BUKTI TRANSAKSI)
                     </h5>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                       {laporanNotaList.map((notaItem, idx) => (
@@ -1233,8 +1285,12 @@ export default function PanelKeuanganReadOnly({
                             {formatTanggalDash(notaItem.tanggal)} &bull;{' '}
                             {normalizeSumberLabel(notaItem)}
                           </p>
-                          <p className="text-[11px] font-bold text-rose-700 font-sans">
-                            - {formatRupiah(notaItem._nominal)}
+                          <p
+                            className={`text-[11px] font-bold font-sans ${
+                              notaItem._isMasuk ? 'text-emerald-700' : 'text-rose-700'
+                            }`}
+                          >
+                            {notaItem._isMasuk ? '+' : '-'} {formatRupiah(notaItem._nominal)}
                           </p>
                         </div>
                       ))}

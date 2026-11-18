@@ -53,6 +53,70 @@ const formatTanggalFormal = () => {
   });
 };
 
+// --- HELPER LINEARITAS PROKER & ANGGOTA DENGAN DASHBOARD PEMBINA & KETUA ---
+const getPeriodeProker = (pk) => {
+  if (!pk || typeof pk !== 'object') return '-';
+  const explicit =
+    pk.periode ||
+    pk.tahun_ajaran ||
+    pk.tahunAjaran ||
+    pk.periode_kepengurusan ||
+    pk.masa_bakti ||
+    '';
+  if (String(explicit).trim()) return String(explicit).trim();
+  const rawDate = String(pk.target || pk.tanggal || pk.created_at || '').split('T')[0];
+  const yearMatch = rawDate.match(/^(\d{4})/);
+  if (yearMatch) {
+    const yr = Number(yearMatch[1]);
+    return `${yr}/${yr + 1}`;
+  }
+  return '-';
+};
+
+const getNisAnggota = (ang) => {
+  if (!ang || typeof ang !== 'object') return '-';
+  return (
+    String(
+      ang.nis ??
+        ang.nisn ??
+        ang.nomor_induk ??
+        ang.nomorInduk ??
+        ang.user?.nis ??
+        ang.siswa?.nis ??
+        ''
+    ).trim() || '-'
+  );
+};
+
+const getNamaAnggota = (ang) => {
+  if (!ang || typeof ang !== 'object') return '-';
+  return (
+    String(
+      ang.nama ||
+        ang.namaLengkap ||
+        ang.nama_lengkap ||
+        ang.name ||
+        ang.user?.name ||
+        ang.user?.nama ||
+        ''
+    ).trim() || '-'
+  );
+};
+
+const getJabatanAnggota = (ang) => {
+  if (!ang || typeof ang !== 'object') return 'Anggota';
+  return (
+    String(ang.jabatan || ang.posisi || ang.role_osis || ang.peran || '').trim() || 'Anggota'
+  );
+};
+
+const getDivisiAnggota = (ang) => {
+  if (!ang || typeof ang !== 'object') return '-';
+  return (
+    String(ang.divisi || ang.sekbid || ang.bidang || ang.departemen || '').trim() || '-'
+  );
+};
+
 // --- NORMALISASI & CACHE TRANSAKSI KEUANGAN ---
 const SEPARATED_CACHE_KEY = 'ositara_keuangan_separated_v2';
 const OVERRIDE_CACHE_KEY = 'ositara_keuangan_overrides_v2';
@@ -93,7 +157,8 @@ const normalizeKategoriSumber = (item) => {
   ).trim();
   const low = raw.toLowerCase();
   if (low === 'kas osis' || low === 'kas' || low === '') return 'Kas OSIS';
-  if (low === 'dana sekolah' || low === 'sekolah' || low === 'anggaran sekolah') return 'Dana Sekolah';
+  if (low === 'dana sekolah' || low === 'sekolah' || low === 'anggaran sekolah')
+    return 'Dana Sekolah';
   if (low === 'sponsor' || low === 'sponsorship') return 'Sponsor';
   return 'Lainnya';
 };
@@ -138,10 +203,20 @@ const saveNotaToCache = (item, dataUrl) => {
 
 const normalizeBuktiNota = (item) => {
   if (!item || typeof item !== 'object') return '';
-  const direct = item.bukti_nota || item.foto_nota || item.nota || item.bukti || '';
+  const direct =
+    item.bukti_nota ||
+    item.foto_nota ||
+    item.nota ||
+    item.bukti ||
+    item.lampiran_nota ||
+    '';
   if (direct && typeof direct === 'string' && direct !== 'data:,') {
-    if (direct.startsWith('data:image') || direct.startsWith('http')) return direct;
-    return `${getStorageBaseUrl()}/${direct.replace(/^\/+/, '')}`;
+    const trimmed = direct.trim();
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return '';
+    if (trimmed.startsWith('data:image') || trimmed.startsWith('http') || trimmed.startsWith('blob:')) {
+      return trimmed;
+    }
+    return `${getStorageBaseUrl()}/${trimmed.replace(/^\/+/, '').replace(/^storage\//, '')}`;
   }
   const map = getNotaCacheMap();
   if (item.id !== undefined && item.id !== null && map[`id:${item.id}`]) {
@@ -192,7 +267,6 @@ const sanitizeKeuanganList = (list) => {
   const seenIds = new Set();
   const seenFps = new Set();
   const result = [];
-
   for (const item of list) {
     if (!item || typeof item !== 'object') continue;
     const ov =
@@ -207,20 +281,16 @@ const sanitizeKeuanganList = (list) => {
           bukti_nota: item.bukti_nota || ov.bukti_nota || '',
         }
       : item;
-
     const idKey = merged.id !== undefined && merged.id !== null ? `id:${merged.id}` : null;
     const fpKey = `fp:${getFingerprint(merged)}`;
-
     if (idKey && seenIds.has(idKey)) continue;
     if (seenFps.has(fpKey)) continue;
     if (idKey) seenIds.add(idKey);
     seenFps.add(fpKey);
-
     const jenisFix = normalizeJenis(merged);
     const nomFix = normalizeNominal(merged);
     const sumberFix = normalizeSumberLabel(merged);
     const katSumberFix = normalizeKategoriSumber(merged);
-
     result.push({
       ...merged,
       id: merged.id ?? `row-${result.length}-${Date.now()}`,
@@ -236,7 +306,7 @@ const sanitizeKeuanganList = (list) => {
       sumber: sumberFix,
       sumber_dana: sumberFix,
       kategori_sumber: katSumberFix,
-      bukti_nota: jenisFix === 'Pengeluaran' ? normalizeBuktiNota(merged) : '',
+      bukti_nota: normalizeBuktiNota(merged),
     });
   }
   return result;
@@ -252,7 +322,6 @@ const syncGlobalKeuanganStorage = (gabunganList, onUpdateKeuanganCallback) => {
         : item.bukti_nota || '',
     foto_nota: '',
   }));
-
   try {
     localStorage.setItem('ositara_keuangan_list', JSON.stringify(cleanAll));
     localStorage.setItem('ositara_keuangan', JSON.stringify(cleanAll));
@@ -266,11 +335,9 @@ const syncGlobalKeuanganStorage = (gabunganList, onUpdateKeuanganCallback) => {
       // Tetap lanjutkan broadcast via callback & event
     }
   }
-
   if (typeof onUpdateKeuanganCallback === 'function') {
     onUpdateKeuanganCallback(cleanAll);
   }
-
   window.dispatchEvent(new Event('ositara_keuangan_updated'));
   window.dispatchEvent(
     new CustomEvent('ositara-keuangan-updated', { detail: { keuanganList: cleanAll } })
@@ -326,7 +393,6 @@ const loadInitialSeparatedKeuangan = (fallbackList = []) => {
   } catch {
     // Lanjut fallback
   }
-
   const globalFallback =
     fallbackList && fallbackList.length > 0
       ? fallbackList
@@ -342,7 +408,6 @@ const loadInitialSeparatedKeuangan = (fallbackList = []) => {
             return [];
           }
         })();
-
   const clean = sanitizeKeuanganList(globalFallback);
   return {
     pemasukan: clean.filter((i) => normalizeJenis(i) === 'Pemasukan'),
@@ -537,7 +602,6 @@ const Icon = ({ type }) => {
       return null;
   }
 };
-
 export default function DashboardBendahara({
   user,
   onLogout,
@@ -590,6 +654,7 @@ export default function DashboardBendahara({
   const [prokerList, setProkerList] = useState(
     Array.isArray(propProker) ? propProker.filter((p) => !isItemKegiatanSekre(p)) : []
   );
+  const [selectedPeriodeProker, setSelectedPeriodeProker] = useState('Semua');
   const [kegiatanList, setKegiatanList] = useState(
     Array.isArray(propKegiatan) && propKegiatan.length > 0
       ? propKegiatan
@@ -611,7 +676,6 @@ export default function DashboardBendahara({
   const [activeTabelKategori, setActiveTabelKategori] = useState('Pemasukan');
   const [showOverviewKeseluruhan, setShowOverviewKeseluruhan] = useState(false);
   const [overviewKategoriFilter, setOverviewKategoriFilter] = useState('Pemasukan');
-
   const [isTambahKasModalOpen, setIsTambahKasModalOpen] = useState(false);
   const [isSumberLocked, setIsSumberLocked] = useState(false);
   const [sumber, setSumber] = useState('Kas OSIS');
@@ -638,7 +702,6 @@ export default function DashboardBendahara({
     buktiNota: '',
   });
   const [isUpdatingKas, setIsUpdatingKas] = useState(false);
-
   const [cameraTarget, setCameraTarget] = useState(null);
   const [capturedPreview, setCapturedPreview] = useState('');
   const [cameraError, setCameraError] = useState('');
@@ -653,7 +716,6 @@ export default function DashboardBendahara({
     sumber: 'Kas OSIS',
     pilihan: 'Pemasukan',
   });
-
   const [previewNotaModal, setPreviewNotaModal] = useState({
     isOpen: false,
     imageUrl: '',
@@ -661,7 +723,6 @@ export default function DashboardBendahara({
     tanggal: '',
     nominal: 0,
   });
-
   const [isLaporanModalOpen, setIsLaporanModalOpen] = useState(false);
   const [isLaporanEditMode, setIsLaporanEditMode] = useState(false);
   const [isSavingDraftToDb, setIsSavingDraftToDb] = useState(false);
@@ -669,20 +730,28 @@ export default function DashboardBendahara({
   const [laporanJenisFilter, setLaporanJenisFilter] = useState('Semua');
   const [laporanPeriodeFilter, setLaporanPeriodeFilter] = useState('semua');
   const [laporanDraftList, setLaporanDraftList] = useState([]);
-
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
     message: '',
     onConfirm: null,
   });
-
   const [selectedKegiatanPeserta, setSelectedKegiatanPeserta] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
-  const showToast = useCallback((message, type = 'success') => {
-    setToast({ show: true, message, type });
+  // Sanitasi notifikasi agar tidak pernah memuntahkan kode Base64 gambar ke layar
+  const showToast = useCallback((rawMessage, type = 'success') => {
+    const text = typeof rawMessage === 'string' ? rawMessage : JSON.stringify(rawMessage || '');
+    const isTooLongOrBase64 =
+      text.includes('data:image') || text.includes(';base64,') || text.length > 160;
+    const safeMessage = isTooLongOrBase64
+      ? type === 'warning'
+        ? 'Transaksi tersimpan lokal & tersinkron ke browser.'
+        : 'Transaksi & bukti nota berhasil dicatat!'
+      : text;
+
+    setToast({ show: true, message: safeMessage, type });
     setTimeout(() => {
       setToast({ show: false, message: '', type: 'success' });
     }, 3400);
@@ -845,23 +914,22 @@ export default function DashboardBendahara({
   useEffect(() => {
     if (hasFetchedServerRef.current) return;
     hasFetchedServerRef.current = true;
-
     let isMounted = true;
     const fetchInitialData = async () => {
       try {
-        const [resKeu, resProp, resProk, resAng, resPend] = await Promise.allSettled([
-          api.get('/keuangan'),
-          api.get('/proposal'),
-          api.get('/program-kerja'),
-          api.get('/pengurus'),
-          api.get('/pendaftaran'),
-        ]);
-
+        const [resKeu, resProp, resProk, resAng, resAngFallback, resPend] =
+          await Promise.allSettled([
+            api.get('/keuangan'),
+            api.get('/proposal'),
+            api.get('/program-kerja'),
+            api.get('/pengurus'),
+            api.get('/anggota'),
+            api.get('/pendaftaran'),
+          ]);
         if (!isMounted) return;
-
         if (resKeu.status === 'fulfilled') {
           const rawKeu = resKeu.value?.data?.data || resKeu.value?.data || [];
-          if (Array.isArray(rawKeu)) {
+          if (Array.isArray(rawKeu) && rawKeu.length > 0) {
             const clean = sanitizeKeuanganList(rawKeu);
             const masuk = clean.filter((i) => normalizeJenis(i) === 'Pemasukan');
             const keluar = clean.filter((i) => normalizeJenis(i) === 'Pengeluaran');
@@ -880,9 +948,22 @@ export default function DashboardBendahara({
             setKegiatanList(rawProk.filter((p) => isItemKegiatanSekre(p)));
           }
         }
-        if (resAng.status === 'fulfilled') {
-          const rawAng = resAng.value?.data?.data || resAng.value?.data || [];
-          if (Array.isArray(rawAng)) setAnggotaList(rawAng);
+        const rawPengurus =
+          resAng.status === 'fulfilled'
+            ? resAng.value?.data?.data || resAng.value?.data || []
+            : [];
+        const rawAnggota =
+          resAngFallback.status === 'fulfilled'
+            ? resAngFallback.value?.data?.data || resAngFallback.value?.data || []
+            : [];
+        const finalAnggota =
+          Array.isArray(rawPengurus) && rawPengurus.length > 0
+            ? rawPengurus
+            : Array.isArray(rawAnggota)
+            ? rawAnggota
+            : [];
+        if (finalAnggota.length > 0) {
+          setAnggotaList(finalAnggota);
         }
         if (resPend.status === 'fulfilled') {
           const rawPend = resPend.value?.data?.data || resPend.value?.data || [];
@@ -892,7 +973,6 @@ export default function DashboardBendahara({
         // Tetap gunakan state lokal jika offline
       }
     };
-
     fetchInitialData();
     return () => {
       isMounted = false;
@@ -954,10 +1034,8 @@ export default function DashboardBendahara({
       showToast('Silakan lengkapi keterangan dan nominal yang valid!', 'warning');
       return;
     }
-
     isSubmittingRef.current = true;
     setIsSubmitting(true);
-
     const tglFix = tanggalTransaksi || new Date().toISOString().split('T')[0];
     const kategoriSumberFix = isSumberLocked ? selectedSumberDetail : sumber || 'Kas OSIS';
     const sumberLabelFix =
@@ -965,9 +1043,8 @@ export default function DashboardBendahara({
         ? judulSumberCustom.trim() || 'Lainnya'
         : kategoriSumberFix;
     const jenisFix = jenisTransaksi === 'Pengeluaran' ? 'Pengeluaran' : 'Pemasukan';
-    const notaKandidat =
+    const notaFix =
       buktiNota || (cameraTarget === 'tambah' && capturedPreview ? capturedPreview : '');
-    const notaFix = jenisFix === 'Pengeluaran' ? notaKandidat : '';
 
     const payload = {
       tanggal: tglFix,
@@ -988,13 +1065,11 @@ export default function DashboardBendahara({
       ...payload,
       bukti_nota: notaFix,
     };
-
     saveLocalOverride(recordLokalAwal);
     if (notaFix) saveNotaToCache(recordLokalAwal, notaFix);
 
     let currentMasuk = pemasukanList;
     let currentKeluar = pengeluaranList;
-
     if (jenisFix === 'Pengeluaran') {
       currentKeluar = sanitizeKeuanganList([recordLokalAwal, ...pengeluaranList]);
       setPengeluaranList(currentKeluar);
@@ -1012,7 +1087,6 @@ export default function DashboardBendahara({
     let resData = null;
     let dbSaved = false;
     let serverErrorMsg = '';
-
     try {
       const axiosRes = await api.post('/keuangan', payload);
       if (axiosRes && axiosRes.status >= 200 && axiosRes.status < 300) {
@@ -1055,7 +1129,6 @@ export default function DashboardBendahara({
       };
       saveLocalOverride(recordSynced);
       if (notaFix) saveNotaToCache(recordSynced, notaFix);
-
       if (jenisFix === 'Pengeluaran') {
         const updatedKeluar = sanitizeKeuanganList(
           currentKeluar.map((it) => (it.id === tempLocalId ? recordSynced : it))
@@ -1085,8 +1158,8 @@ export default function DashboardBendahara({
     } else {
       showToast(
         serverErrorMsg
-          ? `Tersimpan lokal, namun server menolak: ${serverErrorMsg}`
-          : 'Tersimpan sementara di perangkat (pastikan php artisan serve aktif).',
+          ? `Tersimpan lokal: ${serverErrorMsg}`
+          : 'Transaksi tersimpan lokal & tersinkron ke browser.',
         'warning'
       );
     }
@@ -1122,7 +1195,6 @@ export default function DashboardBendahara({
       showToast('Lengkapi keterangan dan nominal transaksi!', 'warning');
       return;
     }
-
     setIsUpdatingKas(true);
     const kategoriSumberFix = editKasModal.sumber || 'Kas OSIS';
     const sumberLabelFix =
@@ -1130,9 +1202,8 @@ export default function DashboardBendahara({
         ? editKasModal.judulSumberCustom.trim() || 'Lainnya'
         : kategoriSumberFix;
     const jenisFix = editKasModal.jenis === 'Pengeluaran' ? 'Pengeluaran' : 'Pemasukan';
-    const notaKandidatEdit =
+    const notaFix =
       editKasModal.buktiNota || (cameraTarget === 'edit' && capturedPreview ? capturedPreview : '');
-    const notaFix = jenisFix === 'Pengeluaran' ? notaKandidatEdit : '';
 
     const updatedRecord = {
       id: editKasModal.id,
@@ -1147,7 +1218,6 @@ export default function DashboardBendahara({
       jumlah: nominalNum,
       bukti_nota: notaFix || null,
     };
-
     saveLocalOverride({ ...updatedRecord, bukti_nota: notaFix });
     if (notaFix) saveNotaToCache(updatedRecord, notaFix);
 
@@ -1157,7 +1227,6 @@ export default function DashboardBendahara({
     const nextAll = sanitizeKeuanganList([{ ...updatedRecord, bukti_nota: notaFix }, ...tanpaId]);
     const nextMasuk = nextAll.filter((i) => normalizeJenis(i) === 'Pemasukan');
     const nextKeluar = nextAll.filter((i) => normalizeJenis(i) === 'Pengeluaran');
-
     setPemasukanList(nextMasuk);
     setPengeluaranList(nextKeluar);
 
@@ -1179,6 +1248,7 @@ export default function DashboardBendahara({
     setEditKasModal((prev) => ({ ...prev, isOpen: false }));
     showToast('Perubahan transaksi berhasil disimpan & disinkronkan ke database!');
   };
+
   const handleHapusKas = (item) => {
     setConfirmModal({
       isOpen: true,
@@ -1192,7 +1262,6 @@ export default function DashboardBendahara({
         const nextKeluar = pengeluaranList.filter((i) => i.id !== item.id);
         setPemasukanList(nextMasuk);
         setPengeluaranList(nextKeluar);
-
         if (!String(item.id).startsWith('local-')) {
           try {
             await api.delete(`/keuangan/${item.id}`);
@@ -1354,10 +1423,8 @@ export default function DashboardBendahara({
       showToast('Isi uraian dan nominal lebih dari 0 pada baris draf!', 'warning');
       return;
     }
-
     setIsSavingDraftToDb(true);
     const cleanedDraft = sanitizeKeuanganList(validRows);
-
     const luarFilter = keuanganList.filter((item) => {
       if (laporanSumberFilter !== 'Semua' && normalizeKategoriSumber(item) !== laporanSumberFilter) {
         return true;
@@ -1367,7 +1434,6 @@ export default function DashboardBendahara({
       }
       return false;
     });
-
     const syncedDraftRows = [];
     for (const row of cleanedDraft) {
       const payloadRow = {
@@ -1377,7 +1443,7 @@ export default function DashboardBendahara({
         kategori_sumber: normalizeKategoriSumber(row),
         jenis: normalizeJenis(row),
         nominal: normalizeNominal(row),
-        bukti_nota: normalizeJenis(row) === 'Pengeluaran' ? row.bukti_nota || null : null,
+        bukti_nota: row.bukti_nota || null,
       };
       if (String(row.id).startsWith('local-')) {
         try {
@@ -1396,7 +1462,6 @@ export default function DashboardBendahara({
         syncedDraftRows.push(row);
       }
     }
-
     const draftIds = new Set(syncedDraftRows.map((r) => String(r.id)));
     const dalamFilterSebelumnya = keuanganList.filter((item) => !luarFilter.includes(item));
     for (const oldItem of dalamFilterSebelumnya) {
@@ -1408,11 +1473,9 @@ export default function DashboardBendahara({
         }
       }
     }
-
     const gabunganBaru = sanitizeKeuanganList([...syncedDraftRows, ...luarFilter]);
     const nextMasuk = gabunganBaru.filter((i) => normalizeJenis(i) === 'Pemasukan');
     const nextKeluar = gabunganBaru.filter((i) => normalizeJenis(i) === 'Pengeluaran');
-
     setPemasukanList(nextMasuk);
     setPengeluaranList(nextKeluar);
     setIsSavingDraftToDb(false);
@@ -1438,7 +1501,7 @@ export default function DashboardBendahara({
         _isMasuk: isMasuk,
         _nom: nom,
         _saldoBaris: saldoBaris,
-        _notaSrc: !isMasuk ? normalizeBuktiNota(item) : '',
+        _notaSrc: normalizeBuktiNota(item),
       });
       return acc;
     }, []);
@@ -1447,16 +1510,11 @@ export default function DashboardBendahara({
   const laporanTotalMasuk = laporanRowsWithSaldo
     .filter((i) => i._isMasuk)
     .reduce((acc, c) => acc + c._nom, 0);
-
   const laporanTotalKeluar = laporanRowsWithSaldo
     .filter((i) => !i._isMasuk)
     .reduce((acc, c) => acc + c._nom, 0);
-
   const laporanSaldoAkhir = laporanTotalMasuk - laporanTotalKeluar;
-
-  const laporanNotaList = laporanRowsWithSaldo.filter(
-    (item) => !item._isMasuk && Boolean(item._notaSrc)
-  );
+  const laporanNotaList = laporanRowsWithSaldo.filter((item) => Boolean(item._notaSrc));
 
   const nomorSuratLaporan = useMemo(() => {
     const now = new Date();
@@ -1482,7 +1540,6 @@ export default function DashboardBendahara({
         img.onerror = () => resolve(null);
         img.src = src;
       });
-
     const loadedNotas = await Promise.all(
       laporanNotaList.map(async (item) => ({
         item,
@@ -1490,7 +1547,6 @@ export default function DashboardBendahara({
       }))
     );
     const validNotas = loadedNotas.filter((n) => n.img !== null);
-
     const canvas = document.createElement('canvas');
     const rowHeight = 36;
     const headerHeight = 290;
@@ -1499,33 +1555,26 @@ export default function DashboardBendahara({
     const notaCardH = 240;
     const notaRows = Math.ceil(validNotas.length / notaCols);
     const notaSectionHeight = validNotas.length > 0 ? 75 + notaRows * notaCardH : 0;
-
     const width = 1120;
     const height =
       headerHeight +
       Math.max(1, laporanRowsWithSaldo.length) * rowHeight +
       signatureHeight +
       notaSectionHeight;
-
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
-
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
-
     ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 20px Georgia, serif';
     ctx.textAlign = 'center';
     ctx.fillText('ORGANISASI SISWA INTRA SEKOLAH (OSIS)', width / 2, 46);
-
     ctx.font = 'bold 23px Georgia, serif';
     ctx.fillText('LAPORAN PERTANGGUNGJAWABAN KEUANGAN', width / 2, 76);
-
     ctx.font = '13px sans-serif';
     ctx.fillStyle = '#334155';
     ctx.fillText(`Nomor: ${nomorSuratLaporan}`, width / 2, 100);
-
     ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
@@ -1537,7 +1586,6 @@ export default function DashboardBendahara({
     ctx.moveTo(50, 118);
     ctx.lineTo(width - 50, 118);
     ctx.stroke();
-
     ctx.textAlign = 'left';
     ctx.fillStyle = '#0f172a';
     ctx.font = '13px sans-serif';
@@ -1547,7 +1595,6 @@ export default function DashboardBendahara({
       144
     );
     ctx.fillText(`Periode: ${getLabelPeriode()}`, 50, 164);
-
     ctx.textAlign = 'right';
     ctx.fillText(`Tanggal Cetak: ${formatTanggalFormal()}`, width - 50, 144);
     ctx.fillText(
@@ -1555,13 +1602,11 @@ export default function DashboardBendahara({
       width - 50,
       164
     );
-
     ctx.textAlign = 'left';
     ctx.strokeStyle = '#64748b';
     ctx.strokeRect(50, 182, width - 100, 44);
     ctx.fillStyle = '#f8fafc';
     ctx.fillRect(51, 183, width - 102, 42);
-
     ctx.font = 'bold 13px sans-serif';
     ctx.fillStyle = '#065f46';
     ctx.fillText(`Total Pemasukan: +${formatRupiah(laporanTotalMasuk)}`, 68, 209);
@@ -1575,7 +1620,6 @@ export default function DashboardBendahara({
     ctx.fillRect(50, y - 22, width - 100, 32);
     ctx.strokeStyle = '#475569';
     ctx.strokeRect(50, y - 22, width - 100, 32);
-
     ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 12px sans-serif';
     ctx.fillText('No', 62, y);
@@ -1586,10 +1630,8 @@ export default function DashboardBendahara({
     ctx.fillText('Pemasukan (+)', 660, y);
     ctx.fillText('Pengeluaran (-)', 805, y);
     ctx.fillText('Saldo', 955, y);
-
     y += 32;
     ctx.font = '12px sans-serif';
-
     if (laporanRowsWithSaldo.length === 0) {
       ctx.fillStyle = '#64748b';
       ctx.fillText('Tidak ada data transaksi pada filter laporan yang dipilih.', 62, y);
@@ -1598,27 +1640,21 @@ export default function DashboardBendahara({
       laporanRowsWithSaldo.forEach((row, idx) => {
         ctx.strokeStyle = '#cbd5e1';
         ctx.strokeRect(50, y - 22, width - 100, rowHeight);
-
         ctx.fillStyle = '#0f172a';
         ctx.fillText(String(idx + 1), 62, y);
         ctx.fillText(formatTanggal(row.tanggal), 102, y);
         ctx.fillText(normalizeSumberLabel(row).slice(0, 15), 195, y);
         ctx.fillText(String(row.keterangan || '-').slice(0, 34), 315, y);
-
-        ctx.fillStyle = row._notaSrc ? '#1d4ed8' : '#94a3b8';
-        ctx.fillText(row._notaSrc ? 'Terlampir' : '-', 595, y);
-
-        ctx.fillStyle = row._isMasuk ? '#047857' : '#94a3b8';
-        ctx.fillText(row._isMasuk ? `+${formatRupiah(row._nom)}` : '-', 660, y);
-
-        ctx.fillStyle = !row._isMasuk ? '#be123c' : '#94a3b8';
-        ctx.fillText(!row._isMasuk ? `-${formatRupiah(row._nom)}` : '-', 805, y);
-
+        ctx.fillStyle = row._notaSrc ? '#1d4ed8' : '#64748b';
+        ctx.fillText(row._notaSrc ? 'Terlampir' : 'Tercatat', 595, y);
+        ctx.fillStyle = row._isMasuk ? '#047857' : '#64748b';
+        ctx.fillText(row._isMasuk ? `+${formatRupiah(row._nom)}` : 'Rp 0', 660, y);
+        ctx.fillStyle = !row._isMasuk ? '#be123c' : '#64748b';
+        ctx.fillText(!row._isMasuk ? `-${formatRupiah(row._nom)}` : 'Rp 0', 805, y);
         ctx.fillStyle = '#1e3a8a';
         ctx.font = 'bold 12px sans-serif';
         ctx.fillText(formatRupiah(row._saldoBaris), 955, y);
         ctx.font = '12px sans-serif';
-
         y += rowHeight;
       });
     }
@@ -1627,7 +1663,6 @@ export default function DashboardBendahara({
     ctx.fillRect(50, y - 22, width - 100, 34);
     ctx.strokeStyle = '#475569';
     ctx.strokeRect(50, y - 22, width - 100, 34);
-
     ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 12px sans-serif';
     ctx.fillText('JUMLAH TOTAL MUTASI & SALDO AKHIR', 62, y);
@@ -1637,7 +1672,6 @@ export default function DashboardBendahara({
     ctx.fillText(`-${formatRupiah(laporanTotalKeluar)}`, 805, y);
     ctx.fillStyle = '#1e3a8a';
     ctx.fillText(formatRupiah(laporanSaldoAkhir), 955, y);
-
     y += 46;
     ctx.fillStyle = '#0f172a';
     ctx.font = '12px sans-serif';
@@ -1657,9 +1691,8 @@ export default function DashboardBendahara({
       ctx.textAlign = 'left';
       ctx.fillStyle = '#0f172a';
       ctx.font = 'bold 14px sans-serif';
-      ctx.fillText(`LAMPIRAN BUKTI NOTA PENGELUARAN (${validNotas.length} LAMPIRAN)`, 50, y);
+      ctx.fillText(`LAMPIRAN BUKTI NOTA TRANSAKSI (${validNotas.length} LAMPIRAN)`, 50, y);
       y += 16;
-
       const cardW = 320;
       const gap = 30;
       validNotas.forEach(({ item, img }, idx) => {
@@ -1667,36 +1700,33 @@ export default function DashboardBendahara({
         const row = Math.floor(idx / notaCols);
         const cardX = 50 + col * (cardW + gap);
         const cardY = y + row * notaCardH;
-
-        ctx.strokeStyle = '#94a3b8';
+        ctx.strokeStyle = '#64748b';
         ctx.lineWidth = 1.2;
         ctx.strokeRect(cardX, cardY, cardW, notaCardH - 14);
-
         const imgBoxH = 160;
-        const ratio = Math.min((cardW - 16) / img.width, (imgBoxH - 10) / img.height);
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fillRect(cardX + 8, cardY + 8, cardW - 16, imgBoxH);
+        const ratio = Math.min((cardW - 24) / img.width, (imgBoxH - 12) / img.height);
         const drawW = img.width * ratio;
         const drawH = img.height * ratio;
         const drawX = cardX + (cardW - drawW) / 2;
         const drawY = cardY + 8 + (imgBoxH - drawH) / 2;
-
         ctx.drawImage(img, drawX, drawY, drawW, drawH);
-
         ctx.fillStyle = '#0f172a';
         ctx.font = 'bold 11px sans-serif';
         ctx.fillText(
           `Lampiran ${idx + 1}: ${String(item.keterangan || '-').slice(0, 32)}`,
           cardX + 10,
-          cardY + imgBoxH + 18
+          cardY + imgBoxH + 22
         );
-
-        ctx.fillStyle = '#be123c';
+        ctx.fillStyle = item._isMasuk ? '#047857' : '#be123c';
         ctx.font = 'bold 11px sans-serif';
         ctx.fillText(
           `${normalizeSumberLabel(item)} • ${formatTanggal(item.tanggal)} • ${formatRupiah(
             item._nom
           )}`,
           cardX + 10,
-          cardY + imgBoxH + 36
+          cardY + imgBoxH + 39
         );
       });
     }
@@ -1721,6 +1751,21 @@ export default function DashboardBendahara({
     { id: 'anggota-osis', label: 'Anggota OSIS', icon: 'anggota' },
     { id: 'kegiatan-osis', label: 'Kegiatan OSIS', icon: 'kegiatan' },
   ];
+
+  // Daftar periode unik untuk filter Program Kerja (linear dengan Dashboard Pembina & Ketua)
+  const daftarPeriodeProker = useMemo(() => {
+    const setP = new Set();
+    prokerList.forEach((pk) => {
+      const p = getPeriodeProker(pk);
+      if (p && p !== '-') setP.add(p);
+    });
+    return Array.from(setP);
+  }, [prokerList]);
+
+  const filteredProkerList = useMemo(() => {
+    if (selectedPeriodeProker === 'Semua') return prokerList;
+    return prokerList.filter((pk) => getPeriodeProker(pk) === selectedPeriodeProker);
+  }, [prokerList, selectedPeriodeProker]);
 
   const sumberSummary = getRingkasanBySumber(selectedSumberDetail);
   const overviewFilteredList = keuanganList.filter(
@@ -1752,43 +1797,52 @@ export default function DashboardBendahara({
     sumberSummary.pemasukanList,
     sumberSummary.pengeluaranList
   );
-
   return (
     <div className="min-h-screen bg-[#EEF3FA] flex flex-col lg:flex-row font-sans text-slate-800">
       {toast.show && (
-        <div className="fixed bottom-5 right-5 z-[60] animate-[fadeIn_0.25s_ease-out]">
+        <div className="fixed bottom-5 right-5 z-[60] max-w-md w-[calc(100%-2.5rem)] sm:w-auto animate-[fadeIn_0.25s_ease-out]">
           <div
-            className={`px-4 py-3 rounded-2xl shadow-xl border text-xs sm:text-sm font-bold flex items-center gap-2.5 ${
+            className={`px-4 py-3 rounded-2xl shadow-xl border text-xs sm:text-sm font-bold flex items-center justify-between gap-2.5 ${
               toast.type === 'warning'
                 ? 'bg-amber-50 text-amber-800 border-amber-300'
                 : 'bg-emerald-600 text-white border-emerald-500'
             }`}
           >
-            <span>{toast.message}</span>
+            <span className="line-clamp-2 break-words">{toast.message}</span>
           </div>
         </div>
       )}
 
-      {/* HEADER MOBILE */}
-      <div className="lg:hidden bg-gradient-to-r from-[#1B4694] to-[#2158B8] text-white px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-md">
-        <div className="flex items-center gap-2.5">
-          <img src={logoOsitara} alt="Logo OSITARA" className="w-8 h-8 object-contain" />
-          <div>
-            <span className="font-black text-base tracking-tight block leading-none">
+      {/* HEADER MOBILE & RESPONSIVE 640px (Dilengkapi tombol Logout agar tidak terhalang address bar) */}
+      <div className="lg:hidden bg-gradient-to-r from-[#1B4694] to-[#2158B8] text-white px-4 py-3 flex items-center justify-between gap-2 sticky top-0 z-30 shadow-md">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <img src={logoOsitara} alt="Logo OSITARA" className="w-8 h-8 object-contain shrink-0" />
+          <div className="min-w-0">
+            <span className="font-black text-base tracking-tight block leading-none truncate">
               OSITARA
             </span>
-            <span className="text-[9px] font-bold text-[#FFD43B] uppercase tracking-wider">
+            <span className="text-[9px] font-bold text-[#FFD43B] uppercase tracking-wider block truncate">
               BENDAHARA OSIS
             </span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs cursor-pointer"
-        >
-          {isSidebarOpen ? 'X Tutup' : '☰ Menu'}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onLogout}
+            className="px-2.5 py-1.5 rounded-xl bg-[#E63946] hover:bg-[#D62828] text-white font-black text-xs shadow-xs cursor-pointer flex items-center gap-1"
+            title="Keluar / Logout"
+          >
+            <span>Logout</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs cursor-pointer"
+          >
+            {isSidebarOpen ? 'X Tutup' : '☰ Menu'}
+          </button>
+        </div>
       </div>
 
       {isSidebarOpen && (
@@ -1798,14 +1852,14 @@ export default function DashboardBendahara({
         />
       )}
 
-      {/* SIDEBAR */}
+      {/* SIDEBAR (Responsive 640px: pb-28 agar tombol Logout di bawah aman dari bar alamat browser) */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-40 h-dvh lg:h-screen w-64 bg-gradient-to-b from-[#1B4694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col justify-between gap-4 p-5 pb-24 lg:pb-5 overflow-y-auto shrink-0 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ${
+        className={`fixed lg:sticky top-0 left-0 z-40 h-[100dvh] lg:h-screen w-64 bg-gradient-to-b from-[#1B4694] via-[#2158B8] to-[#3A86EF] text-white flex flex-col justify-between gap-3 p-4 sm:p-5 pb-28 sm:pb-24 lg:pb-5 overflow-y-auto shrink-0 shadow-2xl border-r border-blue-600/40 transition-transform duration-300 ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         <div>
-          <div className="px-1 py-2 mb-6 flex items-center gap-3.5">
+          <div className="px-1 py-2 mb-5 flex items-center gap-3.5">
             <img
               src={logoOsitara}
               alt="Logo OSITARA"
@@ -1820,8 +1874,7 @@ export default function DashboardBendahara({
               </span>
             </div>
           </div>
-
-          <nav className="space-y-2">
+          <nav className="space-y-1.5 sm:space-y-2">
             {menuItems.map((m) => {
               const active = activeMenu === m.id;
               return (
@@ -1833,7 +1886,7 @@ export default function DashboardBendahara({
                     if (m.id === 'catat-kas') setKasSubView('overview');
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center justify-start text-left gap-3.5 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 cursor-pointer ${
+                  className={`w-full flex items-center justify-start text-left gap-3.5 px-4 py-3 sm:py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 cursor-pointer ${
                     active
                       ? 'bg-gradient-to-r from-[#f4d875] to-[#f4d875] text-[#1B4694] shadow-lg shadow-amber-400/40 font-black translate-x-1'
                       : 'text-blue-50 hover:bg-white/15 hover:text-white hover:translate-x-1'
@@ -1846,8 +1899,7 @@ export default function DashboardBendahara({
             })}
           </nav>
         </div>
-
-        <div className="pt-2 shrink-0">
+        <div className="pt-2 shrink-0 mb-2 lg:mb-0">
           <button
             type="button"
             onClick={onLogout}
@@ -1885,7 +1937,6 @@ export default function DashboardBendahara({
                 Ubah
               </div>
             </div>
-
             <div>
               <h2 className="text-base sm:text-2xl font-black text-slate-800 leading-snug">
                 Selamat Datang, <span className="text-[#2158B8]">{namaBendahara}</span>!
@@ -1924,7 +1975,6 @@ export default function DashboardBendahara({
                   ↑
                 </div>
               </button>
-
               <button
                 type="button"
                 onClick={() => handleBukaLaporanDariCard('Pengeluaran')}
@@ -1945,7 +1995,6 @@ export default function DashboardBendahara({
                   ↓
                 </div>
               </button>
-
               <button
                 type="button"
                 onClick={() => handleBukaLaporanDariCard('Semua')}
@@ -2179,7 +2228,6 @@ export default function DashboardBendahara({
                       Klik salah satu kartu untuk membuka tabel rincian keseluruhan
                     </span>
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <button
                       type="button"
@@ -2204,7 +2252,6 @@ export default function DashboardBendahara({
                         ↑
                       </div>
                     </button>
-
                     <button
                       type="button"
                       onClick={() => {
@@ -2228,7 +2275,6 @@ export default function DashboardBendahara({
                         ↓
                       </div>
                     </button>
-
                     <button
                       type="button"
                       onClick={() => {
@@ -2424,7 +2470,9 @@ export default function DashboardBendahara({
                                             <span>Nota</span>
                                           </button>
                                         ) : (
-                                          <span className="text-[11px] text-slate-400">-</span>
+                                          <span className="text-[11px] text-slate-400">
+                                            Tercatat
+                                          </span>
                                         )}
                                       </td>
                                       <td className="py-3 px-3">
@@ -2499,7 +2547,6 @@ export default function DashboardBendahara({
                             </button>
                           </div>
                         </div>
-
                         <div className="grid grid-cols-3 gap-2.5">
                           <button
                             type="button"
@@ -2513,7 +2560,6 @@ export default function DashboardBendahara({
                               {formatRupiah(ringkasan.totalMasuk)}
                             </p>
                           </button>
-
                           <button
                             type="button"
                             onClick={() => handleBukaDetailSumber(namaSumber, 'Pengeluaran')}
@@ -2526,7 +2572,6 @@ export default function DashboardBendahara({
                               {formatRupiah(ringkasan.totalKeluar)}
                             </p>
                           </button>
-
                           <button
                             type="button"
                             onClick={() => handleBukaDetailSumber(namaSumber, 'Saldo')}
@@ -2752,9 +2797,7 @@ export default function DashboardBendahara({
                           <th className="py-3 px-4">Sumber</th>
                           <th className="py-3 px-4">Keterangan</th>
                           <th className="py-3 px-4 text-right">Nominal</th>
-                          {activeTabelKategori === 'Pengeluaran' && (
-                            <th className="py-3 px-4 text-center">Bukti Nota</th>
-                          )}
+                          <th className="py-3 px-4 text-center">Bukti Nota</th>
                           <th className="py-3 px-4 text-center rounded-r-xl">Aksi</th>
                         </tr>
                       </thead>
@@ -2764,10 +2807,7 @@ export default function DashboardBendahara({
                           : sumberSummary.pengeluaranList
                         ).length === 0 ? (
                           <tr>
-                            <td
-                              colSpan={activeTabelKategori === 'Pengeluaran' ? 6 : 5}
-                              className="py-10 text-center text-slate-400"
-                            >
+                            <td colSpan={6} className="py-10 text-center text-slate-400">
                               Belum ada data {activeTabelKategori.toLowerCase()} pada{' '}
                               {selectedSumberDetail}.
                             </td>
@@ -2799,30 +2839,28 @@ export default function DashboardBendahara({
                                   {activeTabelKategori === 'Pemasukan' ? '+' : '-'}
                                   {formatRupiah(normalizeNominal(item))}
                                 </td>
-                                {activeTabelKategori === 'Pengeluaran' && (
-                                  <td className="py-3.5 px-4 text-center">
-                                    {notaUrl ? (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setPreviewNotaModal({
-                                            isOpen: true,
-                                            imageUrl: notaUrl,
-                                            keterangan: item.keterangan,
-                                            tanggal: formatTanggal(item.tanggal),
-                                            nominal: normalizeNominal(item),
-                                          })
-                                        }
-                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-[#2256B7] border border-blue-200 text-xs font-bold cursor-pointer"
-                                      >
-                                        <Icon type="image" />
-                                        <span>Lihat Nota</span>
-                                      </button>
-                                    ) : (
-                                      <span className="text-xs text-slate-400">-</span>
-                                    )}
-                                  </td>
-                                )}
+                                <td className="py-3.5 px-4 text-center">
+                                  {notaUrl ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewNotaModal({
+                                          isOpen: true,
+                                          imageUrl: notaUrl,
+                                          keterangan: item.keterangan,
+                                          tanggal: formatTanggal(item.tanggal),
+                                          nominal: normalizeNominal(item),
+                                        })
+                                      }
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-[#2256B7] border border-blue-200 text-xs font-bold cursor-pointer"
+                                    >
+                                      <Icon type="image" />
+                                      <span>Lihat Nota</span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-xs text-slate-400">Tercatat</span>
+                                  )}
+                                </td>
                                 <td className="py-3.5 px-4">
                                   <div className="flex items-center justify-center gap-2">
                                     <button
@@ -2954,35 +2992,55 @@ export default function DashboardBendahara({
           </div>
         )}
 
-        {/* MENU 4: PROGRAM KERJA */}
+        {/* MENU 4: PROGRAM KERJA (Linear dgn Dashboard Pembina & Ketua: Kolom Periode di Paling Kanan) */}
         {activeMenu === 'program-kerja' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
-              <h3 className="text-base sm:text-lg font-black text-slate-800">
-                Program Kerja OSIS
-              </h3>
-              <span className="text-[11px] font-bold text-[#2256B7] bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-                Total: {prokerList.length} Program Kerja
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-slate-800">
+                  Program Kerja OSIS
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Tersinkronisasi dengan Program Kerja &amp; Periode Kepengurusan Ketua &amp; Pembina OSIS.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={selectedPeriodeProker}
+                  onChange={(e) => setSelectedPeriodeProker(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold text-slate-700"
+                >
+                  <option value="Semua">Semua Periode</option>
+                  {daftarPeriodeProker.map((per) => (
+                    <option key={per} value={per}>
+                      Periode {per}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[11px] font-bold text-[#2256B7] bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200">
+                  Total: {filteredProkerList.length} Program Kerja
+                </span>
+              </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[500px]">
+              <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[560px]">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
                     <th className="py-3 px-4 rounded-l-xl">Nama Program Kerja</th>
                     <th className="py-3 px-4">Divisi Pelaksana</th>
-                    <th className="py-3 px-4 rounded-r-xl">Target Waktu</th>
+                    <th className="py-3 px-4">Target Waktu</th>
+                    <th className="py-3 px-4 rounded-r-xl">Periode</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {prokerList.length === 0 ? (
+                  {filteredProkerList.length === 0 ? (
                     <tr>
-                      <td colSpan="3" className="py-12 text-center text-slate-400 font-medium">
-                        Belum ada program kerja terdaftar dari Ketua OSIS.
+                      <td colSpan="4" className="py-12 text-center text-slate-400 font-medium">
+                        Belum ada program kerja terdaftar pada periode ini.
                       </td>
                     </tr>
                   ) : (
-                    prokerList.map((pk, idx) => (
+                    filteredProkerList.map((pk, idx) => (
                       <tr key={pk.id || idx} className="hover:bg-blue-50/40 transition-colors">
                         <td className="py-3.5 px-4 font-bold text-slate-800">
                           {pk.nama_proker || pk.namaKegiatan || pk.nama}
@@ -2993,6 +3051,11 @@ export default function DashboardBendahara({
                         <td className="py-3.5 px-4 text-slate-500 font-medium whitespace-nowrap">
                           {formatTanggal(pk.target || pk.tanggal)}
                         </td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-extrabold">
+                            {getPeriodeProker(pk)}
+                          </span>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -3002,13 +3065,18 @@ export default function DashboardBendahara({
           </div>
         )}
 
-        {/* MENU 5: ANGGOTA OSIS */}
+        {/* MENU 5: ANGGOTA OSIS (Linear dgn Dashboard Pembina & Ketua: Kolom NIS di Paling Kiri) */}
         {activeMenu === 'anggota-osis' && (
           <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden w-full animate-[fadeIn_0.3s_ease-out]">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
-              <h3 className="text-base sm:text-lg font-black text-slate-800">
-                Daftar Anggota Pengurus OSIS
-              </h3>
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-slate-800">
+                  Daftar Anggota Pengurus OSIS
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Data NIS, pengurus, jabatan, dan divisi tersinkron dengan Dashboard Pembina &amp; Ketua OSIS.
+                </p>
+              </div>
               <span className="text-[11px] font-bold text-[#2256B7] bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
                 Total: {anggotaList.length} Pengurus
               </span>
@@ -3017,8 +3085,8 @@ export default function DashboardBendahara({
               <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[550px]">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px] bg-slate-100/70">
-                    <th className="py-3 px-4 rounded-l-xl">Nama Lengkap</th>
-                    <th className="py-3 px-4">Kelas</th>
+                    <th className="py-3 px-4 rounded-l-xl">NIS</th>
+                    <th className="py-3 px-4">Nama Lengkap</th>
                     <th className="py-3 px-4">Jabatan</th>
                     <th className="py-3 px-4 rounded-r-xl">Divisi / Sekbid</th>
                   </tr>
@@ -3033,19 +3101,19 @@ export default function DashboardBendahara({
                   ) : (
                     anggotaList.map((ang, idx) => (
                       <tr key={ang.id || idx} className="hover:bg-blue-50/40 transition-colors">
-                        <td className="py-3.5 px-4 font-bold text-slate-800">
-                          {ang.nama || ang.namaLengkap || ang.name}
+                        <td className="py-3.5 px-4 font-mono text-slate-600 font-semibold whitespace-nowrap">
+                          {getNisAnggota(ang)}
                         </td>
-                        <td className="py-3.5 px-4 text-slate-600 font-medium">
-                          {ang.kelas || '-'}
+                        <td className="py-3.5 px-4 font-bold text-slate-800">
+                          {getNamaAnggota(ang)}
                         </td>
                         <td className="py-3.5 px-4">
                           <span className="px-3 py-1 rounded-xl text-[11px] font-bold bg-blue-50 text-[#2256B7] border border-blue-200">
-                            {ang.jabatan || 'Anggota'}
+                            {getJabatanAnggota(ang)}
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-slate-600">
-                          {ang.divisi || ang.sekbid || '-'}
+                          {getDivisiAnggota(ang)}
                         </td>
                       </tr>
                     ))
@@ -3117,7 +3185,6 @@ export default function DashboardBendahara({
           </div>
         )}
       </main>
-
       {/* MODAL PREVIEW NOTA */}
       {previewNotaModal.isOpen && (
         <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
@@ -3125,11 +3192,11 @@ export default function DashboardBendahara({
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-black text-slate-800">
-                  Bukti Nota Pengeluaran
+                  Bukti Nota Transaksi
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {previewNotaModal.keterangan} &bull; {previewNotaModal.tanggal} &bull;{' '}
-                  <strong className="text-rose-600">
+                  <strong className="text-[#2256B7]">
                     {formatRupiah(previewNotaModal.nominal)}
                   </strong>
                 </p>
@@ -3150,11 +3217,11 @@ export default function DashboardBendahara({
                 X
               </button>
             </div>
-            <div className="p-5 bg-slate-100 flex items-center justify-center max-h-[70vh] overflow-auto">
+            <div className="p-5 bg-slate-200/80 flex items-center justify-center max-h-[70vh] overflow-auto">
               <img
                 src={previewNotaModal.imageUrl}
-                alt="Bukti Nota Pengeluaran"
-                className="max-h-[60vh] w-auto rounded-2xl shadow-md border border-slate-300 object-contain"
+                alt="Bukti Nota Transaksi"
+                className="max-h-[60vh] w-auto rounded-2xl shadow-md border-2 border-slate-300 bg-white object-contain"
               />
             </div>
           </div>
@@ -3165,29 +3232,51 @@ export default function DashboardBendahara({
       {isLaporanModalOpen && (
         <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
           <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between print:hidden">
+            <div className="px-4 sm:px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <span className="px-2.5 py-0.5 rounded-md bg-blue-100 text-[#2256B7] text-[10px] font-black uppercase tracking-wider">
-                  Dokumen Resmi Bendahara OSIS
+                  DOKUMEN RESMI BENDAHARA OSIS
                 </span>
-                <h3 className="text-base sm:text-lg font-black text-slate-800 mt-0.5">
+                <h3 className="text-base sm:text-xl font-black text-slate-800 mt-1">
                   Laporan Pertanggungjawaban Keuangan OSIS
                 </h3>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsLaporanModalOpen(false)}
-                className="w-8 h-8 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-600 font-black flex items-center justify-center cursor-pointer"
-              >
-                X
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsLaporanEditMode(!isLaporanEditMode)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border cursor-pointer transition-all ${
+                    isLaporanEditMode
+                      ? 'bg-amber-500 text-white border-amber-500'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                  }`}
+                >
+                  {isLaporanEditMode ? 'Selesai Edit' : 'Mode Edit Draf'}
+                </button>
+                {isLaporanEditMode && (
+                  <button
+                    type="button"
+                    onClick={tambahBarisLaporan}
+                    className="px-3 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-extrabold cursor-pointer"
+                  >
+                    + Baris
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsLaporanModalOpen(false)}
+                  className="w-9 h-9 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-black cursor-pointer"
+                >
+                  X
+                </button>
+              </div>
             </div>
 
             {/* FILTER LAPORAN */}
-            <div className="px-6 py-3.5 bg-white border-b border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 print:hidden">
+            <div className="px-4 sm:px-6 py-3 bg-white border-b border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">
-                  Sumber Dana
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  SUMBER DANA
                 </label>
                 <select
                   value={laporanSumberFilter}
@@ -3198,18 +3287,19 @@ export default function DashboardBendahara({
                       laporanPeriodeFilter
                     )
                   }
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#2256B7]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold"
                 >
                   <option value="Semua">Semua Sumber Dana ({keuanganList.length})</option>
-                  <option value="Kas OSIS">Kas OSIS</option>
-                  <option value="Dana Sekolah">Dana Sekolah</option>
-                  <option value="Sponsor">Sponsor</option>
-                  <option value="Lainnya">Lainnya</option>
+                  {DAFTAR_SUMBER_DANA.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">
-                  Jenis Transaksi
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  JENIS TRANSAKSI
                 </label>
                 <select
                   value={laporanJenisFilter}
@@ -3220,7 +3310,7 @@ export default function DashboardBendahara({
                       laporanPeriodeFilter
                     )
                   }
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#2256B7]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold"
                 >
                   <option value="Semua">Semua (Pemasukan &amp; Pengeluaran)</option>
                   <option value="Pemasukan">Hanya Pemasukan</option>
@@ -3228,8 +3318,8 @@ export default function DashboardBendahara({
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] font-extrabold text-slate-600 uppercase mb-1">
-                  Periode Laporan
+                <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                  PERIODE LAPORAN
                 </label>
                 <select
                   value={laporanPeriodeFilter}
@@ -3240,7 +3330,7 @@ export default function DashboardBendahara({
                       e.target.value
                     )
                   }
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#2256B7]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-50 text-xs font-bold"
                 >
                   <option value="semua">Seluruh Periode Berjalan</option>
                   <option value="minggu">7 Hari Terakhir</option>
@@ -3250,92 +3340,60 @@ export default function DashboardBendahara({
               </div>
             </div>
 
-            {/* AREA LEMBAR LAPORAN FORMAL */}
-            <div className="p-4 sm:p-6 overflow-y-auto bg-slate-200/80 flex-1">
-              <div className="max-w-4xl mx-auto mb-3 flex flex-wrap items-center justify-between gap-2 print:hidden">
-                <p className="text-xs font-semibold text-slate-600">
-                  {isLaporanEditMode
-                    ? 'Mode Koreksi Draf aktif: ubah baris di tabel lalu klik Simpan ke Database.'
-                    : 'Pratinjau Dokumen Resmi siap cetak/unduh lengkap dengan lampiran nota pengeluaran.'}
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsLaporanEditMode((prev) => !prev)}
-                    className={`rounded-xl px-3.5 py-2 text-xs font-extrabold border cursor-pointer transition-all ${
-                      isLaporanEditMode
-                        ? 'bg-slate-800 text-white border-slate-800'
-                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
-                    }`}
-                  >
-                    {isLaporanEditMode ? 'Selesai Koreksi (Pratinjau Formal)' : 'Koreksi Draf'}
-                  </button>
-                  {isLaporanEditMode && (
-                    <button
-                      type="button"
-                      onClick={tambahBarisLaporan}
-                      className="rounded-xl bg-[#2256B7] px-3.5 py-2 text-xs font-black text-white hover:bg-[#1A469B] cursor-pointer"
-                    >
-                      + Tambah Baris
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* LEMBAR KERTAS FORMAL */}
-              <div className="bg-white p-6 sm:p-11 border border-slate-400 shadow-lg max-w-4xl mx-auto text-slate-900 space-y-6">
-                {/* KOP SURAT RESMI */}
+            {/* PRATINJAU DOKUMEN FORMAL */}
+            <div className="p-4 sm:p-6 overflow-y-auto bg-slate-200/75 flex-1">
+              <div className="bg-white p-6 sm:p-10 border border-slate-400 shadow-md max-w-4xl mx-auto text-slate-900 space-y-5 font-serif">
                 <div className="flex items-center justify-between gap-4 border-b-4 border-double border-slate-900 pb-4">
                   <img
                     src={logoOsitara}
-                    alt="Logo OSIS"
-                    className="w-14 h-14 sm:w-16 sm:h-16 object-contain shrink-0"
+                    alt="Logo OSITARA"
+                    className="w-14 h-14 object-contain shrink-0"
+                    onError={(e) => (e.target.style.display = 'none')}
                   />
                   <div className="text-center flex-1">
-                    <p className="text-xs sm:text-sm font-serif font-bold uppercase tracking-widest text-slate-800">
+                    <p className="text-xs font-bold uppercase tracking-widest">
                       Organisasi Siswa Intra Sekolah (OSIS)
                     </p>
-                    <h4 className="text-base sm:text-xl font-serif font-bold uppercase tracking-wide text-slate-950 mt-0.5">
+                    <h4 className="text-lg font-bold uppercase mt-0.5">
                       Laporan Pertanggungjawaban Keuangan
                     </h4>
-                    <p className="text-[11px] font-serif text-slate-600 mt-1">
-                      Nomor Dokumen: {nomorSuratLaporan}
+                    <p className="text-[11px] text-slate-600 mt-1">
+                      Nomor: {nomorSuratLaporan}
                     </p>
                   </div>
-                  <div className="w-14 sm:w-16 shrink-0 hidden sm:block" />
+                  <div className="w-14 hidden sm:block" />
                 </div>
 
-                {/* IDENTITAS & METADATA LAPORAN */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-serif text-slate-800">
-                  <div className="space-y-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-slate-700">
+                  <div className="space-y-0.5">
                     <p>
-                      <span className="font-bold inline-block w-36">Sumber Dana</span>:{' '}
+                      <strong className="inline-block w-28">Sumber Dana</strong>:{' '}
                       {laporanSumberFilter === 'Semua'
                         ? 'Seluruh Sumber Dana OSIS'
                         : laporanSumberFilter}
                     </p>
                     <p>
-                      <span className="font-bold inline-block w-36">Kategori Mutasi</span>:{' '}
+                      <strong className="inline-block w-28">Kategori Mutasi</strong>:{' '}
                       {laporanJenisFilter === 'Semua'
                         ? 'Pemasukan & Pengeluaran'
-                        : laporanJenisFilter}
+                        : `Hanya ${laporanJenisFilter}`}
                     </p>
                   </div>
-                  <div className="space-y-1 sm:text-right">
+                  <div className="space-y-0.5 sm:text-right">
                     <p>
-                      <span className="font-bold">Periode Laporan:</span> {getLabelPeriode()}
+                      <strong>Periode Laporan:</strong> {getLabelPeriode()}
                     </p>
                     <p>
-                      <span className="font-bold">Jumlah Tercatat:</span>{' '}
-                      {laporanRowsWithSaldo.length} Transaksi ({laporanNotaList.length} Bukti Nota)
+                      <strong>Jumlah Tercatat:</strong> {laporanRowsWithSaldo.length} Transaksi (
+                      {laporanNotaList.length} Bukti Nota)
                     </p>
                   </div>
                 </div>
 
-                {/* RINGKASAN SALDO FORMAL */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 border border-slate-700 divide-y sm:divide-y-0 sm:divide-x divide-slate-700 bg-slate-50 font-serif">
+                {/* 3 KOTAK RINGKASAN LAPORAN */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 border border-slate-700 divide-y sm:divide-y-0 sm:divide-x divide-slate-700 bg-slate-50">
                   <div className="p-3">
-                    <span className="text-[10px] font-bold uppercase text-slate-600 block">
+                    <span className="text-[10px] font-bold uppercase text-slate-700 block">
                       Total Pemasukan (+)
                     </span>
                     <strong className="text-sm sm:text-base font-bold text-emerald-800">
@@ -3343,7 +3401,7 @@ export default function DashboardBendahara({
                     </strong>
                   </div>
                   <div className="p-3">
-                    <span className="text-[10px] font-bold uppercase text-slate-600 block">
+                    <span className="text-[10px] font-bold uppercase text-slate-700 block">
                       Total Pengeluaran (-)
                     </span>
                     <strong className="text-sm sm:text-base font-bold text-rose-800">
@@ -3377,7 +3435,7 @@ export default function DashboardBendahara({
                         <th className="border border-slate-700 py-2.5 px-2.5">
                           Uraian / Keterangan Transaksi
                         </th>
-                        <th className="border border-slate-700 py-2 px-2 text-center w-20">
+                        <th className="border border-slate-700 py-2 px-2 text-center w-24">
                           Nota
                         </th>
                         <th className="border border-slate-700 py-2.5 px-2.5 text-right w-28">
@@ -3518,14 +3576,16 @@ export default function DashboardBendahara({
                                   ) + 1}
                                 </button>
                               ) : (
-                                <span className="text-slate-400">-</span>
+                                <span className="text-[10px] text-slate-500 font-sans">
+                                  Tercatat Sistem
+                                </span>
                               )}
                             </td>
                             <td className="border border-slate-700 py-2 px-2.5 text-right font-semibold text-emerald-900 whitespace-nowrap">
-                              {item._isMasuk ? `+${formatRupiah(item._nom)}` : '-'}
+                              {item._isMasuk ? `+${formatRupiah(item._nom)}` : 'Rp 0'}
                             </td>
                             <td className="border border-slate-700 py-2 px-2.5 text-right font-semibold text-rose-900 whitespace-nowrap">
-                              {!item._isMasuk ? `-${formatRupiah(item._nom)}` : '-'}
+                              {!item._isMasuk ? `-${formatRupiah(item._nom)}` : 'Rp 0'}
                             </td>
                             <td className="border border-slate-700 py-2 px-2.5 text-right font-bold text-slate-950 whitespace-nowrap">
                               {formatRupiah(item._saldoBaris)}
@@ -3572,11 +3632,11 @@ export default function DashboardBendahara({
                   </div>
                 </div>
 
-                {/* LAMPIRAN BUKTI NOTA PENGELUARAN */}
+                {/* LAMPIRAN BUKTI NOTA TRANSAKSI (Kontras bg-slate-100 agar nota putih jelas terlihat) */}
                 {laporanNotaList.length > 0 && (
                   <div className="pt-6 border-t-2 border-slate-800 space-y-3 font-serif">
                     <h5 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-950">
-                      Lampiran Bukti Nota Pengeluaran ({laporanNotaList.length} Bukti Transaksi)
+                      Lampiran Bukti Nota Transaksi ({laporanNotaList.length} Bukti Transaksi)
                     </h5>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                       {laporanNotaList.map((notaItem, idx) => {
@@ -3593,22 +3653,28 @@ export default function DashboardBendahara({
                                 nominal: notaItem._nom,
                               })
                             }
-                            className="border border-slate-300 rounded-xl overflow-hidden bg-slate-50/70 hover:bg-blue-50/50 transition-colors cursor-pointer p-2.5"
+                            className="border-2 border-slate-300 rounded-xl overflow-hidden bg-slate-100 hover:border-blue-500 transition-colors cursor-pointer p-2.5 shadow-xs"
                           >
-                            <img
-                              src={imgSrc}
-                              alt={`Lampiran Nota ${idx + 1}`}
-                              className="w-full h-36 object-contain bg-white rounded border border-slate-200 mb-2"
-                            />
-                            <p className="text-[11px] font-bold text-slate-900 truncate">
+                            <div className="w-full h-36 bg-slate-200/70 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden mb-2 p-1">
+                              <img
+                                src={imgSrc}
+                                alt={`Lampiran Nota ${idx + 1}`}
+                                className="max-h-full max-w-full object-contain shadow-xs bg-white"
+                              />
+                            </div>
+                            <p className="text-[11px] font-bold text-slate-900 truncate font-sans">
                               Lampiran {idx + 1}. {notaItem.keterangan || '-'}
                             </p>
-                            <p className="text-[10px] text-slate-600 mt-0.5">
+                            <p className="text-[10px] text-slate-600 mt-0.5 font-sans">
                               {formatTanggal(notaItem.tanggal)} &bull;{' '}
                               {normalizeSumberLabel(notaItem)}
                             </p>
-                            <p className="text-[11px] font-bold text-rose-700 mt-0.5">
-                              - {formatRupiah(notaItem._nom)}
+                            <p
+                              className={`text-[11px] font-bold mt-0.5 font-sans ${
+                                notaItem._isMasuk ? 'text-emerald-700' : 'text-rose-700'
+                              }`}
+                            >
+                              {notaItem._isMasuk ? '+' : '-'} {formatRupiah(notaItem._nom)}
                             </p>
                           </div>
                         );
@@ -3632,7 +3698,7 @@ export default function DashboardBendahara({
                 </button>
               ) : (
                 <span className="text-[11px] text-slate-500 font-medium">
-                  Format resmi siap cetak beserta lampiran nota pengeluaran.
+                  Format resmi siap cetak beserta lampiran nota transaksi.
                 </span>
               )}
               <div className="flex flex-wrap items-center gap-2 ml-auto">
@@ -3720,7 +3786,7 @@ export default function DashboardBendahara({
         </div>
       )}
 
-      {/* MODAL TAMBAH KAS */}
+      {/* MODAL TAMBAH KAS (Bukti Nota tersedia untuk Pemasukan & Pengeluaran) */}
       {isTambahKasModalOpen && (
         <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4 border border-blue-100 max-h-[92vh] overflow-y-auto">
@@ -3853,121 +3919,120 @@ export default function DashboardBendahara({
                 />
               </div>
 
-              {jenisTransaksi === 'Pengeluaran' && (
-                <div className="space-y-2.5">
-                  <label className="block text-xs font-extrabold text-slate-600 uppercase">
-                    Foto Bukti Nota (Opsional - Otomatis Masuk ke Laporan)
-                  </label>
-                  <input
-                    ref={tambahGalleryRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handlePickGalleryNota(e, 'tambah')}
-                    className="hidden"
-                  />
-                  <canvas ref={canvasRef} className="hidden" />
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => tambahGalleryRef.current?.click()}
-                      className="py-2.5 px-3 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-[#2256B7] font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                    >
-                      <Icon type="image" />
-                      <span>Pilih dari Galeri</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => startCamera('tambah')}
-                      className="py-2.5 px-3 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-700 font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                    >
-                      <Icon type="camera" />
-                      <span>Buka Kamera</span>
-                    </button>
-                  </div>
+              {/* LAMPIRAN BUKTI NOTA / KWITANSI (Untuk Pemasukan maupun Pengeluaran) */}
+              <div className="space-y-2.5">
+                <label className="block text-xs font-extrabold text-slate-600 uppercase">
+                  Foto Bukti Nota / Kwitansi (Opsional - Otomatis Masuk ke Laporan)
+                </label>
+                <input
+                  ref={tambahGalleryRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handlePickGalleryNota(e, 'tambah')}
+                  className="hidden"
+                />
+                <canvas ref={canvasRef} className="hidden" />
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => tambahGalleryRef.current?.click()}
+                    className="py-2.5 px-3 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-[#2256B7] font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                  >
+                    <Icon type="image" />
+                    <span>Pilih dari Galeri</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => startCamera('tambah')}
+                    className="py-2.5 px-3 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-700 font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                  >
+                    <Icon type="camera" />
+                    <span>Buka Kamera</span>
+                  </button>
+                </div>
 
-                  {cameraError && (
-                    <p className="text-[11px] font-bold text-rose-600 bg-rose-50 px-3 py-2 rounded-xl border border-rose-200">
-                      {cameraError}
-                    </p>
-                  )}
+                {cameraError && (
+                  <p className="text-[11px] font-bold text-rose-600 bg-rose-50 px-3 py-2 rounded-xl border border-rose-200">
+                    {cameraError}
+                  </p>
+                )}
 
-                  {cameraTarget === 'tambah' && !capturedPreview && (
-                    <div className="p-3 rounded-2xl bg-slate-900 space-y-2.5">
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-52 object-cover rounded-xl bg-black"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={stopCamera}
-                          className="flex-1 py-2 rounded-xl bg-slate-700 text-white text-xs font-bold cursor-pointer"
-                        >
-                          Tutup Kamera
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleTakePhoto}
-                          className="flex-1 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black cursor-pointer"
-                        >
-                          Ambil Foto
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {cameraTarget === 'tambah' && capturedPreview && (
-                    <div className="p-3 rounded-2xl bg-slate-100 border border-slate-200 space-y-2.5">
-                      <img
-                        src={capturedPreview}
-                        alt="Hasil Jepretan Nota"
-                        className="w-full max-h-52 object-contain rounded-xl bg-white"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={handleRetakePhoto}
-                          className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black cursor-pointer"
-                        >
-                          Retake (Foto Ulang)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleUseCapturedPhoto}
-                          className="flex-1 py-2 rounded-xl bg-[#2256B7] hover:bg-[#1A469B] text-white text-xs font-black cursor-pointer"
-                        >
-                          Gunakan Foto Ini
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {buktiNota && cameraTarget !== 'tambah' && (
-                    <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <img
-                          src={buktiNota}
-                          alt="Preview Nota"
-                          className="w-12 h-12 rounded-xl object-cover border border-slate-300 shrink-0"
-                        />
-                        <span className="text-xs font-bold text-emerald-700 truncate">
-                          Foto nota siap &amp; otomatis masuk laporan
-                        </span>
-                      </div>
+                {cameraTarget === 'tambah' && !capturedPreview && (
+                  <div className="p-3 rounded-2xl bg-slate-900 space-y-2.5">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-52 object-cover rounded-xl bg-black"
+                    />
+                    <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() => setBuktiNota('')}
-                        className="text-xs font-bold text-rose-600 hover:underline shrink-0 cursor-pointer"
+                        onClick={stopCamera}
+                        className="flex-1 py-2 rounded-xl bg-slate-700 text-white text-xs font-bold cursor-pointer"
                       >
-                        Hapus
+                        Tutup Kamera
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleTakePhoto}
+                        className="flex-1 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black cursor-pointer"
+                      >
+                        Ambil Foto
                       </button>
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+
+                {cameraTarget === 'tambah' && capturedPreview && (
+                  <div className="p-3 rounded-2xl bg-slate-100 border border-slate-200 space-y-2.5">
+                    <img
+                      src={capturedPreview}
+                      alt="Hasil Jepretan Nota"
+                      className="w-full max-h-52 object-contain rounded-xl bg-white"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRetakePhoto}
+                        className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black cursor-pointer"
+                      >
+                        Retake (Foto Ulang)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleUseCapturedPhoto}
+                        className="flex-1 py-2 rounded-xl bg-[#2256B7] hover:bg-[#1A469B] text-white text-xs font-black cursor-pointer"
+                      >
+                        Gunakan Foto Ini
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {buktiNota && cameraTarget !== 'tambah' && (
+                  <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <img
+                        src={buktiNota}
+                        alt="Preview Nota"
+                        className="w-12 h-12 rounded-xl object-cover border border-slate-300 shrink-0"
+                      />
+                      <span className="text-xs font-bold text-emerald-700 truncate">
+                        Foto nota siap &amp; otomatis masuk laporan
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setBuktiNota('')}
+                      className="text-xs font-bold text-rose-600 hover:underline shrink-0 cursor-pointer"
+                    >
+                      Hapus
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <div className="flex items-center gap-3 pt-2">
                 <button
@@ -4134,111 +4199,109 @@ export default function DashboardBendahara({
                 />
               </div>
 
-              {editKasModal.jenis === 'Pengeluaran' && (
-                <div className="space-y-2.5">
-                  <label className="block text-xs font-extrabold text-slate-600 uppercase">
-                    Foto Bukti Nota (Opsional - Otomatis Masuk ke Laporan)
-                  </label>
-                  <input
-                    ref={editGalleryRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handlePickGalleryNota(e, 'edit')}
-                    className="hidden"
-                  />
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => editGalleryRef.current?.click()}
-                      className="py-2.5 px-3 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-[#2256B7] font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Icon type="image" />
-                      <span>Pilih dari Galeri</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => startCamera('edit')}
-                      className="py-2.5 px-3 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-700 font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Icon type="camera" />
-                      <span>Buka Kamera</span>
-                    </button>
-                  </div>
+              <div className="space-y-2.5">
+                <label className="block text-xs font-extrabold text-slate-600 uppercase">
+                  Foto Bukti Nota / Kwitansi (Opsional)
+                </label>
+                <input
+                  ref={editGalleryRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handlePickGalleryNota(e, 'edit')}
+                  className="hidden"
+                />
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => editGalleryRef.current?.click()}
+                    className="py-2.5 px-3 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-[#2256B7] font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Icon type="image" />
+                    <span>Pilih dari Galeri</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => startCamera('edit')}
+                    className="py-2.5 px-3 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-700 font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Icon type="camera" />
+                    <span>Buka Kamera</span>
+                  </button>
+                </div>
 
-                  {cameraTarget === 'edit' && !capturedPreview && (
-                    <div className="p-3 rounded-2xl bg-slate-900 space-y-2.5">
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-52 object-cover rounded-xl bg-black"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={stopCamera}
-                          className="flex-1 py-2 rounded-xl bg-slate-700 text-white text-xs font-bold cursor-pointer"
-                        >
-                          Tutup Kamera
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleTakePhoto}
-                          className="flex-1 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black cursor-pointer"
-                        >
-                          Ambil Foto
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {cameraTarget === 'edit' && capturedPreview && (
-                    <div className="p-3 rounded-2xl bg-slate-100 border border-slate-200 space-y-2.5">
-                      <img
-                        src={capturedPreview}
-                        alt="Hasil Jepretan Nota"
-                        className="w-full max-h-52 object-contain rounded-xl bg-white"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={handleRetakePhoto}
-                          className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black cursor-pointer"
-                        >
-                          Retake (Foto Ulang)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleUseCapturedPhoto}
-                          className="flex-1 py-2 rounded-xl bg-[#2256B7] hover:bg-[#1A469B] text-white text-xs font-black cursor-pointer"
-                        >
-                          Gunakan Foto Ini
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {editKasModal.buktiNota && cameraTarget !== 'edit' && (
-                    <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
-                      <img
-                        src={editKasModal.buktiNota}
-                        alt="Preview Nota"
-                        className="w-12 h-12 rounded-xl object-cover border border-slate-300"
-                      />
+                {cameraTarget === 'edit' && !capturedPreview && (
+                  <div className="p-3 rounded-2xl bg-slate-900 space-y-2.5">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-52 object-cover rounded-xl bg-black"
+                    />
+                    <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() =>
-                          setEditKasModal((prev) => ({ ...prev, buktiNota: '' }))
-                        }
-                        className="text-xs font-bold text-rose-600 hover:underline cursor-pointer"
+                        onClick={stopCamera}
+                        className="flex-1 py-2 rounded-xl bg-slate-700 text-white text-xs font-bold cursor-pointer"
                       >
-                        Hapus Foto
+                        Tutup Kamera
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleTakePhoto}
+                        className="flex-1 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black cursor-pointer"
+                      >
+                        Ambil Foto
                       </button>
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
+
+                {cameraTarget === 'edit' && capturedPreview && (
+                  <div className="p-3 rounded-2xl bg-slate-100 border border-slate-200 space-y-2.5">
+                    <img
+                      src={capturedPreview}
+                      alt="Hasil Jepretan Nota"
+                      className="w-full max-h-52 object-contain rounded-xl bg-white"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRetakePhoto}
+                        className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black cursor-pointer"
+                      >
+                        Retake (Foto Ulang)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleUseCapturedPhoto}
+                        className="flex-1 py-2 rounded-xl bg-[#2256B7] hover:bg-[#1A469B] text-white text-xs font-black cursor-pointer"
+                      >
+                        Gunakan Foto Ini
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {editKasModal.buktiNota && cameraTarget !== 'edit' && (
+                  <div className="p-2.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+                    <img
+                      src={editKasModal.buktiNota}
+                      alt="Preview Nota"
+                      className="w-12 h-12 rounded-xl object-cover border border-slate-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditKasModal((prev) => ({ ...prev, buktiNota: '' }))
+                      }
+                      className="text-xs font-bold text-rose-600 hover:underline cursor-pointer"
+                    >
+                      Hapus Foto
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <div className="flex items-center gap-3 pt-2">
                 <button

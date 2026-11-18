@@ -5,7 +5,6 @@ import PanelKeuanganReadOnly from './PanelKeuanganReadOnly';
 
 // --- KONFIGURASI API & AUTH HEADERS ---
 const API_BASE = '/api';
-
 const getAuthHeaders = () => {
   const token =
     localStorage.getItem('token') ||
@@ -233,7 +232,6 @@ const requestFirstAvailable = async (method, endpoints, payload = null) => {
       else if (method === 'post') res = await api.post(endpoint, payload);
       else if (method === 'put') res = await api.put(endpoint, payload);
       else if (method === 'delete') res = await api.delete(endpoint);
-
       if (res && res.status >= 200 && res.status < 300) {
         return res;
       }
@@ -262,16 +260,37 @@ const isItemKegiatanSekre = (item) => {
   );
 };
 
+// Normalisasi field Program Kerja agar kolom Periode selalu terbaca di semua dashboard
+const normalizeProkerItem = (pk) => {
+  if (!pk || typeof pk !== 'object') return pk;
+  const periodeVal =
+    pk.periode ||
+    pk.periode_program ||
+    pk.tahun_ajaran ||
+    pk.tahunAjaran ||
+    'Mingguan';
+  return {
+    ...pk,
+    nama_proker: pk.nama_proker || pk.nama || pk.namaKegiatan || '-',
+    nama: pk.nama || pk.nama_proker || pk.namaKegiatan || '-',
+    divisi: pk.divisi || pk.sekbid || pk.penanggung_jawab || 'Umum',
+    sekbid: pk.sekbid || pk.divisi || pk.penanggung_jawab || 'Umum',
+    target: pk.target || pk.tanggal || '',
+    tanggal: pk.tanggal || pk.target || '',
+    periode: String(periodeVal).trim() || 'Mingguan',
+    is_event: 0,
+  };
+};
+
 const filterOnlyProkerKetua = (list) => {
   if (!Array.isArray(list)) return [];
-  return list.filter((item) => !isItemKegiatanSekre(item));
+  return list.filter((item) => !isItemKegiatanSekre(item)).map(normalizeProkerItem);
 };
 
 const filterOnlyKegiatanSekre = (list) => {
   if (!Array.isArray(list)) return [];
   return list.filter((item) => isItemKegiatanSekre(item));
 };
-
 export default function DashboardKetua({
   user,
   onLogout,
@@ -285,9 +304,7 @@ export default function DashboardKetua({
 }) {
   const [activeMenu, setActiveMenu] = useState('beranda');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
   const isFetchingRef = useRef(false);
-
   const [toastNotif, setToastNotif] = useState(null);
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
@@ -296,7 +313,6 @@ export default function DashboardKetua({
     title: '',
     message: '',
   });
-
   const [downloadingId, setDownloadingId] = useState(null);
 
   const showToast = useCallback((message, type = 'success') => {
@@ -319,9 +335,9 @@ export default function DashboardKetua({
     getInitialData(['ositara_proposal', 'proposals'], initialProposal)
   );
 
-  const [kegiatanList, setKegiatanList] = useState(() => {
-    const raw = getInitialData(['ositara_kegiatan', 'kegiatanList'], initialKegiatan);
-    return filterOnlyKegiatanSekre(raw);
+ const [kegiatanList] = useState(() => {
+  const raw = getInitialData(['ositara_kegiatan', 'kegiatanList'], initialKegiatan);
+  return filterOnlyKegiatanSekre(raw);
   });
 
   const [pendaftaranList, setPendaftaranList] = useState(() =>
@@ -337,19 +353,20 @@ export default function DashboardKetua({
         )
   );
 
-  useEffect(() => {
-    if (Array.isArray(propKeuanganList)) {
+ useEffect(() => {
+  if (Array.isArray(propKeuanganList)) {
+    saveKeuanganToAllKeys(propKeuanganList);
+    queueMicrotask(() => {
       setKeuanganList(propKeuanganList);
-      saveKeuanganToAllKeys(propKeuanganList);
-    }
-  }, [propKeuanganList]);
+    });
+  }
+}, [propKeuanganList]);
 
   const [avatarUrl, setAvatarUrl] = useState(
     () => localStorage.getItem('ositara_user_avatar') || null
   );
   const [selectedKegiatanPeserta, setSelectedKegiatanPeserta] = useState(null);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
-
   const [isSubmittingProker, setIsSubmittingProker] = useState(false);
   const [isSubmittingAnggota, setIsSubmittingAnggota] = useState(false);
 
@@ -368,21 +385,30 @@ export default function DashboardKetua({
     };
   }, [isMobileMenuOpen]);
 
-  const syncProkerToAllDashboards = (list) => {
-    localStorage.setItem('ositara_proker', JSON.stringify(list));
-    localStorage.setItem('prokerList', JSON.stringify(list));
-    window.dispatchEvent(new Event('ositara_proker_updated'));
+  // Sinkronisasi Proker + Periode ke seluruh dashboard (Bendahara, Sekretaris, Pembina, Pengurus, Siswa)
+  const syncProkerToAllDashboards = useCallback((list) => {
+    const normalizedList = filterOnlyProkerKetua(list);
+    localStorage.setItem('ositara_proker', JSON.stringify(normalizedList));
+    localStorage.setItem('prokerList', JSON.stringify(normalizedList));
+    localStorage.setItem('ositara_program_kerja', JSON.stringify(normalizedList));
+    window.dispatchEvent(
+      new CustomEvent('ositara_proker_updated', { detail: normalizedList })
+    );
     window.dispatchEvent(new Event('storage'));
-  };
+  }, []);
 
-  const syncAnggotaToAllDashboards = (list) => {
-    localStorage.setItem('ositara_anggota', JSON.stringify(list));
-    localStorage.setItem('anggotaList', JSON.stringify(list));
-    window.dispatchEvent(new Event('ositara_anggota_updated'));
+  const syncAnggotaToAllDashboards = useCallback((list) => {
+    const safeList = Array.isArray(list) ? list : [];
+    localStorage.setItem('ositara_anggota', JSON.stringify(safeList));
+    localStorage.setItem('anggotaList', JSON.stringify(safeList));
+    localStorage.setItem('ositara_pengurus', JSON.stringify(safeList));
+    window.dispatchEvent(
+      new CustomEvent('ositara_anggota_updated', { detail: safeList })
+    );
     window.dispatchEvent(new Event('storage'));
-  };
+  }, []);
 
-  // Sinkronisasi data lokal dari LocalStorage lintas role (Ketua, Bendahara, Pembina, Sekretaris)
+  // Sinkronisasi data dari Backend API + LocalStorage lintas role
   const syncAllDataFromBackend = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
@@ -394,9 +420,7 @@ export default function DashboardKetua({
       if (localKeuangan) {
         try {
           const parsedK = JSON.parse(localKeuangan);
-          if (Array.isArray(parsedK)) {
-            setKeuanganList(parsedK);
-          }
+          if (Array.isArray(parsedK)) setKeuanganList(parsedK);
         } catch (e) {
           console.warn('Gagal parsing keuangan lokal:', e);
         }
@@ -407,7 +431,12 @@ export default function DashboardKetua({
       if (localProker) {
         try {
           const parsedP = JSON.parse(localProker);
-          if (Array.isArray(parsedP)) setProkerList(filterOnlyProkerKetua(parsedP));
+          if (Array.isArray(parsedP)) {
+            const normP = filterOnlyProkerKetua(parsedP);
+            setProkerList(normP);
+            localStorage.setItem('ositara_proker', JSON.stringify(normP));
+            localStorage.setItem('prokerList', JSON.stringify(normP));
+          }
         } catch (e) {
           console.warn('Gagal parsing proker lokal:', e);
         }
@@ -445,10 +474,41 @@ export default function DashboardKetua({
           console.warn('Gagal parsing pendaftaran lokal:', e);
         }
       }
+
+      // Sinkronkan juga dari server agar database & semua dashboard selalu terbarui
+      const resProk = await requestFirstAvailable('get', [
+        '/program-kerja',
+        '/program_kerja',
+        '/prokers',
+        '/proker',
+      ]);
+      if (resProk) {
+        const rawServerProk = resProk.data?.data || resProk.data || [];
+        if (Array.isArray(rawServerProk) && rawServerProk.length > 0) {
+          const cleanServerProk = filterOnlyProkerKetua(rawServerProk);
+          setProkerList(cleanServerProk);
+          syncProkerToAllDashboards(cleanServerProk);
+        }
+      }
+
+      const resAng = await requestFirstAvailable('get', [
+        '/pengurus-osis',
+        '/pengurus_osis',
+        '/pengurus',
+        '/anggota-osis',
+        '/anggota',
+      ]);
+      if (resAng) {
+        const rawServerAng = resAng.data?.data || resAng.data || [];
+        if (Array.isArray(rawServerAng) && rawServerAng.length > 0) {
+          setAnggotaList(rawServerAng);
+          syncAnggotaToAllDashboards(rawServerAng);
+        }
+      }
     } finally {
       isFetchingRef.current = false;
     }
-  }, []);
+  }, [syncProkerToAllDashboards, syncAnggotaToAllDashboards]);
 
   const syncLocalStorageImmediate = useCallback(
     (e) => {
@@ -464,21 +524,25 @@ export default function DashboardKetua({
           setKeuanganList(localK);
         }
       }
-
       const localProp = getInitialData(['ositara_proposal', 'proposals'], null);
       if (Array.isArray(localProp)) setProposalList(localProp);
-
       const localPend = getInitialData(['ositara_pendaftaran', 'pendaftaranList'], null);
       if (Array.isArray(localPend)) setPendaftaranList(localPend);
-
       syncAllDataFromBackend();
     },
     [syncAllDataFromBackend]
   );
 
   useEffect(() => {
+    // Broadcast data awal Ketua saat dimuat agar dashboard lain langsung sinkron
+    if (prokerList.length > 0) {
+      syncProkerToAllDashboards(prokerList);
+    }
+    if (anggotaList.length > 0) {
+      syncAnggotaToAllDashboards(anggotaList);
+    }
     syncAllDataFromBackend();
-    const interval = setInterval(syncAllDataFromBackend, 3000);
+    const interval = setInterval(syncAllDataFromBackend, 4000);
     window.addEventListener('storage', syncLocalStorageImmediate);
     window.addEventListener('ositara_proposal_updated', syncLocalStorageImmediate);
     window.addEventListener('ositara_keuangan_updated', syncLocalStorageImmediate);
@@ -492,6 +556,7 @@ export default function DashboardKetua({
       window.removeEventListener('ositara-keuangan-updated', syncLocalStorageImmediate);
       window.removeEventListener('ositara_pendaftaran_updated', syncLocalStorageImmediate);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncAllDataFromBackend, syncLocalStorageImmediate]);
 
   const handleBukaUnduhProposal = async (item) => {
@@ -507,20 +572,16 @@ export default function DashboardKetua({
       item.file ||
       item.lampiran ||
       item.dokumen;
-
     if (!serverFile || serverFile === 'Tidak ada berkas') {
       showToast('Berkas proposal tidak ditemukan.', 'warning');
       return;
     }
-
     const downloadLabelName =
       item.nama_file ||
       item.original_name ||
       String(serverFile).split('/').pop() ||
       `Proposal_${item.judul_proposal || item.judul || 'OSIS'}.pdf`;
-
     const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
     const triggerDownloadAndOpenBlob = (blob) => {
       const blobUrl = URL.createObjectURL(blob);
       if (isMobileDevice) {
@@ -565,7 +626,6 @@ export default function DashboardKetua({
       .replace(/^\/+/, '');
     const cleanFilename = rawStr.split('/').pop();
     const altFilename = item.nama_file ? String(item.nama_file).split('/').pop() : null;
-
     const candidateUrls = [
       ...(String(serverFile).startsWith('http') ? [String(serverFile)] : []),
       `${API_BASE}/download-proposal/${encodeURIComponent(cleanFilename)}`,
@@ -659,6 +719,7 @@ export default function DashboardKetua({
       target: targetProker,
       tanggal: targetProker,
       periode: periodeProker,
+      periode_program: periodeProker,
       status: 'Berjalan',
       is_event: 0,
     };
@@ -672,12 +733,10 @@ export default function DashboardKetua({
             `/proker/${currentEditId}`,
           ]
         : ['/program-kerja', '/program_kerja', '/prokers', '/proker'];
-
       const res = await requestFirstAvailable(currentEditId ? 'put' : 'post', endpoints, payload);
-
       if (res) {
         const rawRes = res.data?.data || res.data || {};
-        const savedRecord = {
+        const savedRecord = normalizeProkerItem({
           ...payload,
           ...rawRes,
           id: rawRes.id || currentEditId || Date.now(),
@@ -688,7 +747,7 @@ export default function DashboardKetua({
           target: rawRes.target || rawRes.tanggal || payload.target,
           tanggal: rawRes.tanggal || rawRes.target || payload.tanggal,
           periode: rawRes.periode || payload.periode,
-        };
+        });
         const updated = currentEditId
           ? prokerList.map((item) =>
               String(item.id) === String(currentEditId) ? { ...item, ...savedRecord } : item
@@ -703,7 +762,7 @@ export default function DashboardKetua({
             : 'Program kerja baru berhasil masuk ke database!'
         );
       } else {
-        const tempItem = { id: currentEditId || Date.now(), ...payload };
+        const tempItem = normalizeProkerItem({ id: currentEditId || Date.now(), ...payload });
         const updated = currentEditId
           ? prokerList.map((item) =>
               String(item.id) === String(currentEditId) ? tempItem : item
@@ -712,11 +771,10 @@ export default function DashboardKetua({
         setProkerList(updated);
         syncProkerToAllDashboards(updated);
         showToast(
-          'Tersimpan lokal & tersinkron ke browser, tapi route POST program-kerja di backend belum ditemukan (404).',
+          'Tersimpan lokal & tersinkron ke semua dashboard, tapi route POST program-kerja di backend belum ditemukan (404).',
           'warning'
         );
       }
-
       setEditingProkerId(null);
       setNamaProker('');
       setDivisiProker('');
@@ -738,7 +796,6 @@ export default function DashboardKetua({
       message: 'Data program kerja ini akan dihapus dari database OSIS.',
     });
   };
-
   const [editingAnggotaId, setEditingAnggotaId] = useState(null);
   const [nisAnggota, setNisAnggota] = useState('');
   const [namaAnggota, setNamaAnggota] = useState('');
@@ -770,7 +827,6 @@ export default function DashboardKetua({
       kelas: sekbidAnggota.trim(),
       status: 'Aktif',
     };
-
     try {
       const endpoints = currentEditId
         ? [
@@ -781,9 +837,7 @@ export default function DashboardKetua({
             `/anggota/${currentEditId}`,
           ]
         : ['/pengurus-osis', '/pengurus_osis', '/anggota-osis', '/anggotas', '/anggota'];
-
       const res = await requestFirstAvailable(currentEditId ? 'put' : 'post', endpoints, payload);
-
       if (res) {
         const rawRes = res.data?.data || res.data || {};
         const savedRecord = {
@@ -826,7 +880,6 @@ export default function DashboardKetua({
           'warning'
         );
       }
-
       setEditingAnggotaId(null);
       setNisAnggota('');
       setNamaAnggota('');
@@ -853,7 +906,6 @@ export default function DashboardKetua({
   const handleExecuteConfirm = async () => {
     const { type, targetId } = confirmModal;
     setConfirmModal({ isOpen: false, type: null, targetId: null, title: '', message: '' });
-
     if (type === 'avatar') {
       setAvatarUrl(null);
       localStorage.removeItem('ositara_user_avatar');
@@ -861,7 +913,6 @@ export default function DashboardKetua({
       showToast('Foto profil berhasil dihapus.');
       return;
     }
-
     if (type === 'proker' && targetId) {
       const updated = prokerList.filter((p) => String(p.id) !== String(targetId));
       setProkerList(updated);
@@ -880,7 +931,6 @@ export default function DashboardKetua({
       }
       return;
     }
-
     if (type === 'anggota' && targetId) {
       const updated = anggotaList.filter((a) => String(a.id) !== String(targetId));
       setAnggotaList(updated);
@@ -938,12 +988,14 @@ export default function DashboardKetua({
       String(a.jabatan || '').toLowerCase().includes('ketua') &&
       !String(a.jabatan || '').toLowerCase().includes('wakil')
   );
+
   const bendaharaData = anggotaList.find((a) =>
     String(a.jabatan || '').toLowerCase().includes('bendahara')
   );
 
   const namaKetuaUntukLaporan =
     ketuaOsisData?.nama || ketuaOsisData?.nama_lengkap || ketuaOsisData?.name || namaDisplay;
+
   const namaBendaharaUntukLaporan =
     bendaharaData?.nama || bendaharaData?.nama_lengkap || bendaharaData?.name || 'Bendahara OSIS';
 
@@ -1039,7 +1091,6 @@ export default function DashboardKetua({
               </p>
             </div>
           </div>
-
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(false)}
@@ -1227,7 +1278,10 @@ export default function DashboardKetua({
                             {pk.nama_proker || pk.nama}
                           </p>
                           <p className="text-[11px] text-[#2158B8] font-semibold mt-0.5 truncate">
-                            {pk.divisi || pk.sekbid || 'Umum'}
+                            {pk.divisi || pk.sekbid || 'Umum'} &bull;{' '}
+                            <span className="text-amber-700 font-bold">
+                              {pk.periode || 'Mingguan'}
+                            </span>
                           </p>
                         </div>
                         <span className="px-2.5 py-1 text-[9px] sm:text-[10px] font-extrabold rounded-xl shrink-0 bg-blue-100 text-[#2158B8] border border-blue-200">
@@ -1285,7 +1339,6 @@ export default function DashboardKetua({
             </div>
           </div>
         )}
-
         {activeMenu === 'program-kerja' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start animate-[fadeIn_0.3s_ease-out] min-w-0">
             <div className="order-2 lg:order-1 lg:col-span-8 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0 w-full">
@@ -1458,7 +1511,7 @@ export default function DashboardKetua({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start animate-[fadeIn_0.3s_ease-out] min-w-0">
             <div className="order-2 lg:order-1 lg:col-span-8 bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm min-w-0 w-full">
               <h3 className="text-sm sm:text-lg font-black text-slate-800 mb-4 pb-3 border-b border-slate-100">
-                Daftar Pengurus & Anggota OSIS
+                Daftar Pengurus &amp; Anggota OSIS
               </h3>
               <div className="w-full overflow-x-auto pb-1">
                 <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[560px]">
@@ -1657,7 +1710,6 @@ export default function DashboardKetua({
                         (p.file ? String(p.file).split('/').pop() : null) ||
                         'Unduh Berkas';
                       const isDownloadingThis = downloadingId === (p.id || fileDisplayName);
-
                       return (
                         <tr key={p.id || idx} className="hover:bg-blue-50/40 transition-colors">
                           <td className="py-3.5 px-4 font-bold text-slate-800">

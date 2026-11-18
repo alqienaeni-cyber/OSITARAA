@@ -16,6 +16,7 @@ const getInitialUser = () => {
       return JSON.parse(savedUser);
     } catch (err) {
       console.error('Gagal membaca sesi user:', err);
+      return null;
     }
   }
   return null;
@@ -32,19 +33,16 @@ const extractRole = (userData) => {
     userData.data?.role ||
     userData.data?.user?.role ||
     '';
-
   const usernameValue =
     userData.username ||
     userData.user?.username ||
     userData.nama ||
     userData.name ||
     '';
-
   const emailValue =
     userData.email ||
     userData.user?.email ||
     '';
-
   return `${roleValue} ${usernameValue} ${emailValue}`
     .toString()
     .toLowerCase()
@@ -60,29 +58,55 @@ const getInitialPage = (user) => {
   if (info.includes('pembina')) {
     return 'dashboard-pembina';
   }
-
   // PRIORITAS 2: KETUA & WAKIL KETUA OSIS
   if (info.includes('ketua') || info.includes('wakil')) {
     return 'dashboard-ketua';
   }
-
   // PRIORITAS 3: SEKRETARIS
   if (info.includes('sekretaris')) {
     return 'dashboard-sekretaris';
   }
-
   // PRIORITAS 4: BENDAHARA
   if (info.includes('bendahara')) {
     return 'dashboard-bendahara';
   }
-
-  // FALLBACK PENGURUS UMUM / ADMIN -> MASUK KE KETUA OSIS
+  // FALLBACK PENGURUS UMUM / ADMIN MASUK KE KETUA OSIS
   if (info.includes('pengurus') || info.includes('admin') || info.includes('osis')) {
     return 'dashboard-ketua';
   }
-
   // DEFAULT UNTUK SISWA
   return 'dashboard-siswa';
+};
+
+const normalizeProkerGlobal = (list) => {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((item) => {
+      const divisi = String(item?.sekbid || item?.divisi || '').toLowerCase().trim();
+      const status = String(item?.status || '').toLowerCase().trim();
+      return !(
+        String(item?.is_event) === '1' ||
+        item?.is_event === true ||
+        divisi === 'sekretaris' ||
+        status === 'mendatang' ||
+        status === 'berlangsung' ||
+        status === 'selesai'
+      );
+    })
+    .map((pk) => {
+      const periodeVal =
+        pk.periode || pk.periode_program || pk.tahun_ajaran || pk.tahunAjaran || 'Mingguan';
+      return {
+        ...pk,
+        nama_proker: pk.nama_proker || pk.nama || pk.namaKegiatan || '-',
+        nama: pk.nama || pk.nama_proker || pk.namaKegiatan || '-',
+        divisi: pk.divisi || pk.sekbid || pk.penanggung_jawab || 'Umum',
+        sekbid: pk.sekbid || pk.divisi || pk.penanggung_jawab || 'Umum',
+        target: pk.target || pk.tanggal || '',
+        tanggal: pk.tanggal || pk.target || '',
+        periode: String(periodeVal).trim() || 'Mingguan',
+      };
+    });
 };
 
 export default function App() {
@@ -178,15 +202,16 @@ export default function App() {
     ];
   });
 
-  // 5. STATE PROGRAM KERJA OSIS
+  // 5. STATE PROGRAM KERJA OSIS (LINEAR KE SEMUA DASHBOARD)
   const [prokerList, setProkerList] = useState(() => {
     const saved =
       localStorage.getItem('ositara_proker') ||
-      localStorage.getItem('prokerList');
+      localStorage.getItem('prokerList') ||
+      localStorage.getItem('ositara_program_kerja');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) return normalizeProkerGlobal(parsed);
       } catch (e) {
         console.error('Gagal membaca proker dari localStorage:', e);
       }
@@ -194,7 +219,7 @@ export default function App() {
     return [];
   });
 
-  // 6. STATE KEUANGAN OSIS (SINGLE SOURCE OF TRUTH UNTUK BENDAHARA & DASHBOARD LAIN)
+  // 6. STATE KEUANGAN OSIS
   const [keuanganList, setKeuanganList] = useState(() => {
     const saved =
       localStorage.getItem('ositara_keuangan_list') ||
@@ -236,8 +261,9 @@ export default function App() {
 
       const savedProker =
         localStorage.getItem('ositara_proker') ||
-        localStorage.getItem('prokerList');
-      if (savedProker) setProkerList(JSON.parse(savedProker));
+        localStorage.getItem('prokerList') ||
+        localStorage.getItem('ositara_program_kerja');
+      if (savedProker) setProkerList(normalizeProkerGlobal(JSON.parse(savedProker)));
 
       const savedKeuangan =
         localStorage.getItem('ositara_keuangan_list') ||
@@ -253,20 +279,66 @@ export default function App() {
     window.addEventListener('storage', handleGlobalSync);
     window.addEventListener('ositara_proposal_updated', handleGlobalSync);
     window.addEventListener('ositara_proker_updated', handleGlobalSync);
+    window.addEventListener('ositara_anggota_updated', handleGlobalSync);
     window.addEventListener('ositara_keuangan_updated', handleGlobalSync);
     window.addEventListener('ositara-keuangan-updated', handleGlobalSync);
     window.addEventListener('ositara_pendaftaran_updated', handleGlobalSync);
-    const interval = setInterval(handleGlobalSync, 1000);
+    const interval = setInterval(handleGlobalSync, 1500);
     return () => {
       window.removeEventListener('storage', handleGlobalSync);
       window.removeEventListener('ositara_proposal_updated', handleGlobalSync);
       window.removeEventListener('ositara_proker_updated', handleGlobalSync);
+      window.removeEventListener('ositara_anggota_updated', handleGlobalSync);
       window.removeEventListener('ositara_keuangan_updated', handleGlobalSync);
       window.removeEventListener('ositara-keuangan-updated', handleGlobalSync);
       window.removeEventListener('ositara_pendaftaran_updated', handleGlobalSync);
       clearInterval(interval);
     };
   }, [handleGlobalSync]);
+
+  // FETCH BACKEND PROGRAM KERJA (KETUA -> SEMUA ROLE)
+  useEffect(() => {
+    const fetchProker = async () => {
+      for (const ep of ['/program-kerja', '/program_kerja', '/prokers', '/proker']) {
+        try {
+          const res = await api.get(ep);
+          const data = res.data?.data || res.data;
+          if (Array.isArray(data) && data.length > 0) {
+            const norm = normalizeProkerGlobal(data);
+            setProkerList(norm);
+            localStorage.setItem('ositara_proker', JSON.stringify(norm));
+            localStorage.setItem('prokerList', JSON.stringify(norm));
+            localStorage.setItem('ositara_program_kerja', JSON.stringify(norm));
+            break;
+          }
+        } catch {
+          // coba endpoint berikutnya
+        }
+      }
+    };
+    fetchProker();
+  }, []);
+
+  // FETCH BACKEND ANGGOTA OSIS
+  useEffect(() => {
+    const fetchAnggota = async () => {
+      for (const ep of ['/pengurus-osis', '/pengurus_osis', '/anggota-osis', '/anggota']) {
+        try {
+          const res = await api.get(ep);
+          const data = res.data?.data || res.data;
+          if (Array.isArray(data) && data.length > 0) {
+            setAnggotaList(data);
+            localStorage.setItem('ositara_anggota', JSON.stringify(data));
+            localStorage.setItem('anggotaList', JSON.stringify(data));
+            break;
+          }
+        } catch {
+          // coba endpoint berikutnya
+        }
+      }
+    };
+    fetchAnggota();
+  }, []);
 
   // FETCH BACKEND EVENT
   useEffect(() => {
@@ -351,12 +423,20 @@ export default function App() {
   }, [proposals]);
 
   useEffect(() => {
+    if (prokerList && prokerList.length > 0) {
+      localStorage.setItem('ositara_proker', JSON.stringify(prokerList));
+      localStorage.setItem('prokerList', JSON.stringify(prokerList));
+      localStorage.setItem('ositara_program_kerja', JSON.stringify(prokerList));
+    }
+  }, [prokerList]);
+
+  useEffect(() => {
     localStorage.setItem('ositara_keuangan_list', JSON.stringify(keuanganList));
     localStorage.setItem('ositara_keuangan', JSON.stringify(keuanganList));
     localStorage.setItem('keuanganList', JSON.stringify(keuanganList));
   }, [keuanganList]);
 
-  // HANDLER UPDATE KEUANGAN DARI DASHBOARD BENDAHARA -> SINKRON KE SEMUA DASHBOARD
+  // HANDLER UPDATE KEUANGAN DARI DASHBOARD BENDAHARA SINKRON KE SEMUA DASHBOARD
   const handleUpdateKeuangan = (updatedList) => {
     setKeuanganList(updatedList);
     localStorage.setItem('ositara_keuangan_list', JSON.stringify(updatedList));
@@ -439,6 +519,7 @@ export default function App() {
         <DashboardSiswa
           user={currentUser}
           onLogout={handleLogout}
+          prokerList={prokerList}
           kegiatanList={kegiatanList}
           pendaftaranList={pendaftaranList}
           onDaftarKegiatan={handleDaftarKegiatan}
@@ -449,6 +530,7 @@ export default function App() {
         <DashboardKetua
           user={currentUser}
           onLogout={handleLogout}
+          initialProker={prokerList}
           initialAnggota={anggotaList}
           initialKegiatan={kegiatanList}
           initialPendaftaran={pendaftaranList}
@@ -461,6 +543,7 @@ export default function App() {
         <DashboardSekretaris
           user={currentUser}
           onLogout={handleLogout}
+          prokerList={prokerList}
           anggotaList={anggotaList}
           kegiatanList={kegiatanList}
           pendaftaranList={pendaftaranList}
@@ -487,6 +570,7 @@ export default function App() {
         <DashboardPembina
           user={currentUser}
           onLogout={handleLogout}
+          prokerList={prokerList}
           anggotaList={anggotaList}
           kegiatanList={kegiatanList}
           pendaftaranList={pendaftaranList}
